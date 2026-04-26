@@ -240,6 +240,13 @@ jobs:
 
       - name: Install host frontend deps + build bundle
         working-directory: examples/hello-world/frontend
+        # VITE_API_BASE_URL aligns with what atrium's web container is
+        # built with in this stack — the SPA fetches localhost:8000
+        # directly (no /api proxy on either dev or e2e). The bundle's
+        # api.ts defaults to /api which falls back to the SPA's
+        # index.html via try_files and breaks the host-side fetches.
+        env:
+          VITE_API_BASE_URL: http://localhost:8000
         run: |
           pnpm install --frozen-lockfile
           pnpm build
