@@ -10,12 +10,16 @@ things have burned us before.
 Atrium is a starter kit for web applications: FastAPI + SQLAlchemy +
 MySQL on the back, React + Mantine + TanStack Query on the front,
 with auth (password + TOTP + email OTP + WebAuthn + self-serve
-signup), invite-only OR opt-in self-serve registration, RBAC (roles +
+signup), invite-only OR opt-in self-serve registration, configurable
+password policy (length / character classes / HIBP breach lookup),
+role-mandatory 2FA enrollment, optional CAPTCHA (Turnstile or
+hCaptcha) on the unauthenticated auth endpoints, RBAC (roles +
 permissions + super-admin + impersonation), admin app-config
 (branding, system, translations, auth), audit log + retention
-pruning, in-app notifications, email templates with a durable outbox,
-maintenance mode, GDPR-aligned account deletion, and a scheduled-jobs
-queue all wired in and tested.
+pruning, in-app notifications, email templates with a durable outbox
+and per-locale variants (en / nl / de / fr seeded), maintenance
+mode, GDPR-aligned account deletion, and a scheduled-jobs queue all
+wired in and tested.
 
 It's not opinionated about your domain — it ships *only* the
 platform layer. Bring your own bookings, posts, invoices, whatever.
@@ -67,14 +71,16 @@ backend/
       app_config.py        Pydantic-namespace KV reader/writer
       audit.py             audit-log writer
       audit_retention.py   DELETE FROM audit_log retention helper
+      captcha.py           Turnstile/hCaptcha verifier + login middleware
       event_hub.py         in-process pub/sub for SSE
       maintenance.py       MaintenanceMiddleware (503 + super_admin bypass)
       notifications.py     in-app notification helper
+      password_policy.py   policy validator + HIBP k-anon lookup
       rate_limit.py        AuthRateLimitMiddleware
       signup.py            register_user + consume_verification
       totp.py              pyotp wrapper
     main.py, settings.py, worker.py
-  alembic/        Migration chain (head: 0004_email_verifications)
+  alembic/        Migration chain (head: 0005_email_template_per_locale)
   tests/          api/, integration/, unit/
 
 frontend/
@@ -192,7 +198,7 @@ registered in `app.services.app_config.NAMESPACES`:
 | `brand`   | `BrandConfig` | yes     | name, logo_url, support_email, preset, theme overrides    |
 | `i18n`    | `I18nConfig`  | yes     | enabled_locales, per-key string overrides                 |
 | `system`  | `SystemConfig`| yes     | maintenance_mode + message, announcement + level          |
-| `auth`    | `AuthConfig`  | no      | allow_signup, signup_default_role_code, require_email_verification, allow_self_delete, delete_grace_days |
+| `auth`    | `AuthConfig`  | no      | allow_signup, signup_default_role_code, require_email_verification, allow_self_delete, delete_grace_days, password_min_length, password_require_mixed_case, password_require_digit, password_require_symbol, password_check_breach, require_2fa_for_roles, captcha_provider, captcha_site_key |
 
 `audit.retention_days` lives in the same table under the `audit` key,
 read directly by the `audit_prune` job (no Pydantic namespace yet —
@@ -200,11 +206,15 @@ add one if it grows fields).
 
 **Public vs admin** is enforced in `services/app_config.py`, not at
 the route layer. `GET /app-config` (no auth) bundles every `public=True`
-namespace plus a hand-picked carve-out: `auth.allow_signup` is
-exposed publicly so `/login` can render the "Sign up" link, but the
-rest of `AuthConfig` stays admin-only. Anything policy- or
-security-adjacent (password rules, retention) belongs in admin-only
-namespaces.
+namespace plus a hand-picked carve-out from `AuthConfig`:
+`allow_signup` (so `/login` can render the "Sign up" link),
+`captcha_provider`, and `captcha_site_key` (the site key is public
+by design — the widget renders it into the page). Everything else
+on `AuthConfig` (password policy, role-mandatory 2FA list,
+self-delete + grace window, signup defaults, email-verification
+toggle) stays admin-only. Anything policy- or security-adjacent
+(password rules, retention, CAPTCHA secret) belongs in admin-only
+namespaces or env vars.
 
 **Defaults come from the Pydantic model**, not from a migration —
 there's no row to seed. The first PUT materialises one.
@@ -241,13 +251,45 @@ Three second-factor methods, any combination, per user:
 
 Login is **two-phase**. Password creates an `auth_sessions` row with
 `totp_passed=False`; every domain endpoint's `current_user` dep
-returns 403 `{code: "totp_required"}` until the appropriate
+returns 403 with one of two `code` values until the appropriate
 `/auth/{totp,email-otp,webauthn}/{confirm,verify,authenticate/finish}`
-call flips the flag. The frontend turns the 403 into a redirect to
-`/2fa`.
+call flips the flag:
 
-`/2fa` auto-triggers WebAuthn on mount when the user has a registered
-credential; TOTP / email OTP are fallbacks.
+- `totp_required` — the user has at least one confirmed 2FA factor;
+  the SPA shows the challenge screen at `/2fa`.
+- `2fa_enrollment_required` — the user holds a role listed in
+  `auth.require_2fa_for_roles` but has zero confirmed factors. The
+  SPA still routes to `/2fa` (which surfaces the setup picker for
+  unenrolled users) but the distinct code lets the UI render a
+  clearer "your account requires 2FA" hint. The check fires on both
+  partial and full sessions, so a super_admin admin reset that
+  wipes a user's factors mid-session re-bounces them to enrollment
+  on the next request.
+
+Both codes are routed by the frontend's axios interceptor in
+`src/lib/api.ts` to `/2fa`. `/2fa` auto-triggers WebAuthn on mount
+when the user has a registered credential; TOTP / email OTP are
+fallbacks.
+
+**Password policy** lives in `app.services.password_policy`
+(`validate_password_against_policy`). The validator reads
+`AuthConfig` and runs cheap structural checks first (min length,
+mixed case, digit, symbol), then — if `password_check_breach` is on
+— an HIBP k-anonymity range lookup as a final gate. The HIBP call
+is fail-open with a 5-minute per-prefix in-memory cache: an upstream
+incident at HIBP must not lock every user out of registration. The
+validator is wired into both the self-serve `/auth/register` flow
+and the invite-accept flow.
+
+**CAPTCHA** is opt-in (`auth.captcha_provider`: `none` /
+`turnstile` / `hcaptcha`). When on, `CaptchaLoginMiddleware` reads
+the request body once, extracts `captcha_token`, and verifies it
+against the provider's `siteverify` endpoint before fastapi-users
+sees the login. The site key is public (rendered into the widget on
+`/login` and `/forgot-password`); the secret lives in the
+`CAPTCHA_SECRET` env var so it never round-trips through the
+`/app-config` bundle. Verification is fail-open on network /
+upstream failure for the same reason HIBP is.
 
 **Email-verification gate**: when `auth.require_email_verification`
 is on (the default), accounts created via self-serve signup must
@@ -331,16 +373,30 @@ that doesn't need to block the request, or anything where the SMTP
 relay's flakiness shouldn't surface as a 500. Use `send_and_log`
 when the user-visible flow depends on knowing the email went out.
 
-Templates live in the `email_templates` table (key, subject,
-body_html, description) and are rendered with Jinja2. Plain-text is
-derived from the HTML by tag-stripping. Autoescape is ON — a guest
-name like `<script>…</script>` renders as harmless text. Per-locale
-template variants are not yet shipped (Phase 11 didn't land in this
-round); host apps that need them fall back to either a template-key
-naming convention (e.g. `invite_nl`) or a `language` field added in a
-follow-up migration.
+Templates live in the `email_templates` table, **composite-keyed on
+`(key, locale)`** (since `0005_email_template_per_locale`), and are
+rendered with Jinja2. Plain-text is derived from the HTML by
+tag-stripping. Autoescape is ON — a guest name like
+`<script>…</script>` renders as harmless text.
 
-Default templates seeded by `0001_atrium_init`:
+`render_template(session, key, context, locale="en")` (and the two
+sender helpers that wrap it) resolves the variant in this order:
+
+1. The recipient's `preferred_language` (or whatever the caller
+   passes as `locale`) — `(key, locale)` row.
+2. Fallback to `(key, 'en')` if the requested locale has no row.
+3. `LookupError` if neither exists. The caller writes a `[render
+   failed]` `email_log` row + structlog ERROR; nothing silent.
+
+`enqueue_and_log` persists the resolved `locale` on the
+`email_outbox` row so the `email_send` worker re-renders against the
+same variant on retry — a recipient who registered in Dutch still
+gets the Dutch body when the SMTP relay comes back online, even if
+they've changed `preferred_language` between enqueue and drain.
+
+Default templates seeded by `0001_atrium_init` /
+`0004_email_verifications` (English) and `0005_email_template_per_locale`
+(nl / de / fr translations of every template below):
 
 - `invite` — sent to a fresh invitee with the accept link
 - `password_reset` — self-service reset
@@ -352,6 +408,14 @@ Default templates seeded by `0001_atrium_init`:
 - `email_verify` — self-serve signup verification link
 - `account_delete_confirm` — confirmation + scheduled hard-delete
   date, sent at the moment of soft-delete
+- `account_delete_admin_notice` — heads-up to the target when an
+  admin deletes their account
+
+`reminder_rules.template_key` was a hard FK to `email_templates.key`
+in the single-key schema; once the PK became `(key, locale)` the FK
+target was no longer unique, so the constraint was dropped in
+`0005_email_template_per_locale` and the reference is now an
+application-level soft FK enforced by the rule-CRUD API.
 
 Invite + verification links are rendered from `settings.app_base_url`
 — set this to the public URL on prod (`https://app.example.com`),
@@ -456,11 +520,13 @@ registered handler get cancelled with an explanatory `last_error` —
 loud failure, not silent stuck rows.
 
 `reminder_rules` is the table behind the admin "schedule reminders"
-UI. Fields: `name`, `template_key` (FK to `email_templates`),
-`anchor` (free-form string), `kind` (free-form string), `days_offset`
-(signed int), `active`. Atrium ships **no** anchors or kinds — the
-host app decides what they mean and writes the logic that turns a
-rule into a `ScheduledJob` row.
+UI. Fields: `name`, `template_key` (soft reference to
+`email_templates.key` — the per-locale PK reshape in
+`0005_email_template_per_locale` dropped the hard FK), `anchor`
+(free-form string), `kind` (free-form string), `days_offset` (signed
+int), `active`. Atrium ships **no** anchors or kinds — the host app
+decides what they mean and writes the logic that turns a rule into
+a `ScheduledJob` row.
 
 ## Notifications + SSE
 
@@ -505,7 +571,7 @@ System tab) and the `audit_prune` job will DELETE older rows daily.
 - Add new Alembic migrations under
   `backend/alembic/versions/YYYY_MM_DD_NNNN-*.py`. Keep the chain
   linear (never branch) and include both upgrade and downgrade.
-  Current head: `0004_email_verifications`.
+  Current head: `0005_email_template_per_locale`.
 - `B008` is silenced for `fastapi.Depends`, `fastapi.Query`, etc. via
   `extend-immutable-calls`. Don't refactor `Depends(...)` calls to
   dodge the lint.
@@ -666,19 +732,25 @@ Failure modes that still apply to atrium:
    pattern.
 10. **`app_settings` is a TRUNCATE-skip table in tests.** A row
     written by one test will leak into the next unless explicitly
-    cleared. The conftest autouse already wipes the `system`
-    namespace; for any other namespace you mutate, reset it in the
-    test's teardown.
-11. **The maintenance-flag cache TTL is 2 seconds.** Tests that flip
+    cleared. The conftest autouse now wipes both `system` (the
+    maintenance flag) and `auth` (the captcha provider + password
+    policy) between tests; for any other namespace you mutate,
+    reset it in the test's teardown.
+11. **`CaptchaLoginMiddleware` reads `auth.captcha_provider` on
+    every gated request.** It hits the DB through
+    `get_session_factory()` (no DI), so tests that flip the provider
+    must clean up — same shape as the maintenance flag. The
+    autouse cleanup in the conftest covers it.
+12. **The maintenance-flag cache TTL is 2 seconds.** Tests that flip
     the flag and immediately hit a route must call
     `maintenance.reset_cache()` — otherwise the previous read still
     wins. The Playwright maintenance spec sleeps briefly for the
     same reason.
-12. **`auth.allow_signup` and `auth.allow_self_delete` return 404
+13. **`auth.allow_signup` and `auth.allow_self_delete` return 404
     when off, not 403.** Don't accidentally "fix" this — the route's
     existence shouldn't be broadcast on tenants that haven't opted
     in.
-13. **`app_settings` namespaces have no migration to seed them.**
+14. **`app_settings` namespaces have no migration to seed them.**
     Defaults come from the Pydantic model; the row materialises on
     first PUT. Don't write Alembic seed migrations for new
     namespaces — bump the model and let `model_validate` apply
