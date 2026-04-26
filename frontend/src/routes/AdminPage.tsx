@@ -56,7 +56,11 @@ export function AdminPage() {
     (requested !== 'auth' || canManageAppConfig) &&
     (requested !== 'translations' || canManageAppConfig) &&
     (requested !== 'emails' || canManageEmailTemplates);
-  const active: TabValue = isValid ? requested : 'users';
+  const active: TabValue = isValid
+    ? requested
+    : canManageAppConfig
+      ? 'system'
+      : 'users';
 
   const onTabChange = (v: string | null) => {
     if (!v) return;

@@ -108,13 +108,15 @@ export function AppLayout() {
           <Group gap="sm">
             <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
             {brand?.logo_url && (
-              <Image
-                src={brand.logo_url}
-                h={32}
-                w="auto"
-                fit="contain"
-                alt=""
-              />
+              <Link to="/" style={{ display: 'inline-flex' }} aria-label={t('app.title')}>
+                <Image
+                  src={brand.logo_url}
+                  h={32}
+                  w="auto"
+                  fit="contain"
+                  alt=""
+                />
+              </Link>
             )}
             <Title order={4}>{brand?.name ?? t('app.title')}</Title>
           </Group>
