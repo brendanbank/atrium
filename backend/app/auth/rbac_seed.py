@@ -28,7 +28,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.logging import log
 
-
 _INSERT_PERM = (
     "INSERT IGNORE INTO permissions (code, description) "
     "VALUES (:code, :description)"
