@@ -129,16 +129,15 @@ test.describe('hello-world example', () => {
   });
 
   test('toggle on starts the tick, toggle off stops it', async ({ page }) => {
-    // Atrium's worker drains scheduled_jobs every 60 s, so the toggle
-    // -> first-tick gap can be up to a minute. Plus 6 s settle waits
-    // on each side. Bump well past Playwright's 30 s default.
-    test.setTimeout(180_000);
+    // Inline APScheduler tick at HELLO_TICK_SECONDS=2 in the smoke
+    // overlays. One tick + a small margin is enough; no worker-poll
+    // delay since the example bypasses scheduled_jobs.
+    test.setTimeout(60_000);
     await loginAsSuperAdmin(page);
 
     // Start clean: ensure disabled and capture the baseline counter.
     await setEnabled(page.request, false);
-    // Allow up to one tick to land any in-flight increment from the
-    // previous test's mutation (HELLO_TICK_SECONDS=2 + worker poll).
+    // Allow one full tick to land any in-flight increment.
     await page.waitForTimeout(3_000);
     const baseline = (await readState(page.request)).counter;
 
@@ -146,33 +145,19 @@ test.describe('hello-world example', () => {
     const after = await waitForCounterAtLeast(
       page.request,
       baseline + 1,
-      // One tick (2s) + one worker poll (60s) is the worst case. The
-      // worker also runs an initial _tick() at startup, so most ticks
-      // land in <5s — but stay generous for cold starts.
-      90_000,
+      // 2 s tick + a generous margin for the docker-network round-trip.
+      10_000,
     );
     expect(after).toBeGreaterThan(baseline);
 
     await setEnabled(page.request, false);
-    // Wait for two ticks to settle so any enqueued-but-unrun job
-    // drains under disabled (handler short-circuits on enabled=false
-    // via the WHERE clause).
-    await page.waitForTimeout(6_000);
+    // Two-tick settle window so any in-flight increment lands under
+    // disabled (the UPDATE WHERE enabled=TRUE is a no-op then).
+    await page.waitForTimeout(5_000);
     const settled = (await readState(page.request)).counter;
-    await page.waitForTimeout(6_000);
+    await page.waitForTimeout(5_000);
     const stillSettled = (await readState(page.request)).counter;
     expect(stillSettled).toBe(settled);
-  });
-
-  test('a scheduled_jobs row of kind=hello_count exists', async () => {
-    // Inspect the worker-side state via SQL — the spec's earlier
-    // toggle-on guarantees at least one row got enqueued and drained.
-    const out = execSync(
-      `docker compose ${COMPOSE_FILES} exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" -D"$MYSQL_DATABASE" -N -e "SELECT COUNT(*) FROM scheduled_jobs WHERE job_type='\\''hello_count'\\'' AND state='\\''done'\\''"'`,
-      { encoding: 'utf-8', cwd: '../../..' },
-    ).trim();
-    const count = Number.parseInt(out, 10);
-    expect(count).toBeGreaterThan(0);
   });
 
   test('non-admin POST /hello/toggle returns 403', async ({ page }) => {

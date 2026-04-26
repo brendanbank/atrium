@@ -340,18 +340,16 @@ smoke-dev:
 # work across both atrium and the example.
 HELLO_BUNDLE_URL := http://localhost:5174/main.js
 
+# Both dev and e2e atrium stacks bake the SPA with
+# VITE_API_BASE_URL=http://localhost:8000 (no /api proxy on either
+# variant's web container). Keep the host bundle aligned so its
+# /hello/* fetches reach the api on :8000 and not the SPA-fallback
+# index.html on :5173.
 smoke-hello-build-bundle:
-	cd examples/hello-world/frontend && pnpm install --frozen-lockfile=false --silent && pnpm build
-
-# Dev-only build override: in the dev compose the SPA is on :5173 and
-# the API on :8000 (no /api proxy on :5173), so the host bundle has to
-# call the API on its real origin. The standalone build defaults to
-# /api which fits the prod proxy layout but 404s in the dev stack.
-smoke-hello-build-bundle-dev:
 	cd examples/hello-world/frontend && pnpm install --frozen-lockfile=false --silent && \
 		VITE_API_BASE_URL=http://localhost:8000 pnpm build
 
-smoke-hello-dev: smoke-hello-build-bundle-dev
+smoke-hello-dev: smoke-hello-build-bundle
 	$(COMPOSE_HELLO_DEV) up -d --build api worker web mysql proxy hello-bundle
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
 		curl -fsS http://localhost:8000/readyz > /dev/null && break; \
@@ -401,7 +399,7 @@ smoke-hello: smoke-hello-build-bundle
 		E2E_ADMIN_PASSWORD=$(SMOKE_PASSWORD) \
 		E2E_ADMIN_TOTP_SECRET=$(SMOKE_TOTP_SECRET) \
 		E2E_COMPOSE_FILES='-f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml -f examples/hello-world/compose.yaml -f examples/hello-world/compose.dev.yaml -f examples/hello-world/compose.e2e.yaml' \
-		CI=1 pnpm exec playwright test --config=../playwright.config.ts
+		CI=1 pnpm exec playwright test
 
 smoke-hello-down:
 	$(COMPOSE_HELLO_E2E) down -v --remove-orphans

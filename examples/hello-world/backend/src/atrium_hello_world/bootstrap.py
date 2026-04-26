@@ -11,8 +11,8 @@ The atrium image imports this module on startup when the operator sets
   seeding sidesteps the lifespan-vs-add_event_handler conflict in
   modern FastAPI and matches the schema-shaped nature of permissions.
 - ``init_worker(scheduler)`` runs on worker startup, after atrium's
-  built-in handlers register and before APScheduler starts. We register
-  our handler and schedule the recurring tick.
+  built-in handlers register and before APScheduler starts. We add
+  the recurring counter-increment tick.
 """
 from __future__ import annotations
 
@@ -21,9 +21,9 @@ import os
 from fastapi import FastAPI
 
 # Default tick interval. Smoke tests and the dev compose overlay set
-# HELLO_TICK_SECONDS=2 so the spec lands in seconds rather than a
-# minute; the standalone demo compose leaves it at 30s.
-DEFAULT_TICK_SECONDS = 30
+# HELLO_TICK_SECONDS=2 so the spec lands in seconds; the standalone
+# demo defaults to 3 s for visible feedback without spamming the log.
+DEFAULT_TICK_SECONDS = 3
 
 
 def init_app(app: FastAPI) -> None:
@@ -33,15 +33,11 @@ def init_app(app: FastAPI) -> None:
 
 
 def init_worker(scheduler) -> None:  # noqa: ANN001 — APScheduler types are loose
-    from app.jobs.runner import register_handler
+    from .schedule import tick_hello_count
 
-    from .handler import hello_count_handler
-    from .schedule import enqueue_hello_count
-
-    register_handler("hello_count", hello_count_handler)
     seconds = int(os.environ.get("HELLO_TICK_SECONDS", str(DEFAULT_TICK_SECONDS)))
     scheduler.add_job(
-        enqueue_hello_count,
+        tick_hello_count,
         "interval",
         seconds=seconds,
         id="hello-count-tick",

@@ -12,8 +12,7 @@ is lying.
 | `ATRIUM_HOST_MODULE` bootstrap | `atrium_hello_world.bootstrap.init_app/init_worker` |
 | `app.include_router`           | `/hello/state` (auth) and `/hello/toggle` (perm)  |
 | `seed_permissions_sync`        | Seeds `hello.toggle` in the host alembic migration |
-| `register_handler`             | `hello_count` handler increments the counter       |
-| APScheduler `add_job`          | 30 s tick (2 s in tests) enqueues `hello_count` jobs |
+| APScheduler `add_job`          | 3 s tick (2 s in tests) increments the counter inline |
 | Host alembic chain             | Own `hello_state` table in `alembic_version_app`  |
 | `registerHomeWidget`           | Card on the home page                             |
 | `registerRoute`                | Dedicated `/hello` page                           |
@@ -26,8 +25,8 @@ is lying.
 examples/hello-world/
   backend/                       Host backend package (atrium-hello-world)
     pyproject.toml
-    src/atrium_hello_world/      bootstrap, models, router, handler,
-                                 schedule, scripts/seed_host_bundle
+    src/atrium_hello_world/      bootstrap, models, router, schedule,
+                                 scripts/seed_host_bundle
     alembic/                     Host alembic chain (alembic_version_app)
     Dockerfile                   FROM atrium-backend + pip install
   frontend/                      Vite library project that emits a single
@@ -68,8 +67,12 @@ docker compose ... exec api python -m atrium_hello_world.scripts.seed_host_bundl
 
 Open <http://localhost:5173>, log in, and you'll see the Hello World card on
 the home page, a sidebar link to `/hello`, and a Hello World tab in the admin
-shell. Flip the switch and the counter ticks every 30 seconds (the default
-`HELLO_TICK_SECONDS`).
+shell. Flip the switch and the counter ticks every 3 seconds (the default
+`HELLO_TICK_SECONDS`). The example increments the counter inline from the
+APScheduler tick — for jobs that need durability across worker restarts,
+use atrium's `scheduled_jobs` queue + `register_handler` instead (the
+queue's drain interval is 60 s, which would have made every counter
+increment feel like a minute of dead air).
 
 ## Smoke test
 

@@ -1,50 +1,42 @@
-"""APScheduler tick that enqueues a ``hello_count`` job when the demo
-is enabled.
+"""APScheduler tick that increments the counter when the demo is
+enabled.
 
-The intermediate ``scheduled_jobs`` row (rather than incrementing
-inline) is the whole point of the demo — it shows the full atrium
-job pipeline: APScheduler interval → row insert → worker drain →
-registered handler. Production hosts can pick the simpler "do work
-inline in the APScheduler callback" pattern when durability and the
-admin job log don't matter.
+Atomic UPDATE WHERE enabled=TRUE so a toggle that lands between two
+ticks immediately stops the counter — no need for a separate
+"in-flight job" check.
+
+Why inline (instead of inserting a ``scheduled_jobs`` row and letting
+the worker's queue-drain run the handler)? Atrium's queue tick is
+60 s, which made every counter increment feel like a minute of dead
+air. Inline keeps the demo crisp at the configured interval (default
+3 s, smoke tests use 2 s). The ``scheduled_jobs`` queue is the right
+tool for jobs that need durability across worker restarts or atomic
+ordering — it's documented in the README's "when to use the queue"
+section, and ``app.jobs.runner.register_handler`` is still part of
+atrium's surface even though the example no longer exercises it.
 """
 from __future__ import annotations
 
-from datetime import UTC, datetime
-
-from sqlalchemy import select
+from sqlalchemy import update
 
 from app.db import get_session_factory
 from app.logging import log
-from app.models.enums import JobState
-from app.models.ops import ScheduledJob
 
 from .models import HelloState
 
 
-async def enqueue_hello_count() -> None:
+async def tick_hello_count() -> None:
     factory = get_session_factory()
     async with factory() as session:
         try:
-            enabled = (
-                await session.execute(
-                    select(HelloState.enabled).where(HelloState.id == 1)
-                )
-            ).scalar_one_or_none()
-            if not enabled:
-                return
-            session.add(
-                ScheduledJob(
-                    job_type="hello_count",
-                    # MySQL DATETIME(0) rounds half-up; a tiny push into
-                    # the past makes the next runner tick pick this up
-                    # immediately. (CLAUDE.md gotcha #1.)
-                    run_at=datetime.now(UTC).replace(tzinfo=None),
-                    state=JobState.PENDING.value,
-                    payload={},
-                )
+            result = await session.execute(
+                update(HelloState)
+                .where(HelloState.id == 1, HelloState.enabled.is_(True))
+                .values(counter=HelloState.counter + 1)
             )
             await session.commit()
+            if result.rowcount:
+                log.info("hello_world.counter_incremented")
         except Exception as exc:
-            log.error("hello_world.enqueue_failed", error=str(exc))
+            log.error("hello_world.tick_failed", error=str(exc))
             await session.rollback()

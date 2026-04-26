@@ -17,6 +17,15 @@
 
 services:
   api:
+    # Drop --reload that the dev compose set for atrium's hot-reload;
+    # uvicorn's WatchFiles backend was restarting the api mid-test
+    # (likely seeing __pycache__ / .pyc writes inside the bind-mounted
+    # /app). The example doesn't need hot-reload — it's the host
+    # package that changes during dev, not atrium's source — so a
+    # plain uvicorn keeps tests stable. Explicitly re-add --reload
+    # below if you want hot-reload while editing atrium itself.
+    command:
+      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     environment:
       ATRIUM_HOST_MODULE: atrium_hello_world.bootstrap
       PYTHONPATH: /host_app/src:/app
