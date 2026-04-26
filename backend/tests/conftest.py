@@ -140,11 +140,18 @@ def _bind_middleware_to_test_engine(monkeypatch, engine, mysql_url):
     from sqlalchemy import create_engine
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
+    from app.services import captcha as captcha_module
     from app.services import maintenance as maintenance_module
 
     test_factory = async_sessionmaker(engine, expire_on_commit=False)
     monkeypatch.setattr(
         maintenance_module, "get_session_factory", lambda: test_factory
+    )
+    # The captcha middleware reads ``auth.captcha_provider`` from
+    # app_settings on every gated request. Same shape as maintenance
+    # — repoint at the test engine so the lookup hits the test DB.
+    monkeypatch.setattr(
+        captcha_module, "get_session_factory", lambda: test_factory
     )
     maintenance_module.reset_cache()
     yield

@@ -17,13 +17,18 @@ import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
 import { registerAccount } from '@/lib/auth';
+import { CaptchaWidget } from '@/components/CaptchaWidget';
+import { useAppConfig } from '@/hooks/useAppConfig';
 
 export function RegisterPage() {
   const { t, i18n } = useTranslation();
 
+  const { data: appConfig } = useAppConfig();
+  const captchaProvider = appConfig?.auth?.captcha_provider ?? 'none';
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const form = useForm({
     initialValues: {
@@ -44,6 +49,10 @@ export function RegisterPage() {
 
   const handleSubmit = form.onSubmit(async ({ email, full_name, password }) => {
     setError(null);
+    if (captchaProvider !== 'none' && !captchaToken) {
+      setError(t('captcha.required'));
+      return;
+    }
     setSubmitting(true);
     try {
       await registerAccount({
@@ -51,15 +60,19 @@ export function RegisterPage() {
         password,
         full_name: full_name || null,
         language: i18n.language?.split('-')[0] ?? 'en',
+        captcha_token: captchaToken,
       });
       setSubmitted(email);
     } catch (err) {
       const resp = (err as { response?: { status?: number; data?: { detail?: string } } })
         .response;
+      const detail = resp?.data?.detail ?? '';
       if (resp?.status === 404) {
         setError(t('register.signupClosed'));
       } else if (resp?.status === 409) {
         setError(t('register.emailTaken'));
+      } else if (resp?.status === 400 && detail.toLowerCase().includes('captcha')) {
+        setError(t('captcha.failed'));
       } else if (resp?.status === 400) {
         setError(resp.data?.detail ?? t('register.unknownError'));
       } else {
@@ -134,6 +147,7 @@ export function RegisterPage() {
                 autoComplete="new-password"
                 {...form.getInputProps('confirm')}
               />
+              <CaptchaWidget onToken={setCaptchaToken} />
               {error && <Alert color="red">{error}</Alert>}
               <Button type="submit" fullWidth loading={submitting}>
                 {t('register.submit')}

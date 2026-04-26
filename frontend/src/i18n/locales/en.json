@@ -199,9 +199,21 @@
     "maintenanceWarning": "Only super_admins keep access while this is on. Make sure at least one super_admin can sign in before saving.",
     "announcement": "Announcement",
     "announcementHelp": "Plain text shown above the app shell to every signed-in user. Leave empty to hide.",
-    "announcementPlaceholder": "Scheduled maintenance Saturday 22:00–23:00 UTC.",
+    "announcementPlaceholder": "Scheduled maintenance Saturday 22:00-23:00 UTC.",
     "announcementLevel": "Severity",
     "saved": "System settings saved"
+  },
+  "captcha": {
+    "title": "CAPTCHA",
+    "intro": "Bot challenge on the unauthenticated auth endpoints (login, register, forgot password). Provider + site key are public; the secret lives in the CAPTCHA_SECRET env var.",
+    "provider": "Provider",
+    "providerHelp": "Off disables the gate entirely. Cloudflare Turnstile and hCaptcha share the same siteverify shape.",
+    "siteKey": "Site key",
+    "siteKeyHelp": "Public identifier the widget sends to the provider's JS. Visible in page source.",
+    "secretHint": "Set CAPTCHA_SECRET in the environment for verification to work. Without it, the gate fails open and logs a warning.",
+    "saved": "Captcha settings saved",
+    "required": "Please complete the captcha to continue",
+    "failed": "Captcha verification failed; try again"
   },
   "branding": {
     "tab": "Branding",

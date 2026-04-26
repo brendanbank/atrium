@@ -52,6 +52,12 @@ class Settings(BaseSettings):
         default_factory=lambda: ["http://localhost:5173"]
     )
 
+    # CAPTCHA secret (Cloudflare Turnstile or hCaptcha). Read at request
+    # time inside ``services.captcha``. If the provider is enabled but
+    # this is empty, ``verify_captcha`` logs a warning and fails open
+    # (same posture as the HIBP integration).
+    captcha_secret: str = ""
+
     # WebAuthn / FIDO2 relying-party config. ``rp_id`` is the host
     # the credential is scoped to (no scheme / port — just the
     # domain); ``origin`` is the full origin the browser will be on.

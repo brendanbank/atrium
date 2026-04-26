@@ -26,11 +26,17 @@ export interface I18nConfig {
   overrides: Record<string, Record<string, string>>;
 }
 
+export type CaptchaProvider = 'none' | 'turnstile' | 'hcaptcha';
+
 export interface PublicAuthConfig {
   // Carve-out from AuthConfig — the full auth namespace stays
   // admin-only (password policy etc.), but the LoginPage needs to
   // know whether to render the "Sign up" link.
   allow_signup: boolean;
+  // CAPTCHA: provider + site_key are public (the widget renders them
+  // into the page source). The secret never leaves the backend.
+  captcha_provider: CaptchaProvider;
+  captcha_site_key: string | null;
 }
 
 export interface PublicAppConfig {

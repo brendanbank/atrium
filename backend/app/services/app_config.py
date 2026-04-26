@@ -107,6 +107,13 @@ class AuthConfig(BaseModel):
     # /2fa with ``code: 2fa_enrollment_required`` until they finish
     # setup. Empty list = no enforcement (default).
     require_2fa_for_roles: list[str] = Field(default_factory=list)
+    # Phase 4: pluggable CAPTCHA on the unauthenticated auth endpoints
+    # (register / login / forgot-password). The site key is public —
+    # rendered into the widget on the login page — but the secret
+    # belongs in the env var ``CAPTCHA_SECRET`` so it never lands in the
+    # KV row. ``none`` disables the gate entirely.
+    captcha_provider: Literal["none", "turnstile", "hcaptcha"] = "none"
+    captcha_site_key: str | None = Field(default=None, max_length=200)
 
 
 class _Namespace(BaseModel):
@@ -177,7 +184,14 @@ async def get_public_config(session: AsyncSession) -> dict[str, dict]:
     # only that one boolean into the public bundle under an ``auth``
     # key — never expose the full AuthConfig publicly.
     auth_cfg = await get_namespace(session, "auth")
-    out["auth"] = {"allow_signup": getattr(auth_cfg, "allow_signup", False)}
+    out["auth"] = {
+        "allow_signup": getattr(auth_cfg, "allow_signup", False),
+        # Captcha provider + site key are inherently public — the widget
+        # renders them in the page source. The secret lives in env, not
+        # in this bundle.
+        "captcha_provider": getattr(auth_cfg, "captcha_provider", "none"),
+        "captcha_site_key": getattr(auth_cfg, "captcha_site_key", None),
+    }
     return out
 
 

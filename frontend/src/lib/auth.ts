@@ -72,9 +72,15 @@ export async function stopImpersonating(): Promise<{
   return data;
 }
 
-export async function login(email: string, password: string): Promise<void> {
+export async function login(
+  email: string,
+  password: string,
+  captchaToken?: string | null,
+): Promise<void> {
   // fastapi-users' JWT login endpoint expects form-encoded "username" + "password"
-  const body = new URLSearchParams({ username: email, password });
+  const params: Record<string, string> = { username: email, password };
+  if (captchaToken) params.captcha_token = captchaToken;
+  const body = new URLSearchParams(params);
   await api.post('/auth/jwt/login', body, {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
   });
@@ -93,8 +99,13 @@ export async function acceptInvite(token: string, password: string): Promise<voi
   await api.post('/invites/accept', { token, password });
 }
 
-export async function forgotPassword(email: string): Promise<void> {
-  await api.post('/auth/forgot-password', { email });
+export async function forgotPassword(
+  email: string,
+  captchaToken?: string | null,
+): Promise<void> {
+  const body: Record<string, unknown> = { email };
+  if (captchaToken) body.captcha_token = captchaToken;
+  await api.post('/auth/forgot-password', body);
 }
 
 export async function resetPassword(token: string, password: string): Promise<void> {
@@ -106,6 +117,7 @@ export async function registerAccount(payload: {
   password: string;
   full_name?: string | null;
   language?: string;
+  captcha_token?: string | null;
 }): Promise<void> {
   await api.post('/auth/register', payload);
 }

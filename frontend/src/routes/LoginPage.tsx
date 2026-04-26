@@ -20,6 +20,7 @@ import { login } from '@/lib/auth';
 import { api } from '@/lib/api';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { ME_QUERY_KEY } from '@/hooks/useAuth';
+import { CaptchaWidget } from '@/components/CaptchaWidget';
 import type { TOTPState } from '@/hooks/useTOTP';
 
 export function LoginPage() {
@@ -29,8 +30,10 @@ export function LoginPage() {
   const qc = useQueryClient();
   const { data: appConfig } = useAppConfig();
   const allowSignup = appConfig?.auth?.allow_signup === true;
+  const captchaProvider = appConfig?.auth?.captcha_provider ?? 'none';
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
 
   const form = useForm({
     initialValues: { email: '', password: '' },
@@ -45,9 +48,13 @@ export function LoginPage() {
 
   const handleSubmit = form.onSubmit(async ({ email, password }) => {
     setError(null);
+    if (captchaProvider !== 'none' && !captchaToken) {
+      setError(t('captcha.required'));
+      return;
+    }
     setSubmitting(true);
     try {
-      await login(email, password);
+      await login(email, password, captchaToken);
       // Every fresh login starts with a partial session. /2fa picks
       // between the setup picker (no confirmed method yet) and the
       // challenge screen (one or more methods enrolled).
@@ -64,12 +71,17 @@ export function LoginPage() {
       await qc.refetchQueries({ queryKey: ME_QUERY_KEY });
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      setError(
-        status === 400 || status === 401
-          ? t('login.invalidCredentials')
-          : t('login.unknownError'),
-      );
+      const resp = (err as { response?: { status?: number; data?: { detail?: string } } })
+        .response;
+      const status = resp?.status;
+      const detail = resp?.data?.detail ?? '';
+      if (status === 400 && detail.toLowerCase().includes('captcha')) {
+        setError(t('captcha.failed'));
+      } else if (status === 400 || status === 401) {
+        setError(t('login.invalidCredentials'));
+      } else {
+        setError(t('login.unknownError'));
+      }
     } finally {
       setSubmitting(false);
     }
@@ -103,6 +115,7 @@ export function LoginPage() {
                 autoComplete="current-password"
                 {...form.getInputProps('password')}
               />
+              <CaptchaWidget onToken={setCaptchaToken} />
               {error && <Alert color="red">{error}</Alert>}
               <Button type="submit" fullWidth loading={submitting}>
                 {t('login.submit')}

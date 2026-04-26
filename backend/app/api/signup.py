@@ -13,6 +13,7 @@ from pydantic import BaseModel, EmailStr, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_session
+from app.services.captcha import verify_captcha
 from app.services.signup import (
     EmailAlreadyRegistered,
     InvalidEmail,
@@ -32,6 +33,10 @@ class RegisterRequest(BaseModel):
     password: str = Field(min_length=1, max_length=128)
     full_name: str | None = Field(default=None, max_length=200)
     language: str | None = Field(default="en", max_length=5)
+    # Optional — only required when ``auth.captcha_provider`` is on.
+    # Validated inside the handler so the 400 includes a sensible
+    # ``detail`` string.
+    captcha_token: str | None = Field(default=None, max_length=4096)
 
 
 class VerifyEmailRequest(BaseModel):
@@ -45,6 +50,14 @@ async def register(
     session: AsyncSession = Depends(get_session),
 ) -> Response:
     response.headers["Cache-Control"] = "no-store"
+    # ``verify_captcha`` returns True when the provider is ``none`` so
+    # this is a no-op when the feature is off. When on, missing /
+    # invalid tokens raise 400 here before we touch the DB.
+    if not await verify_captcha(payload.captcha_token):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="captcha verification failed",
+        )
     try:
         await register_user(
             session,

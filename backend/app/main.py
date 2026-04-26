@@ -33,6 +33,7 @@ from app.auth.schemas import UserRead, UserUpdate
 from app.auth.users import fastapi_users
 from app.logging import configure_logging, log
 from app.services.audit import set_impersonator
+from app.services.captcha import CaptchaLoginMiddleware
 from app.services.maintenance import MaintenanceMiddleware
 from app.services.rate_limit import AuthRateLimitMiddleware
 from app.settings import get_settings
@@ -95,6 +96,11 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(ImpersonationAuditMiddleware)
     app.add_middleware(AuthRateLimitMiddleware)
+    # CaptchaLoginMiddleware sits between rate-limit and maintenance:
+    # rate-limits still apply to a request that fails the captcha
+    # (otherwise an attacker with a valid token could DoS login), but
+    # the maintenance gate wins so a 503 isn't masked by a 400.
+    app.add_middleware(CaptchaLoginMiddleware)
     # Outermost so it short-circuits before the rate-limiter or audit
     # middleware bother to spin up; otherwise a 503 still costs us a
     # rate-limit bucket increment.

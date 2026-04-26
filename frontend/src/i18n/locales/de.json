@@ -184,6 +184,18 @@
     "inactive": "Inaktiv",
     "status": "Status"
   },
+  "captcha": {
+    "title": "CAPTCHA",
+    "intro": "Bot-Schutz für die unauthentifizierten Auth-Endpunkte (Anmeldung, Registrierung, Passwort vergessen). Provider und Site-Schlüssel sind öffentlich; das Secret steht in der CAPTCHA_SECRET-Umgebungsvariable.",
+    "provider": "Anbieter",
+    "providerHelp": "Aus deaktiviert die Prüfung vollständig. Cloudflare Turnstile und hCaptcha verwenden dasselbe Siteverify-Format.",
+    "siteKey": "Site-Schlüssel",
+    "siteKeyHelp": "Öffentliche Kennung, die das Widget an den Anbieter sendet. Im Seitenquelltext sichtbar.",
+    "secretHint": "Setzen Sie CAPTCHA_SECRET in der Umgebung, damit die Verifizierung greift. Ohne Secret lässt die Prüfung Anfragen durch und protokolliert eine Warnung.",
+    "saved": "Captcha-Einstellungen gespeichert",
+    "required": "Bitte schließen Sie die Captcha-Prüfung ab",
+    "failed": "Captcha-Verifizierung fehlgeschlagen; bitte erneut versuchen"
+  },
   "branding": {
     "tab": "Markenauftritt",
     "title": "Markenauftritt & Theme",

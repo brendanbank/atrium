@@ -184,6 +184,18 @@
     "inactive": "Inactief",
     "status": "Status"
   },
+  "captcha": {
+    "title": "CAPTCHA",
+    "intro": "Botcheck op de niet-geauthenticeerde auth-endpoints (inloggen, registreren, wachtwoord vergeten). Provider en site-sleutel zijn publiek; de secret staat in de CAPTCHA_SECRET-omgevingsvariabele.",
+    "provider": "Provider",
+    "providerHelp": "Uit schakelt de check helemaal uit. Cloudflare Turnstile en hCaptcha delen hetzelfde siteverify-formaat.",
+    "siteKey": "Site-sleutel",
+    "siteKeyHelp": "Publieke identifier die de widget naar de provider stuurt. Zichtbaar in de paginabron.",
+    "secretHint": "Stel CAPTCHA_SECRET in de omgeving in om verificatie te activeren. Zonder secret laat de check requests door en logt een waarschuwing.",
+    "saved": "Captcha-instellingen opgeslagen",
+    "required": "Voltooi de captcha om door te gaan",
+    "failed": "Captcha-verificatie mislukt; probeer opnieuw"
+  },
   "branding": {
     "tab": "Huisstijl",
     "title": "Huisstijl & thema",

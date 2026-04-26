@@ -372,8 +372,12 @@ async def test_public_appconfig_exposes_signup_toggle(client, engine):
     assert r.status_code == 200, r.text
     body = r.json()
     assert "auth" in body
-    assert body["auth"] == {"allow_signup": True}
+    # ``allow_signup`` is the bit this test cares about. The bundle
+    # also exposes captcha_provider + captcha_site_key (Phase 4) so
+    # the widget can render — those are inherently public.
+    assert body["auth"]["allow_signup"] is True
     # The full AuthConfig must NOT leak — no password policy, no
     # delete_grace_days, etc.
     assert "delete_grace_days" not in body["auth"]
     assert "require_email_verification" not in body["auth"]
+    assert "captcha_secret" not in body["auth"]

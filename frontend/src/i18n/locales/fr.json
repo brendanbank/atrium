@@ -184,6 +184,18 @@
     "inactive": "Inactif",
     "status": "Statut"
   },
+  "captcha": {
+    "title": "CAPTCHA",
+    "intro": "Vérification bot sur les points d'entrée non authentifiés (connexion, inscription, mot de passe oublié). Le fournisseur et la clé de site sont publics; le secret se trouve dans la variable d'environnement CAPTCHA_SECRET.",
+    "provider": "Fournisseur",
+    "providerHelp": "Off désactive entièrement la vérification. Cloudflare Turnstile et hCaptcha partagent le même format siteverify.",
+    "siteKey": "Clé de site",
+    "siteKeyHelp": "Identifiant public envoyé par le widget au fournisseur. Visible dans le code source de la page.",
+    "secretHint": "Définissez CAPTCHA_SECRET dans l'environnement pour activer la vérification. Sans secret, la vérification laisse passer les requêtes et écrit un avertissement dans les journaux.",
+    "saved": "Paramètres captcha enregistrés",
+    "required": "Veuillez compléter le captcha pour continuer",
+    "failed": "Échec de la vérification captcha ; réessayez"
+  },
   "branding": {
     "tab": "Identité visuelle",
     "title": "Identité visuelle & thème",
