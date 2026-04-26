@@ -26,7 +26,10 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 class RegisterRequest(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8, max_length=128)
+    # Pydantic enforces only the absolute floor here — the live policy
+    # (configurable per tenant via app_settings) runs inside
+    # ``register_user`` and produces the user-facing error string.
+    password: str = Field(min_length=1, max_length=128)
     full_name: str | None = Field(default=None, max_length=200)
     language: str | None = Field(default="en", max_length=5)
 

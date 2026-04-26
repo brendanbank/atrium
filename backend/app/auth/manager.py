@@ -159,9 +159,16 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
         )
 
     async def validate_password(self, password: str, user: Any) -> None:
-        if len(password) < 8:
-            from fastapi_users.exceptions import InvalidPasswordException
-            raise InvalidPasswordException(reason="password must be at least 8 characters")
+        # The configurable policy supersedes the old hardcoded floor —
+        # ``password_min_length`` defaults to 8 so existing behaviour is
+        # preserved when no auth namespace row exists yet.
+        from app.services.password_policy import (
+            validate_password_against_policy,
+        )
+
+        await validate_password_against_policy(
+            self.user_db.session, password
+        )
 
 
 async def get_user_manager(

@@ -23,6 +23,13 @@
     "loading": "Laden…",
     "required": "Verplicht"
   },
+  "password": {
+    "tooShort": "Wachtwoord is te kort.",
+    "needsMixedCase": "Wachtwoord moet zowel hoofd- als kleine letters bevatten.",
+    "needsDigit": "Wachtwoord moet ten minste één cijfer bevatten.",
+    "needsSymbol": "Wachtwoord moet ten minste één symbool bevatten.",
+    "breached": "Dit wachtwoord staat in een publieke datalek. Kies een ander."
+  },
   "login": {
     "email": "E-mailadres",
     "password": "Wachtwoord",

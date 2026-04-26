@@ -23,6 +23,13 @@
     "loading": "Chargement…",
     "required": "Obligatoire"
   },
+  "password": {
+    "tooShort": "Le mot de passe est trop court.",
+    "needsMixedCase": "Le mot de passe doit contenir des majuscules et des minuscules.",
+    "needsDigit": "Le mot de passe doit contenir au moins un chiffre.",
+    "needsSymbol": "Le mot de passe doit contenir au moins un symbole.",
+    "breached": "Ce mot de passe figure dans une fuite publique. Choisissez-en un autre."
+  },
   "login": {
     "email": "Adresse e-mail",
     "password": "Mot de passe",

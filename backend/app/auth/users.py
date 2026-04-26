@@ -24,7 +24,10 @@ from app.auth.manager import get_user_manager
 from app.db import get_session
 from app.models.auth import User
 from app.models.auth_session import AuthSession
+from app.models.email_otp import UserEmailOTP
 from app.models.rbac import Role, user_roles
+from app.models.user_totp import UserTOTP
+from app.models.webauthn import WebAuthnCredential
 
 fastapi_users = FastAPIUsers[User, int](get_user_manager, [auth_backend])
 
@@ -48,6 +51,59 @@ def _sid_from_cookie(request: Request) -> str | None:
         return None
 
 
+async def _user_has_any_2fa(session: AsyncSession, user_id: int) -> bool:
+    """Return True if the user holds any confirmed second factor.
+
+    "Confirmed" matters for TOTP / email-OTP — an in-progress enrollment
+    row exists with ``confirmed_at IS NULL`` and shouldn't satisfy the
+    enforcement check. WebAuthn credentials are only persisted after a
+    successful registration ceremony, so any row counts.
+    """
+    row = (
+        await session.execute(
+            select(UserTOTP.user_id)
+            .where(
+                UserTOTP.user_id == user_id,
+                UserTOTP.confirmed_at.is_not(None),
+            )
+            .limit(1)
+        )
+    ).first()
+    if row is not None:
+        return True
+    row = (
+        await session.execute(
+            select(UserEmailOTP.user_id)
+            .where(
+                UserEmailOTP.user_id == user_id,
+                UserEmailOTP.confirmed_at.is_not(None),
+            )
+            .limit(1)
+        )
+    ).first()
+    if row is not None:
+        return True
+    row = (
+        await session.execute(
+            select(WebAuthnCredential.id)
+            .where(WebAuthnCredential.user_id == user_id)
+            .limit(1)
+        )
+    ).first()
+    return row is not None
+
+
+async def _user_role_codes(session: AsyncSession, user_id: int) -> set[str]:
+    rows = (
+        await session.execute(
+            select(Role.code)
+            .join(user_roles, user_roles.c.role_id == Role.id)
+            .where(user_roles.c.user_id == user_id)
+        )
+    ).scalars().all()
+    return set(rows)
+
+
 async def current_user(
     request: Request,
     user: User = Depends(current_user_partial),
@@ -56,11 +112,17 @@ async def current_user(
     """Authenticated user + passed-TOTP gate. Default for all domain
     endpoints.
 
-    Partial sessions (post-password, pre-TOTP-verify) trip a 403 with
-    ``code=totp_required`` so the frontend routes to the challenge
-    screen. We look the session row up via the ``sid`` claim on the
-    cookie — which the strategy has already verified — rather than
-    trying to thread the row through from the strategy.
+    Partial sessions (post-password, pre-TOTP-verify) trip a 403. The
+    detail ``code`` distinguishes two states the frontend handles
+    differently:
+
+    - ``totp_required`` — user has confirmed a 2FA method, frontend
+      shows the challenge screen at /2fa.
+    - ``2fa_enrollment_required`` — user holds a role listed in
+      ``auth.require_2fa_for_roles`` but has no confirmed 2FA factor.
+      Frontend routes to the same /2fa page (which already shows the
+      setup picker for unenrolled users) but the distinct code lets
+      the UI surface a clearer "your account requires 2FA" hint.
     """
     sid = _sid_from_cookie(request)
     if sid is None:
@@ -71,10 +133,57 @@ async def current_user(
         )
     ).scalar_one_or_none()
     if row is None or not row.totp_passed:
+        # Default code preserves the pre-Phase-3 behaviour. The
+        # enrollment-required variant only kicks in when the user has
+        # zero 2FA factors AND at least one of their roles is on the
+        # enforcement list — otherwise we'd show the setup picker to
+        # users who'd rather log in without 2FA.
+        code = "totp_required"
+        try:
+            from app.services.app_config import AuthConfig, get_namespace
+
+            cfg = await get_namespace(session, "auth")
+            if (
+                isinstance(cfg, AuthConfig)
+                and cfg.require_2fa_for_roles
+                and not await _user_has_any_2fa(session, user.id)
+            ):
+                user_roles_set = await _user_role_codes(session, user.id)
+                if user_roles_set & set(cfg.require_2fa_for_roles):
+                    code = "2fa_enrollment_required"
+        except Exception:
+            # Don't let an auth-config read failure mask the underlying
+            # 403 — fall back to the generic code.
+            pass
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail={"code": "totp_required"},
+            detail={"code": code},
         )
+    # Even on a full session, an enforcement role added after the user
+    # last logged in (or the toggle flipped on) means we must refuse
+    # until they enroll. A user who's already passed 2FA on this
+    # session has, by definition, a confirmed factor — but a
+    # super_admin admin reset could wipe their factors mid-session, so
+    # we still re-check here.
+    try:
+        from app.services.app_config import AuthConfig, get_namespace
+
+        cfg = await get_namespace(session, "auth")
+        if (
+            isinstance(cfg, AuthConfig)
+            and cfg.require_2fa_for_roles
+            and not await _user_has_any_2fa(session, user.id)
+        ):
+            user_roles_set = await _user_role_codes(session, user.id)
+            if user_roles_set & set(cfg.require_2fa_for_roles):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail={"code": "2fa_enrollment_required"},
+                )
+    except HTTPException:
+        raise
+    except Exception:
+        pass
     return user
 
 

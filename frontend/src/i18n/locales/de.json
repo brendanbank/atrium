@@ -23,6 +23,13 @@
     "loading": "Wird geladen…",
     "required": "Pflichtfeld"
   },
+  "password": {
+    "tooShort": "Das Passwort ist zu kurz.",
+    "needsMixedCase": "Das Passwort muss Groß- und Kleinbuchstaben enthalten.",
+    "needsDigit": "Das Passwort muss mindestens eine Ziffer enthalten.",
+    "needsSymbol": "Das Passwort muss mindestens ein Sonderzeichen enthalten.",
+    "breached": "Dieses Passwort taucht in bekannten Datenlecks auf. Wählen Sie ein anderes."
+  },
   "login": {
     "email": "E-Mail-Adresse",
     "password": "Passwort",

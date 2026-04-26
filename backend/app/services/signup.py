@@ -92,10 +92,20 @@ async def register_user(
     except EmailNotValidError as exc:
         raise InvalidEmail(str(exc)) from exc
 
-    if password is None or len(password) < 8:
-        # Match the UserManager.validate_password floor; surfacing here
-        # keeps the route's 400 message consistent with the invite flow.
-        raise InvalidEmail("password must be at least 8 characters")
+    # Run the live password policy. ``register_user`` bypasses
+    # ``UserManager.create`` (which would otherwise enforce the same
+    # rules) so we invoke the helper directly. The fastapi-users
+    # exception's ``reason`` becomes the 400 detail via ``InvalidEmail``.
+    from fastapi_users.exceptions import InvalidPasswordException
+
+    from app.services.password_policy import validate_password_against_policy
+
+    if password is None:
+        raise InvalidEmail("password is required")
+    try:
+        await validate_password_against_policy(session, password)
+    except InvalidPasswordException as exc:
+        raise InvalidEmail(exc.reason) from exc
 
     existing = (
         await session.execute(

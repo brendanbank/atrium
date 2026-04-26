@@ -23,6 +23,13 @@
     "loading": "Loading…",
     "required": "Required"
   },
+  "password": {
+    "tooShort": "Password is too short.",
+    "needsMixedCase": "Password must contain both upper and lower case letters.",
+    "needsDigit": "Password must contain at least one digit.",
+    "needsSymbol": "Password must contain at least one symbol.",
+    "breached": "This password appears in a public breach. Choose a different one."
+  },
   "login": {
     "email": "Email",
     "password": "Password",

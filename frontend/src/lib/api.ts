@@ -32,9 +32,17 @@ api.interceptors.response.use(
     // 403 with {"code": "totp_required"} — the password half of the
     // two-phase login is done but TOTP isn't. Route to /2fa which
     // picks between setup and challenge based on server state.
+    //
+    // The sibling code "2fa_enrollment_required" surfaces when the
+    // user holds a role listed in auth.require_2fa_for_roles but has
+    // no confirmed 2FA factor. Same redirect — /2fa already shows the
+    // setup picker for unenrolled users — but a distinct code lets a
+    // future UI variant render a different banner.
+    const detailCode = err?.response?.data?.detail?.code;
     if (
       status === 403 &&
-      err?.response?.data?.detail?.code === 'totp_required' &&
+      (detailCode === 'totp_required' ||
+        detailCode === '2fa_enrollment_required') &&
       typeof window !== 'undefined'
     ) {
       const path = window.location.pathname;
