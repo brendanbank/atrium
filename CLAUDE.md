@@ -7,11 +7,14 @@ things have burned us before.
 
 ## One-sentence summary
 
-Atrium is a starter kit for invite-only web applications: FastAPI +
-SQLAlchemy + MySQL on the back, React + Mantine + TanStack Query on
-the front, with auth (password + TOTP + email OTP + WebAuthn), RBAC
-(roles + permissions + super-admin + impersonation), in-app
-notifications, audit log, email templates, and a scheduled-jobs
+Atrium is a starter kit for web applications: FastAPI + SQLAlchemy +
+MySQL on the back, React + Mantine + TanStack Query on the front,
+with auth (password + TOTP + email OTP + WebAuthn + self-serve
+signup), invite-only OR opt-in self-serve registration, RBAC (roles +
+permissions + super-admin + impersonation), admin app-config
+(branding, system, translations, auth), audit log + retention
+pruning, in-app notifications, email templates with a durable outbox,
+maintenance mode, GDPR-aligned account deletion, and a scheduled-jobs
 queue all wired in and tested.
 
 It's not opinionated about your domain — it ships *only* the
@@ -34,7 +37,9 @@ platform layer. Bring your own bookings, posts, invoices, whatever.
 backend/
   app/
     api/
+      account_deletion.py               self + admin /delete endpoints
       admin_roles.py, admin_users.py    user + role CRUD
+      app_config.py                     /app-config + /admin/app-config
       audit.py                          audit-log read endpoint
       email_otp.py, totp.py, webauthn.py login + 2FA
       email_templates.py                template CRUD
@@ -45,33 +50,66 @@ backend/
       notifications.py                  bell list + SSE stream
       reminder_rules.py                 reminder-rule CRUD
       sessions.py                       active sessions, logout-all
+      signup.py                         /auth/register + /auth/verify-email
     auth/         fastapi-users wiring, scope skeleton, RBAC helpers
     db.py         engine, session factory, Base
-    email/        Jinja2 templates + pluggable backend (console/smtp/dummy)
-    jobs/         scheduled_jobs queue + worker + handler registry
-    models/       SQLAlchemy mapped classes
+    email/        Jinja2 renderer + pluggable backend (console/smtp/dummy)
+    jobs/
+      runner.py             handler registry + claim loop
+      schedule.py           next_due_job
+      builtin_handlers.py   audit_prune, email_send, account_hard_delete
+    models/       SQLAlchemy mapped classes (incl. email_outbox,
+                  email_verification, soft-delete cols on User)
     schemas/      Pydantic request/response models
     scripts/      seed_admin and similar one-shots
     services/
-      audit.py, notifications.py    audit log + in-app notification helper
-      event_hub.py                  in-process pub/sub for SSE
-      rate_limit.py                 auth-endpoint rate limiter
-      totp.py                       pyotp wrapper
+      account_deletion.py  soft-delete + anonymise + grace window
+      app_config.py        Pydantic-namespace KV reader/writer
+      audit.py             audit-log writer
+      audit_retention.py   DELETE FROM audit_log retention helper
+      event_hub.py         in-process pub/sub for SSE
+      maintenance.py       MaintenanceMiddleware (503 + super_admin bypass)
+      notifications.py     in-app notification helper
+      rate_limit.py        AuthRateLimitMiddleware
+      signup.py            register_user + consume_verification
+      totp.py              pyotp wrapper
     main.py, settings.py, worker.py
-  alembic/        Migration chain (head: 0001_atrium_init)
+  alembic/        Migration chain (head: 0004_email_verifications)
   tests/          api/, integration/, unit/
 
 frontend/
   src/
-    components/   Shared UI (NotificationsBell, RequireAuth, admin/…)
-    hooks/        useAuth, useUsersAdmin, useNotificationStream, …
-    routes/       Page-level components (one per /route)
+    components/
+      AnnouncementBanner.tsx      banner driven by system.announcement
+      MaintenancePage.tsx         shown to non-super-admins on 503
+      NotificationsBell.tsx, RequireAuth, ImpersonationBanner, …
+      admin/
+        BrandingAdmin.tsx         logo + brand name + preset + tokens
+        SystemAdmin.tsx           maintenance + announcement + retention
+        TranslationsAdmin.tsx     enabled locales + per-key overrides
+        UsersAdmin, RolesAdmin, EmailTemplatesAdmin, RemindersAdmin,
+        AuditAdmin
+    hooks/
+      useAppConfig.ts             public bundle + admin namespaces
+      useAccountDeletion.ts
+      useAuth, useUsersAdmin, useNotificationStream, …
+    routes/
+      RegisterPage.tsx            self-serve signup
+      VerifyEmailPage.tsx         consumes the verification token
+      AcceptInvitePage, AdminPage, HomePage, LoginPage,
+      NotificationsPage, ProfilePage, TwoFactorPage,
+      ForgotPasswordPage, ResetPasswordPage
+    theme/
+      index.ts                    base Mantine theme
+      ThemedApp.tsx               applies brand + preset + overrides
+      presets/                    "default", "dark-glass", "classic"
     lib/
-      api.ts                         Axios instance
-      auth.ts, money.ts, types.ts    shared helpers + types
-      queryClient.ts, theme.ts
-    i18n/locales/ en.json (nl.json placeholder)
-  tests-e2e/      Playwright smoke + auth specs
+      api.ts                      Axios instance (cookies + 401 → /login)
+      auth.ts, money.ts, types.ts, queryClient.ts, notifications.ts
+    i18n/locales/ en.json, nl.json, de.json, fr.json
+  tests-e2e/
+    smoke, email-otp, webauthn, invite-flow, logout, branding,
+    i18n, maintenance, account-deletion, profile-language
 
 infra/
   mysql/my.cnf
@@ -104,7 +142,9 @@ permission set is the union over those roles' `role_permissions`.
   privilege-escalation guard in `admin_users.update` prevents anyone
   *not* already super_admin from granting it.
 - `admin` — every permission *except* `user.impersonate`.
-- `user` — no permissions. Host apps grant their own.
+- `user` — no permissions. Host apps grant their own. This is also
+  the default role assigned to fresh self-serve signups (via
+  `auth.signup_default_role_code`).
 
 **Eight default permissions** (atrium-relevant; host apps add more):
 
@@ -113,7 +153,8 @@ permission set is the union over those roles' `role_permissions`.
 - `audit.read`
 - `reminder_rule.manage`
 - `email_template.manage`
-- `app_setting.manage`
+- `app_setting.manage` — gates the entire `/admin/app-config` surface
+  (Branding, System, Translations tabs).
 
 **API gating**: every router uses `require_perm("…")` from
 `app.auth.rbac`. `require_admin` exists in `app.auth.users` as a
@@ -124,12 +165,68 @@ shortcut for the "any user with the `admin` role" case, but prefer
 when atrium creates / accepts / impersonates, and by **id** when the
 admin UI edits an existing user's role assignments. Both work; the
 mismatch is intentional (codes are environment-portable, ids are
-what the existing `UserAdminUpdate.role_ids` patch already shipped).
-Pick one for a future cleanup pass if it bothers you.
+what `UserAdminUpdate.role_ids` ships).
 
 **Invites are multi-role**: `UserInvite.role_codes: list[str]` (JSON
 column). The accept flow loops and assigns each. The InviteModal in
 the admin UI uses a MultiSelect bound to `role_codes`.
+
+## App configuration (the most load-bearing decision after RBAC)
+
+Atrium splits configuration into two surfaces:
+
+- **Env vars** (`.env`, read by `app.settings.get_settings`) — secrets,
+  infrastructure, build-time identity, anything per-environment that
+  has to be set before the app starts. JWT secret, DSN, WebAuthn RP
+  ID, mail backend, public hostname.
+- **`app_settings` table** — admin-tunable product behavior and
+  branding. Mutable at runtime via `/admin/app-config`. Anything the
+  operator might want to flip without a redeploy.
+
+The `app_settings` table is a key-JSON KV store. Each *namespace* is
+one row, validated on read and write through a Pydantic model
+registered in `app.services.app_config.NAMESPACES`:
+
+| Key       | Model         | Public? | What it carries                                          |
+| --------- | ------------- | ------- | -------------------------------------------------------- |
+| `brand`   | `BrandConfig` | yes     | name, logo_url, support_email, preset, theme overrides    |
+| `i18n`    | `I18nConfig`  | yes     | enabled_locales, per-key string overrides                 |
+| `system`  | `SystemConfig`| yes     | maintenance_mode + message, announcement + level          |
+| `auth`    | `AuthConfig`  | no      | allow_signup, signup_default_role_code, require_email_verification, allow_self_delete, delete_grace_days |
+
+`audit.retention_days` lives in the same table under the `audit` key,
+read directly by the `audit_prune` job (no Pydantic namespace yet —
+add one if it grows fields).
+
+**Public vs admin** is enforced in `services/app_config.py`, not at
+the route layer. `GET /app-config` (no auth) bundles every `public=True`
+namespace plus a hand-picked carve-out: `auth.allow_signup` is
+exposed publicly so `/login` can render the "Sign up" link, but the
+rest of `AuthConfig` stays admin-only. Anything policy- or
+security-adjacent (password rules, retention) belongs in admin-only
+namespaces.
+
+**Defaults come from the Pydantic model**, not from a migration —
+there's no row to seed. The first PUT materialises one.
+`model_validate` on read re-applies defaults for any field added
+since the row was last written, so adding a new `BrandConfig` field
+doesn't require a backfill migration.
+
+**Registering a new namespace**: from any module that imports at
+startup, call
+
+```python
+from app.services.app_config import register_namespace
+from pydantic import BaseModel
+
+class FeatureFlags(BaseModel):
+    new_thing: bool = False
+
+register_namespace("features", FeatureFlags, public=False)
+```
+
+The `/admin/app-config` admin endpoint picks it up automatically;
+`get_public_config` only includes it if `public=True`.
 
 ## Auth + 2FA flow
 
@@ -152,6 +249,14 @@ call flips the flag. The frontend turns the 403 into a redirect to
 `/2fa` auto-triggers WebAuthn on mount when the user has a registered
 credential; TOTP / email OTP are fallbacks.
 
+**Email-verification gate**: when `auth.require_email_verification`
+is on (the default), accounts created via self-serve signup must
+consume the verification link before they can complete login.
+`users.email_verified_at` is the gate; `is_verified` (the
+fastapi-users field) is kept in sync but the login refusal reads
+`email_verified_at` so existing invite-created accounts (which never
+went through self-serve verification) still pass.
+
 Auth cookies: `atrium_auth` (the JWT carrying `sid`) and
 `atrium_impersonator` (the actor cookie when a super_admin is
 viewing-as someone). The `sid` lookup against `auth_sessions` makes
@@ -162,10 +267,177 @@ Tests that need the real 2FA gate carry
 the `_auto_pass_2fa` conftest fixture so each test doesn't have to
 drive the full challenge.
 
-## Scheduled jobs (handler registry)
+## Maintenance mode
 
-Atrium ships the queue plumbing but **no built-in job handlers**.
-Host apps register handlers at startup:
+`SystemConfig.maintenance_mode` is the global kill-switch. When on,
+`MaintenanceMiddleware` short-circuits every request with HTTP 503
+and a JSON body `{"detail":"maintenance","message":...,"code":"maintenance_mode"}`,
+except:
+
+- **Bypass paths** (always reachable): `/healthz`, `/readyz`,
+  `/health`, `/app-config`, `/auth/jwt/login`, `/auth/jwt/logout`,
+  `/users/me`, `/users/me/context`, plus prefixes
+  `/auth/totp/`, `/auth/email-otp/`, `/auth/webauthn/`. The login +
+  2FA paths stay live so a super_admin can sign in to flip the flag
+  off; `/app-config` stays live so the frontend can fetch the
+  maintenance message and render the maintenance page itself.
+- **Super_admin bypass**: any cookie that maps to a live, full-2FA
+  `auth_sessions` row whose user holds the `super_admin` role
+  passes through.
+
+The flag is read on every request, so it's cached in-process for
+**2 seconds** (`_TTL_SECONDS`). Long enough to keep the hot path off
+the DB, short enough that flipping the flag in the admin UI feels
+instant.
+
+**Recovery path** if you accidentally lock yourself out: a
+super_admin login completes in two POSTs (`/auth/jwt/login` +
+`/auth/totp/verify`), both on the bypass list. If you don't have
+super_admin handy, drop the row directly:
+`DELETE FROM app_settings WHERE \`key\` = 'system';` and wait 2 s for
+the cache to expire.
+
+The frontend hits `/app-config` on boot and shows
+`MaintenancePage` to non-super-admins when `system.maintenance_mode`
+is true. The `AnnouncementBanner` reads `system.announcement` (plain
+text, max 2000 chars) and renders one of three Mantine alert levels
+based on `announcement_level`.
+
+## Email pipeline
+
+Two send paths:
+
+- **`send_and_log`** (`app/email/sender.py`) — synchronous render +
+  send + log. Use it when the user is waiting for the email
+  delivery to complete (signup verification email, password reset).
+  Render failures raise `RuntimeError` after recording a
+  `[render failed]` `EmailLog` row; SMTP failures raise after
+  recording a `failed` row. Both write `email_log` so the admin mail
+  log makes the break visible.
+
+- **`enqueue_and_log`** — durable queue. Inserts one
+  `email_outbox` row per recipient (`status=pending`,
+  `next_attempt_at=now`) plus a `queued` `email_log` row. The
+  template existence is validated up-front so a typo fails the
+  caller's request synchronously instead of leaving a stuck row.
+  The `email_send` built-in handler (`app/jobs/builtin_handlers.py`)
+  drains pending rows with **exponential backoff**: 60 s, 5 min,
+  30 min, 2 h, 12 h, then dead-letter. `MAX_ATTEMPTS = 6`. A
+  terminal `sent` or `dead` writes a final `email_log` row that
+  mirrors what really happened.
+
+Use `enqueue_and_log` for fan-out (notification batches), anything
+that doesn't need to block the request, or anything where the SMTP
+relay's flakiness shouldn't surface as a 500. Use `send_and_log`
+when the user-visible flow depends on knowing the email went out.
+
+Templates live in the `email_templates` table (key, subject,
+body_html, description) and are rendered with Jinja2. Plain-text is
+derived from the HTML by tag-stripping. Autoescape is ON — a guest
+name like `<script>…</script>` renders as harmless text. Per-locale
+template variants are not yet shipped (Phase 11 didn't land in this
+round); host apps that need them fall back to either a template-key
+naming convention (e.g. `invite_nl`) or a `language` field added in a
+follow-up migration.
+
+Default templates seeded by `0001_atrium_init`:
+
+- `invite` — sent to a fresh invitee with the accept link
+- `password_reset` — self-service reset
+- `admin_password_reset_notice` — heads-up to the target when an
+  admin triggers a reset on someone else's account (so a silent
+  takeover attack is visible)
+- `email_otp_code` — six-digit code delivered when a user picks
+  email-OTP at the `/2fa` challenge
+- `email_verify` — self-serve signup verification link
+- `account_delete_confirm` — confirmation + scheduled hard-delete
+  date, sent at the moment of soft-delete
+
+Invite + verification links are rendered from `settings.app_base_url`
+— set this to the public URL on prod (`https://app.example.com`),
+not `localhost`.
+
+`MAIL_BACKEND` env auto-selects: `console` / `smtp` / `dummy`. Unset
+falls back to `smtp` when `ENVIRONMENT=prod`, else `console`.
+
+`send_and_log` and `enqueue_and_log` both accept `entity_type` +
+`entity_id` so emails can be attributed to a domain row in
+`email_log` without a hard FK.
+
+## Account lifecycle
+
+Two onboarding paths, one offboarding path. All three intersect with
+the email pipeline + audit log.
+
+**Onboarding A — invite (default):**
+
+1. Admin creates a `user_invites` row with `role_codes: list[str]`.
+2. The `invite` template is sent with the accept-link.
+3. Invitee fills in password + name on `/accept-invite`. The User
+   row is created, every role in `role_codes` is assigned, and
+   `is_verified=True` (invites bypass email verification — clicking
+   the link is the verification).
+4. Login. Optional 2FA enrollment via the profile page.
+
+**Onboarding B — self-serve signup** (only when `auth.allow_signup` is
+on; off by default):
+
+1. Visitor POSTs `/auth/register` with email + password + name.
+2. `services.signup.register_user` creates the User + assigns
+   `auth.signup_default_role_code` + writes an `email_verification`
+   row + sends the `email_verify` template. SMTP failures are
+   suppressed — the email_log captures the failure, the account
+   creation succeeds.
+3. Visitor clicks the link → `/verify-email` → POST
+   `/auth/verify-email` with the token → `email_verified_at` is
+   set. Token is sha256-hashed at rest, 24 h TTL, single-use.
+4. Login. Refused with a "verify your email" message until step 3
+   completes (when `auth.require_email_verification` is on).
+
+**Offboarding — soft-delete + grace + hard-delete:**
+
+1. POST `/users/me/delete` (self) or `/admin/users/{id}/delete`
+   (admin with `user.manage`). The self-route requires the password
+   in the body as a defence against unattended-tab attackers; the
+   admin route doesn't (the admin already authed). The admin route
+   refuses to delete a `super_admin`.
+2. `services.account_deletion.soft_delete_user` anonymises PII in
+   place (email → `deleted+<id>@invalid`, full_name →
+   `"Deleted user"`, phone → null, hashed_password → ""), revokes
+   every active `auth_sessions` row, sets `deleted_at = NOW()` and
+   `scheduled_hard_delete_at = NOW() + auth.delete_grace_days`. The
+   `account_delete_confirm` email goes out with the hard-delete
+   date. Audit row records actor + reason.
+3. Operator can reinstate during the grace window — there's no
+   self-serve undelete (the password is already wiped).
+4. The `account_hard_delete` worker handler scans for users whose
+   `scheduled_hard_delete_at` has elapsed and deletes them outright.
+   Cascades fan out via the FK definitions in `0001_atrium_init`
+   (auth_sessions, notifications etc. CASCADE; audit_log.actor_user_id
+   SET NULL so history survives with an anonymous actor).
+
+When `auth.allow_self_delete` is False the self-delete route returns
+404 (route-existence not broadcast). Same convention as
+`/auth/register` when `allow_signup` is off.
+
+## Scheduled jobs (handler registry + built-ins)
+
+Atrium ships the queue plumbing **and three platform-owned
+handlers**; everything domain-specific belongs in host apps.
+
+Built-in handlers (registered by
+`app.jobs.builtin_handlers.register_builtin_handlers` at worker
+startup):
+
+- `audit_prune` — daily DELETE on `audit_log` driven by
+  `app_settings['audit'].retention_days`. `<= 0` is the "retain
+  forever" sentinel.
+- `email_send` — drains a single `email_outbox` row, see
+  Email pipeline above.
+- `account_hard_delete` — tick-driven scan of users whose
+  `scheduled_hard_delete_at <= now`.
+
+Host-app handlers register the same way:
 
 ```python
 from app.jobs.runner import register_handler
@@ -207,34 +479,6 @@ The SSE endpoint (`/notifications/stream`) sends a keepalive every
 each row renders its `kind` code + a "View" button that opens the
 raw JSON payload. Host apps add per-kind formatting.
 
-## Email
-
-`app.email.backend.get_mail_backend` auto-selects from `MAIL_BACKEND`
-env (`console` / `smtp` / `dummy`). Unset → falls back to `smtp`
-when `ENVIRONMENT=prod`, else `console`.
-
-Templates live in the `email_templates` table (key, subject,
-body_html, description) and are rendered with Jinja2. Plain-text is
-derived from the HTML by tag-stripping. Autoescape is ON — a guest
-name like `<script>…</script>` renders as harmless text.
-
-Four default templates seeded by `0001_atrium_init`:
-
-- `invite` — sent to a fresh invitee with the accept link
-- `password_reset` — self-service reset
-- `admin_password_reset_notice` — heads-up to the target when an
-  admin triggers a reset on someone else's account (so a silent
-  takeover attack is visible)
-- `email_otp_code` — six-digit code delivered when a user picks
-  email-OTP at the `/2fa` challenge
-
-Invite links are rendered from `settings.app_base_url` — set this to
-the public URL on prod (`https://app.example.com`), not `localhost`.
-
-`send_and_log` accepts optional `entity_type` + `entity_id`
-parameters that get written to the corresponding `email_log` columns.
-Use them when you want to attribute an email to a domain row.
-
 ## Audit log
 
 `app.services.audit.record(...)` is the only place that writes
@@ -247,6 +491,11 @@ populates a ContextVar from the `atrium_impersonator` cookie and
 That's how the audit trail distinguishes "target did X" from
 "super_admin did X while impersonating target".
 
+**Retention**: unbounded by default. To enable time-bounded retention,
+write `app_settings['audit'] = {"retention_days": N}` (admin UI →
+System tab) and the `audit_prune` job will DELETE older rows daily.
+`N <= 0` is "retain forever".
+
 ## Backend conventions
 
 - Async everywhere. Never mix sync `Session` with async routes.
@@ -256,16 +505,25 @@ That's how the audit trail distinguishes "target did X" from
 - Add new Alembic migrations under
   `backend/alembic/versions/YYYY_MM_DD_NNNN-*.py`. Keep the chain
   linear (never branch) and include both upgrade and downgrade.
-  Current head: `0001_atrium_init`.
+  Current head: `0004_email_verifications`.
 - `B008` is silenced for `fastapi.Depends`, `fastapi.Query`, etc. via
   `extend-immutable-calls`. Don't refactor `Depends(...)` calls to
   dodge the lint.
 - `RUF001`/`RUF003` flag ambiguous unicode (em-dash, typographic
-  quotes) — use ASCII hyphens in source.
+  quotes) — use ASCII hyphens in source. Markdown is freer; still
+  prefer ASCII for diff-sanity.
+- Middleware that talks to the DB must use
+  `app.db.get_session_factory()`, not FastAPI DI — see
+  `MaintenanceMiddleware`. Tests rebind that via the autouse
+  `_bind_middleware_to_test_engine` fixture.
 
 ## Frontend conventions
 
 - Mantine v9 only. Dark mode uses Mantine's color scheme attribute.
+- Theme is composed in `src/theme/ThemedApp.tsx`: base theme +
+  selected `preset` from `src/theme/presets/` + `brand.overrides`
+  from `/app-config`. The frontend re-renders through MantineProvider
+  whenever the brand config changes.
 - One Axios instance in `src/lib/api.ts`. It sends cookies
   (`withCredentials: true`) and bounces to `/login` on a 401, except
   on the `/users/me` probe.
@@ -279,6 +537,14 @@ That's how the audit trail distinguishes "target did X" from
   is_active, roles: string[], permissions: string[],
   impersonating_from }`. UI gates use `roles.includes("admin")` or
   `usePerm("…")` — never compare against a single role string.
+- The `/app-config` public bundle is fetched once at boot and held in
+  a TanStack query; `useAppConfig` reads from it. The admin UI hits
+  `/admin/app-config` which returns every namespace. Translation
+  overrides from `i18n.overrides[locale]` are merged on top of the
+  bundled JSON resources at i18next init.
+- `preferred_language` lives on the User row and is exposed via
+  `/users/me`; the profile page picker writes it back. i18next syncs
+  to it on save.
 - CKEditor 5 is loaded from the CDN (see `index.html`); the
   `VITE_CKEDITOR_LICENSE_KEY` is injected via Vite HTML
   `%VITE_*%` substitution. Set it to `GPL` to use the free tier.
@@ -291,13 +557,15 @@ That's how the audit trail distinguishes "target did X" from
   `app_settings`, `email_templates`, and `permissions` (those are
   invariant across tests). `roles` + `role_permissions` ARE truncated
   and re-seeded per test (`_reseed_rbac`) because admin tests
-  legitimately mutate them.
+  legitimately mutate them. The `_bind_middleware_to_test_engine`
+  autouse fixture wipes `app_settings['system']` after every test so
+  a stuck maintenance flag doesn't 503 the rest of the suite.
 - **Frontend**: `pnpm test` = vitest unit tests. `pnpm playwright
   test` = Playwright specs.
 - **Smoke**: `make smoke` brings up the e2e stack (prod web image via
   `docker-compose.e2e.yml`), seeds an admin, and runs the Playwright
   suite. Run before pushing anything that touches auth, the app
-  shell, or the login flow.
+  shell, the login flow, or the admin app-config tabs.
 - When running Vitest or Playwright from the host, use the dev web
   container (`docker compose exec web node_modules/.bin/vitest run …`)
   because pnpm's virtual store doesn't expose the binary at
@@ -320,17 +588,17 @@ That's how the audit trail distinguishes "target did X" from
 
 ```
 (internet)
-    │  TLS
-    ▼
-edge proxy (your firewall)             ← terminates public TLS
-    │  TLS (self-signed origin)
-    ▼
-proxy (nginx:alpine, :9443)            ← this repo; trusts XFF from edge
-    │  HTTP (docker network)
-    ├── /api/*  →  api  (FastAPI on :8000, rewrite strips /api)
-    └── /*      →  web  (nginx:alpine serving built dist)
-            │
-            └── mysql + worker inside the same compose
+    |  TLS
+    v
+edge proxy (your firewall)             <- terminates public TLS
+    |  TLS (self-signed origin)
+    v
+proxy (nginx:alpine, :9443)            <- this repo; trusts XFF from edge
+    |  HTTP (docker network)
+    +- /api/*  ->  api  (FastAPI on :8000, rewrite strips /api)
+    +- /*      ->  web  (nginx:alpine serving built dist)
+            |
+            +- mysql + worker inside the same compose
 ```
 
 `infra/proxy/gen-cert.sh` generates a self-signed cert at first boot
@@ -341,9 +609,11 @@ sees the real client IP.
 
 ### Config
 
-- `.env` is the only config surface. `docker-compose.yml` reads it
+- `.env` is the only env-var surface. `docker-compose.yml` reads it
   via `env_file`. Compose v2 expands `${VAR}` inside `.env`, so the
   DSN can reference `${MYSQL_USER}` etc.
+- Runtime knobs live in the `app_settings` table — see
+  **App configuration** above.
 - The frontend bundle is built with `VITE_API_BASE_URL=/api`
   (relative). One image works regardless of which hostname the
   browser arrived on — handy when you hit the VM directly for
@@ -351,10 +621,11 @@ sees the real client IP.
 
 ### First deploy on a new box
 
-See `README.md` → **Prod** for the exact sequence. After editing
+See `README.md` -> **Prod** for the exact sequence. After editing
 `.env` on a running stack you must `docker compose … up -d
 --force-recreate api worker` — env is captured at container start,
-never re-read.
+never re-read. Changes made through `/admin/app-config` take effect
+without a restart (subject to the maintenance-mode 2 s cache TTL).
 
 ## Things to remember
 
@@ -386,6 +657,32 @@ Failure modes that still apply to atrium:
 8. **Postfix `mynetworks` must include the docker bridge** for
    `MAIL_BACKEND=smtp` to relay — otherwise Postfix rejects with
    `Client host rejected`.
+9. **`MaintenanceMiddleware` bypasses FastAPI DI.** It reads
+   `app.db.get_session_factory()` directly so it can run before any
+   request-scoped dependency resolves. Tests must rebind the factory
+   to the testcontainers engine — that's what the autouse
+   `_bind_middleware_to_test_engine` fixture does. Don't add new
+   middleware that talks to the DB without applying the same
+   pattern.
+10. **`app_settings` is a TRUNCATE-skip table in tests.** A row
+    written by one test will leak into the next unless explicitly
+    cleared. The conftest autouse already wipes the `system`
+    namespace; for any other namespace you mutate, reset it in the
+    test's teardown.
+11. **The maintenance-flag cache TTL is 2 seconds.** Tests that flip
+    the flag and immediately hit a route must call
+    `maintenance.reset_cache()` — otherwise the previous read still
+    wins. The Playwright maintenance spec sleeps briefly for the
+    same reason.
+12. **`auth.allow_signup` and `auth.allow_self_delete` return 404
+    when off, not 403.** Don't accidentally "fix" this — the route's
+    existence shouldn't be broadcast on tenants that haven't opted
+    in.
+13. **`app_settings` namespaces have no migration to seed them.**
+    Defaults come from the Pydantic model; the row materialises on
+    first PUT. Don't write Alembic seed migrations for new
+    namespaces — bump the model and let `model_validate` apply
+    defaults on read.
 
 ## Session expectations for an AI assistant
 

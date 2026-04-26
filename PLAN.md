@@ -90,6 +90,88 @@ Casa repo, **REBUILD** (don't copy file; rewrite cleaner).
 
 ---
 
+## Status (auto-updated) — 2026-04-26 (Phases 0-11 round)
+
+A second wave of work landed on top of the extraction baseline,
+turning Atrium into a configurable platform rather than a
+casa-shaped clone. What's in:
+
+- **Phase 0 — app_config foundation.** Pydantic-namespace KV over
+  `app_settings` (`backend/app/services/app_config.py`).
+  `register_namespace(...)` lets later phases (and host apps) bolt on
+  more without touching the route layer. Public namespaces are
+  bundled by `GET /app-config`; admin namespaces by
+  `GET /admin/app-config`. `auth.allow_signup` is the one carve-out
+  exposed publicly so the LoginPage can render the signup link.
+- **Phase 1 — branding + theming.** `BrandConfig` (name, logo,
+  support email, preset, theme overrides). Three presets shipped:
+  `default`, `dark-glass`, `classic` (`frontend/src/theme/presets/`).
+  `ThemedApp.tsx` wires Mantine theme + brand into MantineProvider
+  at boot. `BrandingAdmin.tsx` is the admin tab.
+- **Phase 2 — self-serve signup + email verification.**
+  `POST /auth/register` (rate-limited), `POST /auth/verify-email`.
+  Token sha256-hashed at rest, 24 h TTL, single-use. Off by default
+  (`auth.allow_signup=False`). `users.email_verified_at` gates login
+  when `auth.require_email_verification=True`. Routes return 404
+  when the feature is off so the route's existence isn't broadcast.
+- **Phase 5 — maintenance mode + announcement banner.**
+  `MaintenanceMiddleware` reads `system.maintenance_mode` from a
+  2 s in-process cache, 503s everything except a small bypass list,
+  passes super_admin cookies through. `AnnouncementBanner` reads
+  `system.announcement` (plain text, max 2000 chars) +
+  `announcement_level` (info / warning / critical).
+  `MaintenancePage.tsx` is the route fallback when the cookie isn't
+  super_admin.
+- **Phase 6 — audit-log retention pruning.**
+  `services/audit_retention.py` + `audit_prune` builtin handler.
+  Retention is `app_settings['audit'].retention_days` (`<= 0` = keep
+  forever). Single parameterised DELETE relying on MySQL `NOW() -
+  INTERVAL`.
+- **Phase 7 — account deletion (soft + grace + hard).**
+  `services/account_deletion.py`. Self-route requires password
+  reconfirm; admin route refuses on super_admin. Anonymises PII in
+  place, revokes auth_sessions, schedules hard-delete by
+  `auth.delete_grace_days`. `account_hard_delete` builtin handler
+  drains the queue. CASCADE / SET NULL FK behaviour preserves audit
+  history with an anonymous actor.
+- **Phase 8 — durable email outbox.**
+  `enqueue_and_log` mirrors `send_and_log` but inserts an
+  `email_outbox` row + `queued` `email_log`. `email_send` builtin
+  handler drains pending rows with exponential backoff (60 s, 5 m,
+  30 m, 2 h, 12 h, dead-letter after 6 attempts). `[render failed]`
+  / `[dead]` rows surface in the admin mail log.
+- **Phase 9 — i18n broadening + Translations admin.** Three new
+  bundled locales (de, fr) on top of en + nl. `I18nConfig`
+  (`enabled_locales` + `overrides[locale][key]`). Frontend merges
+  overrides on top of bundled resources at i18next init.
+  `TranslationsAdmin.tsx` is the admin tab.
+- **Phase 10 — per-user preferred_language.**
+  `users.preferred_language` (varchar(5)). Profile page picker.
+  `i18n.changeLanguage` syncs on save.
+- **Phase 11 — multi-language email templates: NOT YET LANDED.**
+  Email templates are still keyed by `key` only (no `language`
+  column). Host apps that need per-locale variants currently use a
+  key-naming convention (`invite`, `invite_nl`) or extend the table
+  themselves. Tracked in `TODO.md`.
+
+**Migrations added:** `0002_email_outbox`, `0003_user_soft_delete`,
+`0004_email_verifications`. Head: `0004_email_verifications`.
+
+**Default seeded email templates extended:** `email_verify`,
+`account_delete_confirm`.
+
+**E2E coverage extended:** `branding`, `i18n`, `maintenance`,
+`account-deletion`, `profile-language`. All passing per the
+respective phase commits.
+
+**Skipped this round:**
+- Phase 3 (mandatory 2FA enrollment after first login) — not landed.
+  No `auth.require_2fa_enrollment` flag yet.
+- Phase 4 / password policy — no `services/password_policy.py`. The
+  fastapi-users default min-length-8 is the only floor.
+
+---
+
 ## Backend — `backend/app/`
 
 ### Top level
