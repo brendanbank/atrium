@@ -53,9 +53,6 @@ async def _enable_signup(
     require_email_verification: bool = True,
     signup_default_role_code: str = "user",
 ) -> None:
-    # Password policy toggles are pinned to False here so the suite
-    # focuses on signup behaviour, not policy. The model ships them on
-    # by default; test_password_policy.py covers the on-paths.
     await _set_auth_config(
         engine,
         {
@@ -64,10 +61,6 @@ async def _enable_signup(
             "allow_signup": True,
             "signup_default_role_code": signup_default_role_code,
             "require_email_verification": require_email_verification,
-            "password_require_mixed_case": False,
-            "password_require_digit": False,
-            "password_require_symbol": False,
-            "password_check_breach": False,
         },
     )
 

@@ -247,9 +247,9 @@ async def test_hibp_network_failure_fails_open(client, engine, monkeypatch):
 
 @pytest.mark.asyncio
 async def test_hibp_disabled_skips_check(client, engine, monkeypatch):
-    """With ``password_check_breach=False``, the HIBP fetcher must
-    never be called — verifies tenants who relax the default don't
-    pay the network cost."""
+    """With ``password_check_breach=False`` (the default), the HIBP
+    fetcher must never be called — verifies we don't pay the network
+    cost for tenants that haven't opted in."""
     from app.services import password_policy as pp
 
     called = {"hit": False}

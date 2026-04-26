@@ -10,34 +10,11 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.models.auth import User, UserInvite
-from app.models.ops import AppSetting
 from app.models.rbac import Role, user_roles
 from tests.helpers import login, seed_admin, seed_user
-
-
-@pytest.fixture(autouse=True)
-async def _relax_password_policy(engine):
-    """Invite tests exercise the accept flow, not the password policy.
-    Pin the four policy toggles off so the simple passwords used here
-    keep working under the (intentionally strict) model defaults."""
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    async with factory() as s:
-        stmt = mysql_insert(AppSetting).values(
-            key="auth",
-            value={
-                "password_require_mixed_case": False,
-                "password_require_digit": False,
-                "password_require_symbol": False,
-                "password_check_breach": False,
-            },
-        )
-        stmt = stmt.on_duplicate_key_update(value=stmt.inserted.value)
-        await s.execute(stmt)
-        await s.commit()
 
 
 def _accept_payload(token: str, password: str = "fresh-pw-12345") -> dict:
