@@ -8,14 +8,18 @@ scratch; resist anything that's actually domain logic.
 
 ## Auth + identity
 
-- **Mandatory 2FA enrollment after first login.** Phase 3 didn't
+- ~~**Mandatory 2FA enrollment after first login.** Phase 3 didn't
   land. Add `auth.require_2fa_enrollment: bool` and gate the SPA
   with a `2fa_enrollment_required` 403 code, mirroring
-  `totp_required`.
-- **Password policy namespace.** Min length, character classes,
+  `totp_required`.~~ Landed 2026-04-26 as `auth.require_2fa_for_roles`
+  (per-role list rather than a single bool — strictly more
+  expressive). 403 carries `code: "2fa_enrollment_required"`.
+- ~~**Password policy namespace.** Min length, character classes,
   breach-list lookup (haveibeenpwned k-anon API). Today the only
   floor is fastapi-users' default 8 chars in
-  `services/signup.py`.
+  `services/signup.py`.~~ Landed 2026-04-26 as
+  `app.services.password_policy` + the `password_*` fields on
+  `AuthConfig`. HIBP lookup is fail-open with a 5 min cache.
 - **Idle session timeout.** `auth_sessions` already carries
   `last_seen_at`-style data via the SSE stream; expire any session
   idle longer than `auth.idle_timeout_minutes`. JWT alone can't
@@ -52,11 +56,16 @@ scratch; resist anything that's actually domain logic.
 
 ## Email + notifications
 
-- **Multi-language email templates (Phase 11).** Add a `language`
+- ~~**Multi-language email templates (Phase 11).** Add a `language`
   column to `email_templates` (or a sibling `email_template_locales`
   table), pick by user `preferred_language` at render time, fall
   back to `en`. Admin UI gains a per-locale tab. The `i18n` namespace
-  already gates which locales are enabled.
+  already gates which locales are enabled.~~ Landed 2026-04-26 as
+  `0005_email_template_per_locale` (composite `(key, locale)` PK,
+  not a sibling table). nl / de / fr variants of every shipped
+  template seeded; `email_outbox.locale` persists the variant so
+  retries don't drift; `EmailTemplatesAdmin.tsx` has a per-locale
+  SegmentedControl.
 - **Email outbox admin UI.** The outbox + dead-letter table is
   already populated; expose a "queued / sending / dead" view with a
   manual retry button.
@@ -94,9 +103,13 @@ scratch; resist anything that's actually domain logic.
 
 ## Testing
 
-- **End-to-end Playwright spec for self-serve signup.** Phase 2
+- ~~**End-to-end Playwright spec for self-serve signup.** Phase 2
   shipped without one. The maintenance / branding / i18n /
-  account-deletion specs are all there; signup is the gap.
+  account-deletion specs are all there; signup is the gap.~~ Landed
+  2026-04-26 (commit `e2c1715`) — signup + email verification
+  Playwright specs are in `tests-e2e/`. Companion specs for
+  password policy, CAPTCHA, and email-template i18n landed in the
+  same window.
 - **Load test scaffolding.** A locust / k6 scenario hitting login +
   10 admin reads, parameterised by user count, would surface
   regressions in the SSE / event_hub / `auth_sessions` lookup hot

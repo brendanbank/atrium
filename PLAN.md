@@ -172,6 +172,77 @@ respective phase commits.
 
 ---
 
+## Status (auto-updated) — 2026-04-26 (Phases 3, 4, 11 catch-up)
+
+A follow-up round landed the three phases the previous Phases 0-11
+pass had explicitly skipped or punted on. Nothing else changed in
+the platform charter; the table above stands.
+
+- **Phase 3 — password policy + role-mandatory 2FA.**
+  `backend/app/services/password_policy.py` ships
+  `validate_password_against_policy` — cheap structural checks
+  first (min length / mixed case / digit / symbol), then an HIBP
+  k-anonymity range lookup as a final gate. Network failures are
+  fail-open with a 5-minute per-prefix cache so an HIBP incident
+  can't lock every user out. New `AuthConfig` fields:
+  `password_min_length`, `password_require_mixed_case`,
+  `password_require_digit`, `password_require_symbol`,
+  `password_check_breach`, `require_2fa_for_roles`.
+  `auth/users.py:current_user` now returns a distinct 403 code
+  `2fa_enrollment_required` (separate from `totp_required`) when a
+  user holds a role on `require_2fa_for_roles` without an enrolled
+  factor; the SPA axios interceptor in `frontend/src/lib/api.ts`
+  routes both codes to `/2fa`.
+- **Phase 4 — CAPTCHA on the unauthenticated auth endpoints.**
+  `backend/app/services/captcha.py` ships `verify_captcha` plus
+  `CaptchaLoginMiddleware` (gates `/auth/jwt/login` and
+  `/auth/forgot-password`; signup carries its own inline check
+  because of the JSON body). Two providers: Cloudflare Turnstile
+  and hCaptcha — same `siteverify` contract. New `AuthConfig`
+  fields: `captcha_provider` (`none|turnstile|hcaptcha`),
+  `captcha_site_key` (public, rendered into the widget on
+  `/login`). New env var `CAPTCHA_SECRET` (server-side; never
+  bundled into `/app-config`). Posture is fail-open on upstream /
+  network failure — same trade-off as HIBP. The public carve-out
+  in `services/app_config.py:get_public_config` now exposes
+  `auth.allow_signup`, `auth.captcha_provider`, and
+  `auth.captcha_site_key`; everything else on `AuthConfig` stays
+  admin-only.
+- **Phase 11 — multi-language email templates.**
+  `0005_email_template_per_locale` reshapes `email_templates` to a
+  composite-keyed `(key, locale)` PK and seeds nl / de / fr
+  variants of every shipped template (`invite`, `password_reset`,
+  `admin_password_reset_notice`, `email_otp_code`,
+  `account_delete_confirm`, `account_delete_admin_notice`,
+  `email_verify`). `app/email/sender.py` now takes a `locale`
+  argument with an English fallback chain
+  (recipient.preferred_language → en → `LookupError`).
+  `email_outbox.locale` persists the resolved variant so the
+  worker re-renders the same locale on retry. The
+  `reminder_rules.template_key` FK was dropped (the per-locale PK
+  is no longer single-column); the reference is now an
+  application-level soft FK.
+  `frontend/src/components/admin/EmailTemplatesAdmin.tsx` gained a
+  per-locale SegmentedControl; `SystemAdmin.tsx`'s lower section
+  now hosts the captcha config alongside maintenance + retention.
+
+**Migration head:** bumped from `0004_email_verifications` to
+`0005_email_template_per_locale`. The chain stays linear.
+
+**Test infrastructure gotcha:** `app_settings` is in the
+truncate-skip list, so a flag flipped by one test leaks into the
+next. The conftest autouse cleanup previously wiped only the
+`system` namespace (maintenance flag); it now wipes both `system`
+and `auth` (captcha provider + password policy) — same shape, same
+problem. Tests that mutate any other namespace must reset it in
+their teardown.
+
+**E2E coverage extended:** `tests-e2e/password-policy.spec.ts`,
+`tests-e2e/captcha.spec.ts`, `tests-e2e/email-templates-i18n.spec.ts`.
+All passing per the respective phase commits.
+
+---
+
 ## Backend — `backend/app/`
 
 ### Top level

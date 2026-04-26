@@ -1,11 +1,15 @@
 # Atrium
 
 A starter kit for web applications. Auth (password + TOTP + email OTP
-+ WebAuthn), invite-only or opt-in self-serve signup, RBAC with
-super-admin and impersonation, in-app notifications, audit log with
-retention pruning, email templates with a durable retry queue,
-maintenance mode, GDPR-aligned account deletion, and a scheduled-jobs
-queue — all wired in and tested. Bring your own domain on top.
++ WebAuthn), invite-only or opt-in self-serve signup, configurable
+password policy with optional HIBP breach lookup, role-mandatory 2FA
+enrollment, optional CAPTCHA on the unauthenticated auth endpoints
+(Cloudflare Turnstile or hCaptcha), RBAC with super-admin and
+impersonation, in-app notifications, audit log with retention
+pruning, email templates with a durable retry queue and per-locale
+variants (en / nl / de / fr seeded), maintenance mode, GDPR-aligned
+account deletion, and a scheduled-jobs queue — all wired in and
+tested. Bring your own domain on top.
 
 ## Stack
 
@@ -104,6 +108,7 @@ The minimum a fresh deploy needs (see `.env.example` for the rest):
 | `WEBAUTHN_ORIGIN`          | full origin the registration ceremony runs from          |
 | `MAIL_BACKEND`             | `console` / `smtp` / `dummy` (auto-selects from env)     |
 | `SMTP_*`, `MAIL_FROM`      | only when `MAIL_BACKEND=smtp`                            |
+| `CAPTCHA_SECRET`           | server-side secret for Turnstile / hCaptcha (only when the provider is on; the public site key lives in `app_settings`) |
 | `PUBLIC_HOSTNAME`          | baked into the prod frontend bundle                      |
 
 ### App settings (admin UI / API)
@@ -118,13 +123,16 @@ Tunable at runtime, no redeploy. Stored as JSON rows in the
 | `brand`   | name, logo_url, support_email, theme preset, Mantine token overrides          |
 | `system`  | maintenance_mode + message, announcement banner + level                        |
 | `i18n`    | enabled_locales, per-key string overrides per locale                           |
-| `auth`    | allow_signup, signup_default_role_code, require_email_verification, allow_self_delete, delete_grace_days |
+| `auth`    | allow_signup, signup_default_role_code, require_email_verification, allow_self_delete, delete_grace_days, password policy (min length + character classes + breach check), require_2fa_for_roles, captcha_provider + captcha_site_key |
 | `audit`   | retention_days for the `audit_prune` job (`<= 0` = retain forever)            |
 
-`brand`, `system`, and `i18n` (plus `auth.allow_signup` only) are
-public — the frontend hits `/app-config` once at boot to seed the
-theme, language switcher, and login signup-link gate. Everything
-else is admin-only.
+`brand`, `system`, and `i18n` are fully public — the frontend hits
+`/app-config` once at boot to seed the theme, language switcher,
+maintenance page, and announcement banner. From `auth`, only
+`allow_signup`, `captcha_provider`, and `captcha_site_key` are
+exposed publicly (the login + signup pages need them to gate the
+"Sign up" link and render the CAPTCHA widget). Everything else is
+admin-only.
 
 ## What's in the admin UI
 
@@ -137,10 +145,13 @@ Out of the box you get tabs for:
 - **Branding** — logo URL, brand name, support email, theme preset,
   ad-hoc Mantine token overrides
 - **System** — maintenance mode toggle + message, announcement
-  banner + level, audit retention days
+  banner + level, audit retention days, CAPTCHA provider + site key
+  (Turnstile / hCaptcha), password policy, role-mandatory 2FA list
 - **Translations** — enabled locales, per-key string overrides per
   locale
-- **Email templates** — edit subject + HTML with a CKEditor
+- **Email templates** — edit subject + HTML with a CKEditor; per-locale
+  tabs (a SegmentedControl) let you author nl / de / fr variants on
+  top of the seeded English row
 - **Reminders** — wire scheduled emails to host-defined anchors
 - **Audit** — read-only log view, filterable by entity / action
 
@@ -188,10 +199,80 @@ Per-user language: each User row has a `preferred_language` column.
 The profile page exposes a picker; saving it writes back via
 `/users/me` and i18next syncs immediately.
 
-Email-template translations are not shipped yet; host apps that need
-them either add a key-naming convention (`invite`, `invite_nl`) or
-extend `email_templates` with a `language` column and switch the
-template lookup. See [TODO.md](TODO.md).
+### Multi-language email templates
+
+`email_templates` is composite-keyed on `(key, locale)` since
+`0005_email_template_per_locale`. The migration seeds nl / de / fr
+variants of every shipped template (`invite`, `password_reset`,
+`admin_password_reset_notice`, `email_otp_code`,
+`account_delete_confirm`, `account_delete_admin_notice`,
+`email_verify`).
+
+`render_template` and the two sender helpers (`send_and_log` /
+`enqueue_and_log`) take a `locale` argument that defaults to the
+recipient's `preferred_language` and falls back to English when the
+requested locale doesn't have a row. `enqueue_and_log` persists the
+locale on the outbox row so the worker re-renders against the same
+variant on retry, even if the recipient's `preferred_language`
+changes between enqueue and drain.
+
+Author new variants in **Admin → Email templates** — a
+SegmentedControl at the top of the editor switches between locales
+of the selected key.
+
+## Password policy
+
+`AuthConfig` carries five tunables (admin-only — set them in
+**Admin → System** or via PUT `/admin/app-config/auth`):
+
+- `password_min_length` (default 8, bounded 6 to 128)
+- `password_require_mixed_case` (off by default)
+- `password_require_digit` (off)
+- `password_require_symbol` (off)
+- `password_check_breach` (off; calls
+  [haveibeenpwned.com's k-anonymity range API](https://haveibeenpwned.com/API/v3#PwnedPasswords)
+  with the first 5 chars of the SHA-1 — your password never leaves
+  the box)
+
+`app.services.password_policy.validate_password_against_policy` is
+called from the self-serve signup, invite-accept, and
+password-change flows. The HIBP lookup is fail-open with a
+5-minute per-prefix cache: an upstream incident at HIBP must not
+lock every user out of registration.
+
+## Role-mandatory 2FA
+
+`AuthConfig.require_2fa_for_roles: list[str]` (admin-only). Any
+user holding a role on this list without a confirmed 2FA factor
+gets a 403 with `code: "2fa_enrollment_required"` on every domain
+endpoint until they enroll TOTP, email OTP, or WebAuthn. The
+frontend axios interceptor routes the code to `/2fa`, which already
+shows the setup picker to unenrolled users — the distinct code lets
+the UI surface a clearer "your account requires 2FA" hint. Empty
+list (the default) = no enforcement.
+
+## CAPTCHA (optional)
+
+Atrium can gate the unauthenticated auth endpoints (login + forgot
+password + register) on a Cloudflare Turnstile or hCaptcha challenge.
+
+In **Admin → System**:
+
+- Pick `captcha_provider` (`none` / `turnstile` / `hcaptcha`).
+- Paste the public `captcha_site_key` from your provider dashboard.
+
+In `.env`:
+
+- Set `CAPTCHA_SECRET` to the server-side secret. The secret never
+  round-trips through `/app-config` — only the public site key
+  does.
+
+`CaptchaLoginMiddleware` reads the request body once, extracts
+`captcha_token`, and verifies it against the provider's
+`siteverify` endpoint before fastapi-users sees the request.
+Verification is fail-open on network / upstream failure (matching
+the HIBP posture). Operators who need fail-closed should run their
+own reverse proxy in front of atrium.
 
 ## Maintenance mode
 
