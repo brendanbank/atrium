@@ -1,0 +1,17 @@
+# Smoke-test overlay for the Hello World example against the dev stack.
+# Layered on top of compose.yaml; only override is HELLO_TICK_SECONDS=2
+# so the Playwright spec doesn't have to wait 30 seconds per assertion.
+#
+# Usage (manual):
+#   cd examples/hello-world/frontend && pnpm install && pnpm build
+#   docker compose -f docker-compose.yml \
+#                  -f docker-compose.dev.yml \
+#                  -f examples/hello-world/compose.yaml \
+#                  -f examples/hello-world/compose.dev.yaml up -d
+#
+# Or just `make smoke-hello-dev`.
+
+services:
+  worker:
+    environment:
+      HELLO_TICK_SECONDS: "2"

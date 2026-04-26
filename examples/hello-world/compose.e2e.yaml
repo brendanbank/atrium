@@ -1,0 +1,31 @@
+# E2E overlay — runs the example against the prod images that
+# `make smoke` uses. Built from the repo root via the example's
+# Dockerfile (FROM atrium-backend + pip install ./backend) so the
+# host package is baked into the api/worker images.
+#
+# Usage:
+#   make smoke-hello       # builds atrium-backend, atrium-hello-backend, host bundle, then runs the spec
+#
+# The e2e overlay layers on docker-compose.e2e.yml (which already
+# layers on docker-compose.dev.yml + docker-compose.yml). Together
+# they reproduce CI's full setup.
+
+services:
+  api:
+    image: atrium-hello-backend:latest
+    # Override the dev bind mount the dev compose set up — the host
+    # package is baked into the image, no source mount needed.
+    volumes: []
+    environment:
+      ATRIUM_HOST_MODULE: atrium_hello_world.bootstrap
+
+  worker:
+    image: atrium-hello-backend:latest
+    volumes: []
+    environment:
+      ATRIUM_HOST_MODULE: atrium_hello_world.bootstrap
+      HELLO_TICK_SECONDS: "2"
+
+  # The hello-bundle sidecar from compose.yaml works as-is in e2e too —
+  # nginx:alpine serves the prebuilt dist with CORS open. No web-side
+  # mount needed; atrium's web container is unmodified.
