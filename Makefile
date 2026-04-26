@@ -1,5 +1,5 @@
 .PHONY: help up down logs ps build rebuild migrate migration \
-        seed-admin seed-super-admin \
+        seed-admin seed-super-admin dev-bootstrap \
         shell-api shell-db test test-backend test-frontend lint format \
         clean prod-build prod-up prod-down smoke smoke-dev smoke-up smoke-down \
         web-install web-reinstall reset-test-state
@@ -24,6 +24,12 @@ help:
 	@echo "  make migration m=…      Create new alembic revision (autogenerate)"
 	@echo "  make seed-admin …       Create/reset bootstrap admin (email/password/name)"
 	@echo "  make seed-super-admin … Same as seed-admin, plus the super_admin role"
+	@echo "                          Optional: totp_secret=<base32> pre-enrolls TOTP"
+	@echo "  make dev-bootstrap      Clean wipe + up + migrate + seed super_admin"
+	@echo "                          with TOTP. Pulls credentials from 1Password"
+	@echo "                          (item 'atrium dev', vault 'Private' by default;"
+	@echo "                          override with OP_VAULT=… OP_ITEM=…). Copies"
+	@echo "                          .env.example -> .env when .env is missing."
 	@echo "  make reset-test-state   Truncate runtime tables (keeps users + auth + templates)"
 	@echo ""
 	@echo "  make shell-api          Shell into the api container"
@@ -93,15 +99,79 @@ seed-admin:
 # Same as seed-admin but also grants the 'super_admin' role — required
 # for user.impersonate. The init migration grants super_admin to the
 # first user the host app creates; on a fresh DB after wipe-and-reseed,
-# this target re-establishes the privilege.
+# this target re-establishes the privilege. Pass `totp_secret=<base32>`
+# to also pre-enroll TOTP so a password manager (1Password etc.) holding
+# the same secret can generate codes immediately.
 seed-super-admin:
 	@if [ -z "$(email)" ] || [ -z "$(password)" ] || [ -z "$(name)" ]; then \
-		echo "usage: make seed-super-admin email=you@example.com password=secret123 name='Your Name'"; \
+		echo "usage: make seed-super-admin email=you@example.com password=secret123 name='Your Name' [totp_secret=BASE32]"; \
 		exit 1; \
 	fi
 	$(COMPOSE_DEV) run --rm api python -m app.scripts.seed_admin \
 		--email "$(email)" --password "$(password)" --full-name "$(name)" \
-		--super-admin
+		--super-admin \
+		$(if $(totp_secret),--totp-secret "$(totp_secret)",)
+
+# --- Dev bootstrap: one-shot clean + up + migrate + seed super_admin ---
+# Pulls the admin credentials (email + password + TOTP secret) from a
+# 1Password login item via the `op` CLI, copies .env.example -> .env if
+# .env is missing, wipes the dev stack, brings it back up, runs the
+# migrations, and seeds the user as a super_admin with the TOTP
+# pre-enrolled. The same TOTP secret is shared with 1Password so its
+# Authenticator field generates valid codes immediately after seeding.
+#
+# Override OP_VAULT / OP_ITEM if your 1Password layout differs:
+#   make dev-bootstrap OP_VAULT='Familie Bank' OP_ITEM='Atrium Dev'
+#
+# Override DEV_ADMIN_NAME if the full name on the seeded user should
+# differ from the 1Password item title; default is the operator's name.
+OP_VAULT ?= Private
+OP_ITEM ?= atrium dev
+DEV_ADMIN_NAME ?= Brendan Bank
+
+dev-bootstrap:
+	@command -v op >/dev/null 2>&1 || { \
+		echo "1Password CLI not found. Install with: brew install 1password-cli"; \
+		exit 1; \
+	}
+	@op account list >/dev/null 2>&1 || { \
+		echo "1Password CLI is not signed in. Run: eval \$$(op signin)"; \
+		exit 1; \
+	}
+	@if [ ! -f .env ]; then \
+		echo "creating .env from .env.example"; \
+		cp .env.example .env; \
+	else \
+		echo ".env exists; leaving it alone (delete it first to re-copy from .env.example)"; \
+	fi
+	$(MAKE) clean
+	$(MAKE) up
+	@echo "waiting for api /readyz..."
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
+		curl -fsS http://localhost:8000/readyz > /dev/null 2>&1 && break; \
+		sleep 2; \
+	done
+	$(MAKE) migrate
+	@set -eu; \
+	echo "fetching admin credentials from 1Password (vault='$(OP_VAULT)', item='$(OP_ITEM)')..."; \
+	EMAIL=$$(op item get "$(OP_ITEM)" --vault "$(OP_VAULT)" --fields label=username); \
+	PASSWORD=$$(op item get "$(OP_ITEM)" --vault "$(OP_VAULT)" --fields label=password --reveal); \
+	TOTP_SECRET=$$(op item get "$(OP_ITEM)" --vault "$(OP_VAULT)" --fields type=otp --format=json \
+		| python3 -c "import json,sys; print(json.load(sys.stdin)['value'])"); \
+	if [ -z "$$EMAIL" ] || [ -z "$$PASSWORD" ] || [ -z "$$TOTP_SECRET" ]; then \
+		echo "missing field in 1Password item '$(OP_ITEM)' (need username + password + OTP)"; exit 1; \
+	fi; \
+	$(COMPOSE_DEV) run --rm api python -m app.scripts.seed_admin \
+		--email "$$EMAIL" \
+		--password "$$PASSWORD" \
+		--full-name "$(DEV_ADMIN_NAME)" \
+		--super-admin --totp-secret "$$TOTP_SECRET"; \
+	echo ""; \
+	echo "dev environment ready:"; \
+	echo "  email:       $$EMAIL"; \
+	echo "  password:    (from 1Password '$(OP_ITEM)')"; \
+	echo "  totp secret: (from 1Password '$(OP_ITEM)' -> Authenticator)"; \
+	echo "  url:         http://localhost:5173"
 
 # --- Shells ---
 shell-api:

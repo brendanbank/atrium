@@ -48,6 +48,41 @@ and the conventions used.
 
 ## Local dev
 
+Fastest path — one shot, clean reset, credentials pulled from
+1Password so the seeded admin and your password manager share the
+same email / password / TOTP secret without you ever copying them by
+hand:
+
+```sh
+make dev-bootstrap
+```
+
+What it does:
+
+1. Verifies the [1Password CLI](https://developer.1password.com/docs/cli/)
+   is installed and signed in (`brew install 1password-cli`,
+   `eval $(op signin)`).
+2. Copies `.env.example` -> `.env` if `.env` is absent.
+3. `make clean && make up` to wipe the stack and bring it back up.
+4. Runs `alembic upgrade head`.
+5. Reads `username`, `password`, and the OTP field from the 1Password
+   login item **`atrium dev`** in the **`Private`** vault, then seeds
+   the super_admin with all three (TOTP pre-enrolled and confirmed).
+
+Override the 1Password lookup on the command line:
+
+```sh
+make dev-bootstrap OP_VAULT='Familie Bank' OP_ITEM='Atrium Dev' \
+                   DEV_ADMIN_NAME='Your Name'
+```
+
+The 1Password item must be a Login with a username, a password, and
+a One-Time Password field. The OTP field's secret (the base32 string
+you scanned, not the rolling 6-digit code) is what gets installed on
+the seeded user.
+
+Manual setup if you want full control of the steps:
+
 ```sh
 cp .env.example .env
 make up           # dev stack (MySQL + api + worker + web)
@@ -62,6 +97,9 @@ work:
 ```sh
 make seed-super-admin email=you@example.com password=xxxxx name='Your Name'
 ```
+
+Pass `totp_secret=BASE32SECRET` to `seed-super-admin` to pre-enrol
+TOTP at the same time.
 
 URLs:
 
