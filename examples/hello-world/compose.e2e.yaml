@@ -1,0 +1,52 @@
+# E2E overlay — runs the example against the prod images that
+# `make smoke` uses. Built from the repo root via the example's
+# Dockerfile (FROM atrium-backend + pip install ./backend) so the
+# host package is baked into the api/worker images.
+#
+# Usage:
+#   make smoke-hello       # builds atrium-backend, atrium-hello-backend, host bundle, then runs the spec
+#
+# The e2e overlay layers on docker-compose.e2e.yml (which already
+# layers on docker-compose.dev.yml + docker-compose.yml). Together
+# they reproduce CI's full setup.
+
+services:
+  api:
+    # !reset clears the inherited ``build:`` from docker-compose.yml so
+    # ``up --build`` doesn't rebuild atrium-backend and re-tag it as
+    # atrium-hello-backend (clobbering the prebuilt host image). The
+    # !override on volumes/command drops the dev compose's bind-mount
+    # + --reload command so the runtime image's baked-in source is
+    # used unchanged.
+    build: !reset null
+    image: atrium-hello-backend:latest
+    pull_policy: never
+    volumes: !override []
+    command: !override
+      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      ATRIUM_HOST_MODULE: atrium_hello_world.bootstrap
+
+  worker:
+    build: !reset null
+    image: atrium-hello-backend:latest
+    pull_policy: never
+    volumes: !override []
+    environment:
+      ATRIUM_HOST_MODULE: atrium_hello_world.bootstrap
+      HELLO_TICK_SECONDS: "2"
+
+  # E2E overrides the sidecar approach with a same-origin mount. The
+  # CI runner had trouble reaching the sidecar's host-port binding
+  # (no access logs in the failure dump despite host_bundle_url
+  # pointing at it), so route the bundle through atrium's own prod
+  # nginx instead. SPA fetches it from /host/main.js — same origin,
+  # no CORS, no extra port to chase. The dev compose still needs the
+  # sidecar because Vite's dev server rewrites dynamic-import
+  # requests for public/ files with ?import.
+  web:
+    volumes: !override
+      - ./examples/hello-world/frontend/dist:/usr/share/nginx/html/host:ro
+
+  hello-bundle:
+    profiles: ["never"]

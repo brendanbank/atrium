@@ -1,0 +1,66 @@
+# Standalone Hello World demo overlay.
+#
+# Usage:
+#   cd examples/hello-world/frontend && pnpm install && pnpm build
+#   docker compose -f docker-compose.yml \
+#                  -f docker-compose.dev.yml \
+#                  -f examples/hello-world/compose.yaml up -d
+#   docker compose -f docker-compose.yml \
+#                  -f docker-compose.dev.yml \
+#                  -f examples/hello-world/compose.yaml \
+#                  exec api alembic -c /host_app/alembic.ini upgrade head
+#   # set system.host_bundle_url so the SPA loads the bundle:
+#   docker compose ... exec api python -m atrium_hello_world.scripts.seed_host_bundle /host/main.js
+#
+# After that, the home page shows the Hello World card; flipping the
+# switch starts the 30s tick (HELLO_TICK_SECONDS unset → default).
+
+services:
+  api:
+    # Drop --reload that the dev compose set for atrium's hot-reload;
+    # uvicorn's WatchFiles backend was restarting the api mid-test
+    # (likely seeing __pycache__ / .pyc writes inside the bind-mounted
+    # /app). The example doesn't need hot-reload — it's the host
+    # package that changes during dev, not atrium's source — so a
+    # plain uvicorn keeps tests stable. Explicitly re-add --reload
+    # below if you want hot-reload while editing atrium itself.
+    command:
+      ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    environment:
+      ATRIUM_HOST_MODULE: atrium_hello_world.bootstrap
+      PYTHONPATH: /host_app/src:/app
+    volumes:
+      # Mount the host package so atrium's importlib can reach it via
+      # ATRIUM_HOST_MODULE. The dev base image already binds ./backend
+      # at /app; this stacks the host package alongside.
+      - ./examples/hello-world/backend:/host_app
+
+  worker:
+    environment:
+      ATRIUM_HOST_MODULE: atrium_hello_world.bootstrap
+      PYTHONPATH: /host_app/src:/app
+    volumes:
+      - ./examples/hello-world/backend:/host_app
+
+  # Sidecar nginx serving the host bundle on its own origin.
+  # We can't piggy-back on atrium's web container (Vite's dev server
+  # rewrites dynamic-import requests with ``?import`` and tries to
+  # transform pre-built bundles as source, which fails). A separate
+  # static-file server on its own port sidesteps the issue and the
+  # same pattern works in prod (the e2e overlay swaps the bind mount
+  # but keeps the same service shape).
+  hello-bundle:
+    image: nginx:alpine
+    restart: unless-stopped
+    volumes:
+      - ./examples/hello-world/frontend/dist:/usr/share/nginx/html:ro
+      - ./examples/hello-world/host-bundle/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:5174:80"
+    networks:
+      - edge
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5

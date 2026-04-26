@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "atrium-hello-world"
+version = "0.1.0"
+description = "Hello World host extension for Atrium — exercises every slot kind end to end"
+requires-python = ">=3.12"
+
+# All runtime deps come from the atrium-backend image (FastAPI,
+# SQLAlchemy, Alembic, structlog). Listing them here would just shadow
+# the versions atrium picked. The package is installed via
+# `pip install ./examples/hello-world/backend` inside the image so
+# `atrium_hello_world` is importable on PYTHONPATH.
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/atrium_hello_world"]

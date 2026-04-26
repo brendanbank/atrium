@@ -3,11 +3,22 @@
         shell-api shell-db test test-backend test-frontend lint format \
         clean prod-build prod-up prod-down \
         smoke smoke-extended smoke-dev smoke-up smoke-down \
+        smoke-hello smoke-hello-dev smoke-hello-down \
         web-install web-reinstall reset-test-state
 
 COMPOSE_DEV := docker compose -f docker-compose.yml -f docker-compose.dev.yml
 COMPOSE_E2E := docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml
 COMPOSE_PROD := docker compose -f docker-compose.yml
+
+# Hello World example: dev = dev stack + example overlay + smoke-tick
+# overlay; e2e = e2e stack + example overlay + smoke-tick + e2e overlay.
+COMPOSE_HELLO_DEV := $(COMPOSE_DEV) \
+    -f examples/hello-world/compose.yaml \
+    -f examples/hello-world/compose.dev.yaml
+COMPOSE_HELLO_E2E := $(COMPOSE_E2E) \
+    -f examples/hello-world/compose.yaml \
+    -f examples/hello-world/compose.dev.yaml \
+    -f examples/hello-world/compose.e2e.yaml
 
 help:
 	@echo "Atrium — common tasks"
@@ -52,6 +63,15 @@ help:
 	@echo "                          against the e2e stack"
 	@echo "  make smoke-dev          Run the full Playwright suite against the dev stack"
 	@echo "                          (vite + --reload api; stack stays up)"
+	@echo ""
+	@echo "  make smoke-hello-dev    Hello World example smoke against the dev stack."
+	@echo "                          Builds the host bundle, layers the example overlay,"
+	@echo "                          runs host alembic + seeds host_bundle_url, runs the"
+	@echo "                          example's Playwright spec. Stack stays up."
+	@echo "  make smoke-hello        Hello World example smoke against the e2e stack"
+	@echo "                          (prod images + baked-in host backend image)."
+	@echo "                          What CI runs."
+	@echo "  make smoke-hello-down   Tear down the Hello World e2e stack."
 
 # --- Dev stack ---
 up:
@@ -303,6 +323,95 @@ smoke-dev:
 		E2E_EMAIL_OTP_PASSWORD=$(SMOKE_EMAIL_OTP_PASSWORD) \
 		E2E_COMPOSE_FILES='-f docker-compose.yml -f docker-compose.dev.yml' \
 		pnpm exec playwright test
+
+# --- Hello World example smoke ---
+#
+# Two entry points mirroring smoke-dev / smoke:
+#  * smoke-hello-dev  → dev stack, bind-mounted host package, fast iteration
+#  * smoke-hello      → e2e stack, host backend image baked, what CI runs
+#
+# Both build the host frontend bundle into examples/hello-world/frontend/dist
+# (mounted into atrium's web container at /host so the SPA can dynamic-import
+# /host/main.js), bring the stack up, run atrium + host migrations,
+# seed the smoke admin, write system.host_bundle_url, then drive the
+# Playwright spec from examples/hello-world/frontend.
+
+# Reused from the generic smoke setup so the same admin + TOTP secret
+# work across both atrium and the example.
+#
+# Bundle URL differs by overlay:
+#   * dev — sidecar nginx on a separate port, cross-origin URL.
+#     Vite's dev server rewrites public/ dynamic-imports with
+#     ?import and tries to transform them, so we can't piggy-back
+#     on atrium's web container in dev.
+#   * e2e — atrium's prod nginx serves /host/main.js directly from a
+#     bind-mounted dist (compose.e2e.yaml), same-origin, no CORS.
+HELLO_BUNDLE_URL_DEV := http://localhost:5174/main.js
+HELLO_BUNDLE_URL_E2E := /host/main.js
+
+# Both dev and e2e atrium stacks bake the SPA with
+# VITE_API_BASE_URL=http://localhost:8000 (no /api proxy on either
+# variant's web container). Keep the host bundle aligned so its
+# /hello/* fetches reach the api on :8000 and not the SPA-fallback
+# index.html on :5173.
+smoke-hello-build-bundle:
+	cd examples/hello-world/frontend && pnpm install --frozen-lockfile=false --silent && \
+		VITE_API_BASE_URL=http://localhost:8000 pnpm build
+
+smoke-hello-dev: smoke-hello-build-bundle
+	$(COMPOSE_HELLO_DEV) up -d --build api worker web mysql proxy hello-bundle
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
+		curl -fsS http://localhost:8000/readyz > /dev/null && break; \
+		sleep 2; \
+	done
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do \
+		curl -fsS http://localhost:5173/ > /dev/null && break; \
+		sleep 2; \
+	done
+	$(COMPOSE_HELLO_DEV) exec -T api alembic upgrade head
+	$(COMPOSE_HELLO_DEV) exec -T api alembic -c /host_app/alembic.ini upgrade head
+	$(COMPOSE_HELLO_DEV) exec -T api python -m app.scripts.seed_admin \
+		--email "$(SMOKE_EMAIL)" --password "$(SMOKE_PASSWORD)" --full-name 'Smoke Admin' \
+		--super-admin --totp-secret "$(SMOKE_TOTP_SECRET)"
+	$(COMPOSE_HELLO_DEV) exec -T api python -m atrium_hello_world.scripts.seed_host_bundle "$(HELLO_BUNDLE_URL_DEV)"
+	cd examples/hello-world/frontend && pnpm exec playwright install chromium 2>/dev/null \
+		|| pnpm exec playwright install chromium
+	cd examples/hello-world/frontend && \
+		E2E_ADMIN_EMAIL=$(SMOKE_EMAIL) \
+		E2E_ADMIN_PASSWORD=$(SMOKE_PASSWORD) \
+		E2E_ADMIN_TOTP_SECRET=$(SMOKE_TOTP_SECRET) \
+		E2E_COMPOSE_FILES='-f docker-compose.yml -f docker-compose.dev.yml -f examples/hello-world/compose.yaml -f examples/hello-world/compose.dev.yaml' \
+		pnpm exec playwright test
+
+smoke-hello: smoke-hello-build-bundle
+	# Build the atrium-backend runtime image first so the example's
+	# Dockerfile (FROM atrium-backend:latest) has something to extend.
+	docker build -t atrium-backend:latest --target runtime backend
+	# Build the host backend image (atrium-backend + pip install host pkg).
+	docker build -t atrium-hello-backend:latest \
+		--build-arg ATRIUM_BACKEND_IMAGE=atrium-backend:latest \
+		-f examples/hello-world/backend/Dockerfile .
+	$(COMPOSE_HELLO_E2E) up -d --build
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
+		curl -fsS http://localhost:8000/readyz > /dev/null && break; \
+		sleep 2; \
+	done
+	$(COMPOSE_HELLO_E2E) exec -T api alembic upgrade head
+	$(COMPOSE_HELLO_E2E) exec -T api alembic -c /opt/host_app/alembic.ini upgrade head
+	$(COMPOSE_HELLO_E2E) exec -T api python -m app.scripts.seed_admin \
+		--email "$(SMOKE_EMAIL)" --password "$(SMOKE_PASSWORD)" --full-name 'Smoke Admin' \
+		--super-admin --totp-secret "$(SMOKE_TOTP_SECRET)"
+	$(COMPOSE_HELLO_E2E) exec -T api python -m atrium_hello_world.scripts.seed_host_bundle "$(HELLO_BUNDLE_URL_E2E)"
+	cd examples/hello-world/frontend && \
+		E2E_ADMIN_EMAIL=$(SMOKE_EMAIL) \
+		E2E_ADMIN_PASSWORD=$(SMOKE_PASSWORD) \
+		E2E_ADMIN_TOTP_SECRET=$(SMOKE_TOTP_SECRET) \
+		E2E_COMPOSE_FILES='-f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml -f examples/hello-world/compose.yaml -f examples/hello-world/compose.dev.yaml -f examples/hello-world/compose.e2e.yaml' \
+		CI=1 pnpm exec playwright test
+
+smoke-hello-down:
+	$(COMPOSE_HELLO_E2E) down -v --remove-orphans
+	$(COMPOSE_HELLO_DEV) down -v --remove-orphans
 
 # --- Prod ---
 prod-build:
