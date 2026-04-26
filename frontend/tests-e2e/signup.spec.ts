@@ -203,7 +203,7 @@ test.describe('signup + email verification', () => {
           .getByLabel(/full name/i)
           .fill('Closed Tester');
         await visitorPage
-          .getByLabel(/^password$/i, { exact: false })
+          .getByLabel(/^password/i, { exact: false })
           .first()
           .fill(VALID_PASSWORD);
         await visitorPage
@@ -243,7 +243,7 @@ test.describe('signup + email verification', () => {
         .getByLabel(/full name/i)
         .fill('Signup Tester');
       await visitorPage
-        .getByLabel(/^password$/i, { exact: false })
+        .getByLabel(/^password/i, { exact: false })
         .first()
         .fill(VALID_PASSWORD);
       await visitorPage
@@ -405,7 +405,7 @@ test.describe('signup + email verification', () => {
         .getByLabel(/full name/i)
         .fill('Dupe Tester (round 2)');
       await visitorPage
-        .getByLabel(/^password$/i, { exact: false })
+        .getByLabel(/^password/i, { exact: false })
         .first()
         .fill(VALID_PASSWORD);
       await visitorPage
@@ -429,17 +429,17 @@ test.describe('signup + email verification', () => {
     try {
       await visitorPage.goto('/register');
 
-      // Submitting empty fires the Mantine ``required`` validators
-      // that come from the browser's native constraint validation —
-      // the ``required`` attr keeps the form from submitting at all.
-      // Fill an obviously-invalid email + mismatched passwords so the
-      // useForm validator path runs and surfaces user-readable errors.
+      // The TextInput has ``type="email"`` which gates submit on the
+      // browser's HTML5 email validity check. We need a value that
+      // passes that (looks like ``local@host``) but fails Mantine's
+      // stricter ``^\S+@\S+\.\S+$`` validator (which requires a
+      // dotted domain). ``bad@x`` fits.
       await visitorPage
         .getByLabel(/email/i, { exact: false })
         .first()
-        .fill('not-an-email');
+        .fill('bad@x');
       await visitorPage
-        .getByLabel(/^password$/i, { exact: false })
+        .getByLabel(/^password/i, { exact: false })
         .first()
         .fill(VALID_PASSWORD);
       await visitorPage
@@ -462,7 +462,7 @@ test.describe('signup + email verification', () => {
         .first()
         .fill('valid@example.com');
       await visitorPage
-        .getByLabel(/^password$/i, { exact: false })
+        .getByLabel(/^password/i, { exact: false })
         .first()
         .fill('short');
       await visitorPage

@@ -99,7 +99,13 @@ export function ProfilePage() {
   >({
     mutationFn: (payload) => updateMe(payload),
     onSuccess: (updated) => {
-      qc.setQueryData(ME_QUERY_KEY, updated);
+      // PATCH /users/me returns the base user shape WITHOUT roles /
+      // permissions / impersonating_from (those come from
+      // /users/me/context, fetched separately by fetchMe). Merge
+      // onto the existing cache so consumers like AppLayout that
+      // read ``me.roles`` don't see undefined after a save.
+      const previous = qc.getQueryData<CurrentUser>(ME_QUERY_KEY);
+      qc.setQueryData(ME_QUERY_KEY, { ...(previous ?? {}), ...updated });
       if (updated.preferred_language !== i18n.language) {
         i18n.changeLanguage(updated.preferred_language);
       }

@@ -43,10 +43,12 @@ test.describe('Phase 10 — profile preferred_language', () => {
     // "Taal" — same i18n key as the header switcher. We disambiguate
     // by querying inside the profile <form>, which contains exactly
     // one such control.
+    // The profile's InlineField wrapper doesn't tie its <Text> label
+    // to the Select via htmlFor, so getByLabel(/Language/) misses it.
+    // Mantine's useForm.getInputProps sets ``data-path`` on the input
+    // — a stable, unique selector inside the profile form.
     const profileLang = page
-      .locator('form')
-      .first()
-      .getByLabel(/Language|Taal/i);
+      .locator('input[data-path="preferred_language"]');
     await profileLang.click();
     await page.getByRole('option', { name: /Nederlands/ }).click();
 
@@ -85,10 +87,12 @@ test.describe('Phase 10 — profile preferred_language', () => {
     await loginAsUser(page);
     await page.goto('/profile');
 
+    // The profile's InlineField wrapper doesn't tie its <Text> label
+    // to the Select via htmlFor, so getByLabel(/Language/) misses it.
+    // Mantine's useForm.getInputProps sets ``data-path`` on the input
+    // — a stable, unique selector inside the profile form.
     const profileLang = page
-      .locator('form')
-      .first()
-      .getByLabel(/Language|Taal/i);
+      .locator('input[data-path="preferred_language"]');
     await profileLang.click();
     await page.getByRole('option', { name: /Nederlands/ }).click();
 
@@ -105,12 +109,16 @@ test.describe('Phase 10 — profile preferred_language', () => {
       .click();
     await savePromise;
 
-    // The header Select shows the upper-cased locale code as its
-    // displayed value (``code.toUpperCase()``). Mantine's
-    // ``Select.input`` is the visible <input> the user clicks; assert
-    // the value via expect.poll because the i18n change runs after
-    // the mutation resolves.
-    const headerLang = page.getByLabel(/Language|Taal/i).first();
-    await expect.poll(async () => headerLang.inputValue()).toBe('NL');
+    // The header Select shows the upper-cased locale code. After a
+    // successful save the i18n.changeLanguage runs in two places
+    // (ProfilePage onSuccess + AppLayout's preferred-language sync
+    // effect); poll the visible header value rather than chasing a
+    // specific Mantine widget role across versions. ``inputValue``
+    // works for the Mantine v9 Select's underlying input.
+    // Match any input inside the header — there's exactly one Select
+    // there (the language switcher). Mantine class names mangle
+    // across builds; a structural selector is more durable.
+    const headerInput = page.locator('header input').first();
+    await expect.poll(async () => headerInput.inputValue()).toBe('NL');
   });
 });

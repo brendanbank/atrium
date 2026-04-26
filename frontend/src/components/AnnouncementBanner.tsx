@@ -30,6 +30,10 @@ export function AnnouncementBanner() {
       radius={0}
       mb={0}
       style={{ borderRadius: 0 }}
+      // ``data-level`` is the e2e-test seam — Mantine v9 doesn't
+      // expose the colour name as an attribute, only as a computed
+      // style that resolves to a hex value.
+      data-level={level}
     >
       {announcement}
     </Alert>

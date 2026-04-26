@@ -98,10 +98,15 @@ async function patchEmailTemplate(
 function setPreferredLanguageRaw(email: string, locale: string): void {
   const compose = process.env.E2E_COMPOSE_FILES ??
     '-f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml';
+  // The SQL contains literal single quotes around the values; the
+  // outer ``sh -c '...'`` wrapper would otherwise close on the first
+  // inner ``'``. The standard POSIX escape is to replace every ``'``
+  // with ``'\''`` (close, literal-escaped quote, re-open).
   const sql = `UPDATE users SET preferred_language='${locale}' WHERE email='${email}';`;
+  const sqlEscaped = sql.replaceAll("'", "'\\''");
   execSync(
     `docker compose ${compose} exec -T mysql sh -c ` +
-      `'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -e "${sql}"'`,
+      `'mysql -u"$MYSQL_USER" -p"$MYSQL_PASSWORD" "$MYSQL_DATABASE" -e "${sqlEscaped}"'`,
     { encoding: 'utf-8', cwd: '..' },
   );
 }
@@ -140,16 +145,20 @@ test.describe('Phase 11 — multi-language email templates', () => {
       // Modal mounts on the first enabled locale (EN by default).
       // Switch the SegmentedControl to NL; the SegmentedControl is the
       // only one in the modal so finding by role is unambiguous.
-      await page.getByRole('radio', { name: 'nl' }).click();
+      // Mantine SegmentedControl renders ``<label>nl</label>`` with a
+      // visually-hidden radio input. Click the visible label scoped
+      // to the open modal.
+      await page.getByRole('dialog').getByText('nl', { exact: true }).click();
 
       // Wait for the variant query to settle — the body editor
-      // remounts under the new (key, locale) key.
-      await expect(
-        page.getByDisplayValue(originalNl.subject),
-      ).toBeVisible();
+      // remounts under the new (key, locale) key. Use the Subject
+      // text input scoped to the modal; ``toHaveValue`` polls until
+      // the field re-renders with the NL data.
+      const modal = page.getByRole('dialog');
+      const subjectInput = modal.getByLabel(/^Subject$/i);
+      await expect(subjectInput).toHaveValue(originalNl.subject);
 
       const newNlSubject = '[E2E test] Welkom bij Atrium';
-      const subjectInput = page.getByDisplayValue(originalNl.subject);
       await subjectInput.fill(newNlSubject);
 
       const savePromise = page.waitForResponse(
@@ -165,14 +174,19 @@ test.describe('Phase 11 — multi-language email templates', () => {
       await page.reload();
       const reopenRow = page.getByRole('row').filter({ hasText: 'invite' });
       await reopenRow.first().getByRole('button').click();
-      await page.getByRole('radio', { name: 'nl' }).click();
+      // Mantine SegmentedControl renders ``<label>nl</label>`` with a
+      // visually-hidden radio input. Click the visible label scoped
+      // to the open modal.
+      await page.getByRole('dialog').getByText('nl', { exact: true }).click();
 
       // NL subject is the freshly-saved value.
-      await expect(page.getByDisplayValue(newNlSubject)).toBeVisible();
+      const reopenModal = page.getByRole('dialog');
+      const reopenSubject = reopenModal.getByLabel(/^Subject$/i);
+      await expect(reopenSubject).toHaveValue(newNlSubject);
 
       // EN subject is unchanged — switch back to verify.
-      await page.getByRole('radio', { name: 'en' }).click();
-      await expect(page.getByDisplayValue(originalEn.subject)).toBeVisible();
+      await reopenModal.getByText('en', { exact: true }).click();
+      await expect(reopenSubject).toHaveValue(originalEn.subject);
     } finally {
       // Restore both subject and body so a re-run starts from the
       // seed values. The PATCH endpoint accepts partial updates.

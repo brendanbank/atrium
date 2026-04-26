@@ -128,13 +128,10 @@ test('announcement banner renders with the configured severity colour', async ({
     const alert = page.getByRole('alert').filter({ hasText: 'Migration tonight' });
     await expect(alert).toBeVisible();
 
-    const colourVar = await alert.evaluate((el) =>
-      getComputedStyle(el).getPropertyValue('--alert-color').trim(),
-    );
-    // Mantine stores the alert colour as a ``var(--mantine-color-…)``
-    // reference. For ``color="yellow"`` the variable text resolves to
-    // a yellow palette reference.
-    expect(colourVar.toLowerCase()).toMatch(/yellow/);
+    // The component carries the announcement level on ``data-level``
+    // — see the comment in AnnouncementBanner.tsx for why we don't
+    // assert against the computed CSS variable.
+    await expect(alert).toHaveAttribute('data-level', 'warning');
   } finally {
     await setSystemConfig(page.request, { announcement: null });
   }

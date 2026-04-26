@@ -60,7 +60,14 @@ function unflattenDotted(flat: Record<string, string>): Record<string, unknown> 
 
 void (async () => {
   try {
-    const res = await fetch('/app-config', { credentials: 'include' });
+    // Resolve the API base the same way ``lib/api.ts`` does. Bare
+    // ``/app-config`` would hit the Vite dev server (port 5173) which
+    // serves index.html for unknown paths — the JSON parse would
+    // silently fail and overrides would never apply.
+    const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+    const res = await fetch(`${apiBase}/app-config`, {
+      credentials: 'include',
+    });
     if (!res.ok) return;
     const cfg = (await res.json()) as AppConfigShape;
     const overrides = cfg.i18n?.overrides ?? {};

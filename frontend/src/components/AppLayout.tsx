@@ -18,7 +18,7 @@ import {
   IconUser,
   IconLogout,
 } from '@tabler/icons-react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -74,6 +74,28 @@ export function AppLayout() {
       void i18n.changeLanguage(activeLocale);
     }
   }, [activeLocale, currentLocale, i18n]);
+
+  // Sync the UI language to ``users.preferred_language`` ONCE per
+  // mounted session. Without this, a user who picked NL on the
+  // profile page and then logs out/back in would see EN until they
+  // manually switched again. Re-running the sync on every me-update
+  // would override the user's manual header switch — so the ref
+  // gate ensures we only push preferred_language → i18n on the
+  // first non-null ``me`` (and let later changes flow the other
+  // way through the profile page's onSuccess).
+  const preferredLocale = me?.preferred_language;
+  const initialLocaleSynced = useRef(false);
+  useEffect(() => {
+    if (initialLocaleSynced.current) return;
+    if (!preferredLocale) return;
+    initialLocaleSynced.current = true;
+    if (
+      enabledLocales.includes(preferredLocale) &&
+      preferredLocale !== currentLocale
+    ) {
+      void i18n.changeLanguage(preferredLocale);
+    }
+  }, [preferredLocale, currentLocale, enabledLocales, i18n]);
 
   return (
     <AppShell

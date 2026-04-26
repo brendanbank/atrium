@@ -69,8 +69,10 @@ test.describe('Phase 9 — i18n', () => {
       page.getByRole('link', { name: /^Profile$/ }).first(),
     ).toBeVisible();
 
-    // Switch to NL via the header Select.
-    const langSelect = page.getByLabel(/Language|Taal/i);
+    // Switch to NL via the header Select. ``getByLabel`` matches
+    // both the combobox input AND the listbox div in Mantine v9
+    // (both carry aria-label); use the combobox role to be precise.
+    const langSelect = page.getByRole('combobox', { name: /Language|Taal/i });
     await langSelect.click();
     await page.getByRole('option', { name: 'NL' }).click();
 
@@ -85,6 +87,14 @@ test.describe('Phase 9 — i18n', () => {
     await expect(
       page.getByRole('link', { name: /Profiel/ }).first(),
     ).toBeVisible();
+
+    // i18next-browser-languagedetector persists the choice to
+    // localStorage; switch back to EN so a sibling spec running
+    // afterwards starts from a known baseline.
+    await page
+      .getByRole('combobox', { name: /Language|Taal/i })
+      .click();
+    await page.getByRole('option', { name: 'EN' }).click();
   });
 
   test('admin can add a translation override and see it after reload', async ({

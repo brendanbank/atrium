@@ -232,7 +232,7 @@ test.describe('password policy + 2FA enforcement', () => {
         // 10 chars — clears the client-side ``>= 8`` validator but
         // trips the server's ``password_min_length=12`` rule.
         await visitorPage
-          .getByLabel(/^password$/i, { exact: false })
+          .getByLabel(/^password/i, { exact: false })
           .first()
           .fill('abcdefghij');
         await visitorPage
@@ -280,7 +280,7 @@ test.describe('password policy + 2FA enforcement', () => {
           .fill('Mixed Case Tester');
         // Lowercase only — clears length, fails mixed-case.
         await visitorPage
-          .getByLabel(/^password$/i, { exact: false })
+          .getByLabel(/^password/i, { exact: false })
           .first()
           .fill('alllowercase123');
         await visitorPage
@@ -333,7 +333,7 @@ test.describe('password policy + 2FA enforcement', () => {
           .getByLabel(/full name/i)
           .fill('Digit Tester');
         await visitorPage
-          .getByLabel(/^password$/i, { exact: false })
+          .getByLabel(/^password/i, { exact: false })
           .first()
           .fill('abcdefghij');
         await visitorPage
@@ -364,7 +364,7 @@ test.describe('password policy + 2FA enforcement', () => {
           .getByLabel(/full name/i)
           .fill('Symbol Tester');
         await visitorPage
-          .getByLabel(/^password$/i, { exact: false })
+          .getByLabel(/^password/i, { exact: false })
           .first()
           .fill('abcdef1234');
         await visitorPage
@@ -417,7 +417,7 @@ test.describe('password policy + 2FA enforcement', () => {
           .getByLabel(/full name/i)
           .fill('Breach Tester');
         await visitorPage
-          .getByLabel(/^password$/i, { exact: false })
+          .getByLabel(/^password/i, { exact: false })
           .first()
           .fill('12345678');
         await visitorPage

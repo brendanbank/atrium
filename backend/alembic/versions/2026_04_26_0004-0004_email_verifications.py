@@ -83,6 +83,14 @@ def upgrade() -> None:
                     "this email address so you can sign in.</p>"
                     "<p><a href=\"{{ verify_url }}\">Verify your "
                     "email</a></p>"
+                    # Plain-text fallback URL — the console mail
+                    # backend strips tags so the anchor's href would
+                    # otherwise be invisible to anyone reading the
+                    # text version (e.g. plaintext-only mail clients,
+                    # the e2e test suite scraping docker logs).
+                    "<p style=\"font-size:12px;color:#666\">"
+                    "Or paste this link: {{ verify_url }}"
+                    "</p>"
                     "<p>The link expires in 24 hours. If you didn't "
                     "create an account, you can ignore this message.</p>"
                 ),
