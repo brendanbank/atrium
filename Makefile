@@ -1,7 +1,8 @@
 .PHONY: help up down logs ps build rebuild migrate migration \
         seed-admin seed-super-admin dev-bootstrap \
         shell-api shell-db test test-backend test-frontend lint format \
-        clean prod-build prod-up prod-down smoke smoke-dev smoke-up smoke-down \
+        clean prod-build prod-up prod-down \
+        smoke smoke-extended smoke-dev smoke-up smoke-down \
         web-install web-reinstall reset-test-state
 
 COMPOSE_DEV := docker compose -f docker-compose.yml -f docker-compose.dev.yml
@@ -45,10 +46,12 @@ help:
 	@echo "  make prod-up            Start prod stack"
 	@echo "  make prod-down          Stop prod stack"
 	@echo ""
-	@echo "  make smoke              Run Playwright against the e2e stack"
-	@echo "                          (prod web image; mirrors CI)"
-	@echo "  make smoke-dev          Run Playwright against the dev stack"
-	@echo "                          (vite dev server + --reload api; stack stays up)"
+	@echo "  make smoke              Run the Playwright smoke project (4 specs)"
+	@echo "                          against the e2e stack — mirrors CI"
+	@echo "  make smoke-extended     Run the full Playwright suite (smoke + extended)"
+	@echo "                          against the e2e stack"
+	@echo "  make smoke-dev          Run the full Playwright suite against the dev stack"
+	@echo "                          (vite + --reload api; stack stays up)"
 
 # --- Dev stack ---
 up:
@@ -242,6 +245,17 @@ smoke-down:
 	$(COMPOSE_E2E) down -v
 
 smoke: smoke-up
+	cd frontend && E2E_ADMIN_EMAIL=$(SMOKE_EMAIL) E2E_ADMIN_PASSWORD=$(SMOKE_PASSWORD) \
+		E2E_ADMIN_TOTP_SECRET=$(SMOKE_TOTP_SECRET) \
+		E2E_EMAIL_OTP_EMAIL=$(SMOKE_EMAIL_OTP_EMAIL) \
+		E2E_EMAIL_OTP_PASSWORD=$(SMOKE_EMAIL_OTP_PASSWORD) \
+		pnpm playwright test --project=smoke
+
+# Runs both the ``smoke`` and ``extended`` Playwright projects against
+# the e2e stack — the full pre-prune behaviour. Use before risky
+# frontend changes; the PR-gating ``make smoke`` only runs the four
+# golden-path specs.
+smoke-extended: smoke-up
 	cd frontend && E2E_ADMIN_EMAIL=$(SMOKE_EMAIL) E2E_ADMIN_PASSWORD=$(SMOKE_PASSWORD) \
 		E2E_ADMIN_TOTP_SECRET=$(SMOKE_TOTP_SECRET) \
 		E2E_EMAIL_OTP_EMAIL=$(SMOKE_EMAIL_OTP_EMAIL) \

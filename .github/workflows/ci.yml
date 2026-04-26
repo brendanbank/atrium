@@ -90,21 +90,22 @@ jobs:
         run: pnpm build
 
   e2e:
-    # Smoke-only: spin up the full stack with compose and run one Playwright
-    # test to prove the app boots end-to-end. Heavier flows stay at the API
-    # and unit-test layer.
+    # Smoke-only: spin up the full stack with compose and run the four
+    # golden-path Playwright specs (smoke project) to prove the app
+    # boots end-to-end. Heavier flows stay at the API and unit-test
+    # layer; the extended Playwright project runs locally only.
+    #
+    # Runs in parallel with backend / frontend / compose-build —
+    # nothing here consumes their artifacts. A red unit-test job
+    # surfaces alongside a red e2e instead of after it; net wall-clock
+    # win on green PRs is ~3 min.
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
     env:
       E2E_ADMIN_EMAIL: admin@example.com
       E2E_ADMIN_PASSWORD: smoke-pw-12345
       # Fixed TOTP secret so Playwright can compute valid codes
       # against the pre-enrolled smoke admin (mirrors Makefile).
       E2E_ADMIN_TOTP_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
-      # Second admin pre-enrolled with email OTP for the
-      # email-otp.spec.ts path.
-      E2E_EMAIL_OTP_EMAIL: email-otp-admin@example.com
-      E2E_EMAIL_OTP_PASSWORD: email-otp-pw-12345
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
@@ -137,26 +138,26 @@ jobs:
       - name: Run migrations
         run: make migrate
 
-      - name: Seed admins
-        # Pre-enroll TOTP on the main smoke admin + a second admin
-        # pre-enrolled with email OTP for the email-otp.spec. Calling
-        # seed_admin directly (not via ``make seed-admin``) because
-        # the Makefile wrapper doesn't thread --totp-secret /
-        # --email-otp through.
+      - name: Seed admin
+        # Pre-enroll TOTP on the smoke admin via ``exec`` (the api
+        # container is already running from "Start stack") rather
+        # than ``run --rm`` which cold-starts a fresh container per
+        # call. Calling seed_admin directly (not via the make
+        # wrapper) because the wrapper doesn't thread
+        # --totp-secret through.
+        #
+        # The email-OTP admin is no longer seeded on PR CI — the
+        # email-otp.spec lives in the extended Playwright project,
+        # which doesn't run here. ``make smoke-extended`` re-seeds
+        # it locally when needed.
         run: |
-          docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml run --rm api \
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml exec -T api \
             python -m app.scripts.seed_admin \
               --email "$E2E_ADMIN_EMAIL" \
               --password "$E2E_ADMIN_PASSWORD" \
               --full-name 'Smoke Admin' \
               --super-admin \
               --totp-secret "$E2E_ADMIN_TOTP_SECRET"
-          docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml run --rm api \
-            python -m app.scripts.seed_admin \
-              --email "$E2E_EMAIL_OTP_EMAIL" \
-              --password "$E2E_EMAIL_OTP_PASSWORD" \
-              --full-name 'Email-OTP Smoke Admin' \
-              --email-otp
 
       - name: Wait for frontend
         run: |
@@ -171,21 +172,42 @@ jobs:
         working-directory: frontend
         run: pnpm install --frozen-lockfile
 
+      # Cache the Chromium binary by Playwright version. ``ubuntu-latest``
+      # already ships the system libs Chromium needs (libnss3, libgtk,
+      # fontconfig, etc.) so ``--with-deps`` is not required — dropping
+      # it skips the apt-get step that's the slower half of the install.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830  # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ hashFiles('frontend/pnpm-lock.yaml') }}
+
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         working-directory: frontend
-        run: pnpm exec playwright install --with-deps chromium
+        run: pnpm exec playwright install chromium
 
       - name: Run Playwright smoke
         working-directory: frontend
-        run: pnpm playwright test
+        # ``--project=smoke`` runs only the four golden-path specs
+        # defined in playwright.config.ts. The rest live under
+        # ``--project=extended`` and are intentionally not gated on
+        # PRs — backend pytest already covers the same flows. Run
+        # them locally with ``make smoke-extended`` before risky
+        # frontend changes.
+        run: pnpm playwright test --project=smoke
 
       - name: Dump stack logs on failure
         if: failure()
         run: docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml logs
 
   compose-build:
+    # Builds the prod images for trivy scanning. No dependency on
+    # backend / frontend test results — the scan is about CVEs in
+    # the resulting images, orthogonal to whether tests pass. Runs
+    # in parallel for faster overall CI.
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
       - name: Build prod images

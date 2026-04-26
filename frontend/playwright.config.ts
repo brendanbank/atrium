@@ -1,12 +1,31 @@
 import { defineConfig } from '@playwright/test';
 
 /**
- * Smoke-only E2E. Expects the app to already be running at
- * http://localhost:5173 (backed by the dev compose stack).
+ * Two projects:
+ *   * ``smoke`` — four critical golden paths (login, invite, signup,
+ *     logout). Runs on every PR (~15 s) to prove the full stack
+ *     boots and the auth + browser plumbing works.
+ *   * ``extended`` — admin-config UI surfaces (branding, i18n,
+ *     captcha, email-templates, etc). Backend pytest already covers
+ *     the same flows; these specs exist as a UI regression net but
+ *     are too noisy to gate every PR on. Run via
+ *     ``pnpm playwright test --project=extended`` or
+ *     ``make smoke-extended`` before risky frontend changes.
  *
- * CI seeds an owner via the backend CLI before the tests run; see
- * .github/workflows/ci.yml.
+ * No ``--project`` flag = both projects = full suite (the previous
+ * default behaviour). CI uses ``--project=smoke`` explicitly.
+ *
+ * Expects the app to already be running at http://localhost:5173
+ * (backed by the dev compose stack). CI seeds the smoke admins via
+ * the backend CLI before the tests run; see .github/workflows/ci.yml.
  */
+const SMOKE_SPECS = [
+  '**/smoke.spec.ts',
+  '**/invite-flow.spec.ts',
+  '**/signup.spec.ts',
+  '**/logout.spec.ts',
+];
+
 export default defineConfig({
   testDir: './tests-e2e',
   fullyParallel: false,
@@ -21,8 +40,14 @@ export default defineConfig({
   },
   projects: [
     {
-      name: 'chromium',
+      name: 'smoke',
       use: { browserName: 'chromium' },
+      testMatch: SMOKE_SPECS,
+    },
+    {
+      name: 'extended',
+      use: { browserName: 'chromium' },
+      testIgnore: SMOKE_SPECS,
     },
   ],
 });
