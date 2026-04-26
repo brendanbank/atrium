@@ -29,7 +29,7 @@ class BrandConfig(BaseModel):
     """Branding tokens consumed by the frontend Mantine theme."""
 
     name: str = Field(default="Atrium", max_length=100)
-    logo_url: str | None = Field(default=None, max_length=500)
+    logo_url: str | None = Field(default="/logo.svg", max_length=500)
     support_email: str | None = Field(default=None, max_length=255)
     preset: Literal["default", "dark-glass", "classic"] = "default"
     # Curated subset of MantineThemeOverride. Keeping this narrow on

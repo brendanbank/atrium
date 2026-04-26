@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Atrium favicon — simplified frame & void.
+
+  Same concept as logo.svg but tuned for 16x16: thicker
+  proportional strokes, no lintel detail (the inner stroke
+  alone already reads as "opening in a wall"). currentColor
+  inherits from CSS so the icon adapts to dark/light themes.
+-->
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 32 32"
+  width="32"
+  height="32"
+  fill="none"
+  stroke="currentColor"
+  stroke-linecap="square"
+  stroke-linejoin="miter"
+  role="img"
+  aria-label="Atrium"
+>
+  <!-- Outer frame -->
+  <rect
+    x="3"
+    y="3"
+    width="26"
+    height="26"
+    rx="1"
+    ry="1"
+    stroke-width="3"
+  />
+
+  <!-- Inner courtyard / open void -->
+  <rect
+    x="10"
+    y="10"
+    width="12"
+    height="12"
+    stroke-width="2"
+  />
+</svg>
