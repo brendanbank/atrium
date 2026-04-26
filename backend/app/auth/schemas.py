@@ -15,7 +15,13 @@ from app.models.enums import Language
 
 class UserRead(CreateUpdateDictModel):
     id: int
-    email: EmailStr
+    # Plain ``str`` rather than ``EmailStr``: the value is already
+    # validated on the way in (UserCreate / UserUpdate / register),
+    # and soft-deleted users carry a synthetic placeholder
+    # (``deleted+{id}@deleted.invalid``) that the email-validator
+    # library rejects because RFC 6761 reserves the .invalid TLD.
+    # We're echoing whatever the DB holds, not re-checking it.
+    email: str
     is_active: bool = True
     is_verified: bool = False
 
