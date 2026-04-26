@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2023"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+    "moduleDetection": "force",
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  // Only vite.config.ts is part of `tsc -b`. vitest.config.ts and
+  // playwright.config.ts are loaded by their own runners which handle
+  // TS typechecking themselves — building them here would drag in
+  // conflicting Vite 5/6 types that vitest pulls transitively.
+  "include": ["vite.config.ts"]
+}

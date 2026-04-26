@@ -1,0 +1,226 @@
+name: CI
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpw
+          MYSQL_DATABASE: casa_test
+          MYSQL_USER: casa
+          MYSQL_PASSWORD: casa
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -prootpw"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
+
+      - name: Install system deps
+        run: sudo apt-get update && sudo apt-get install -y default-libmysqlclient-dev pkg-config
+
+      - name: Sync deps
+        run: uv sync
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Pytest
+        env:
+          DATABASE_URL: mysql+aiomysql://casa:casa@127.0.0.1:3306/casa_test
+          APP_SECRET_KEY: test-secret
+          JWT_SECRET: test-secret
+        run: uv run pytest --cov=app --cov-report=term-missing
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - uses: pnpm/action-setup@903f9c1a6ebcba6cf41d87230be49611ac97822e  # v6.0.3
+        with:
+          version: 10.33.1
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  e2e:
+    # Smoke-only: spin up the full stack with compose and run one Playwright
+    # test to prove the app boots end-to-end. Heavier flows stay at the API
+    # and unit-test layer.
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    env:
+      E2E_OWNER_EMAIL: owner@example.com
+      E2E_OWNER_PASSWORD: smoke-pw-12345
+      # Fixed TOTP secret so Playwright can compute valid codes
+      # against the pre-enrolled smoke owner (mirrors Makefile).
+      E2E_OWNER_TOTP_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
+      # Second owner pre-enrolled with email OTP for the
+      # email-otp.spec.ts path.
+      E2E_EMAIL_OTP_EMAIL: email-otp-owner@example.com
+      E2E_EMAIL_OTP_PASSWORD: email-otp-pw-12345
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - uses: pnpm/action-setup@903f9c1a6ebcba6cf41d87230be49611ac97822e  # v6.0.3
+        with:
+          version: 10.33.1
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Prepare .env
+        run: cp .env.example .env
+
+      - name: Start stack
+        run: docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml up -d --build
+
+      - name: Wait for API
+        run: |
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:8000/readyz > /dev/null; then exit 0; fi
+            sleep 3
+          done
+          echo "API did not become ready" >&2
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml logs api
+          exit 1
+
+      - name: Run migrations
+        run: make migrate
+
+      - name: Seed owners
+        # Pre-enroll TOTP on the main smoke owner + a second owner
+        # pre-enrolled with email OTP for the email-otp.spec. Calling
+        # seed_owner directly (not via ``make seed-owner``) because
+        # the Makefile wrapper doesn't thread --totp-secret /
+        # --email-otp through.
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml run --rm api \
+            python -m app.scripts.seed_owner \
+              --email "$E2E_OWNER_EMAIL" \
+              --password "$E2E_OWNER_PASSWORD" \
+              --full-name 'E2E Owner' \
+              --totp-secret "$E2E_OWNER_TOTP_SECRET"
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml run --rm api \
+            python -m app.scripts.seed_owner \
+              --email "$E2E_EMAIL_OTP_EMAIL" \
+              --password "$E2E_EMAIL_OTP_PASSWORD" \
+              --full-name 'E2E Email-OTP Owner' \
+              --email-otp
+
+      - name: Wait for frontend
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS http://localhost:5173/ > /dev/null; then exit 0; fi
+            sleep 3
+          done
+          echo "Frontend did not become ready" >&2
+          exit 1
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Playwright smoke
+        working-directory: frontend
+        run: pnpm playwright test
+
+      - name: Dump stack logs on failure
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml logs
+
+  compose-build:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+      - name: Build prod images
+        run: docker compose -f docker-compose.yml build
+
+      # Trivy: filesystem scan catches dep CVEs (uv.lock, pnpm-lock.yaml),
+      # Dockerfile / IaC misconfig, and committed secrets. --ignore-unfixed
+      # avoids blocking on CVEs that have no upstream patch yet.
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+          skip-dirs: frontend/node_modules,backend/.venv
+
+      # Image scans cover OS-package CVEs in the base images (python,
+      # nginx:alpine) that Dependabot doesn't see. Worker shares the api
+      # build target, so scanning api covers it.
+      - name: Trivy image scan (api)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          scan-type: image
+          image-ref: booking-app-casa-api
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'
+
+      - name: Trivy image scan (web)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          scan-type: image
+          image-ref: booking-app-casa-web
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '1'

@@ -1,0 +1,81 @@
+version: 2
+# Each ecosystem declares two groups:
+#   - *-version-updates   (applies-to: version-updates)  — the
+#     weekly scheduled refresh; bundled so we don't get one PR per
+#     dependency.
+#   - *-security-updates  (applies-to: security-updates) — GHAS-
+#     driven vuln fixes; bundled so fixing three CVEs in the same
+#     scan produces one PR, not three.
+#
+# Without the explicit security-updates group, Dependabot opens one
+# PR per advisory even when the `groups` block is set for version
+# updates.
+updates:
+  # Python backend. Dependabot reads pyproject.toml but does NOT
+  # understand uv.lock — the uv-lock-refresh workflow intercepts
+  # its PRs and regenerates the lockfile.
+  - package-ecosystem: "pip"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    groups:
+      pip-version-updates:
+        applies-to: version-updates
+        patterns: ["*"]
+      pip-security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  # Frontend (pnpm). Dependabot reads pnpm-lock.yaml directly.
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    groups:
+      npm-version-updates:
+        applies-to: version-updates
+        patterns: ["*"]
+      npm-security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  # GitHub Actions — pinned SHAs in .github/workflows/ get bumped
+  # when their release tags move.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    groups:
+      actions-version-updates:
+        applies-to: version-updates
+        patterns: ["*"]
+      actions-security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  # Docker base images. Separate entries per Dockerfile because
+  # Dependabot keys on directory. The nginx proxy pulls nginx:alpine
+  # straight from docker-compose.yml — not a tracked ecosystem.
+  - package-ecosystem: "docker"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+    groups:
+      docker-backend-version-updates:
+        applies-to: version-updates
+        patterns: ["*"]
+      docker-backend-security-updates:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  - package-ecosystem: "docker"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    groups:
+      docker-frontend-version-updates:
+        applies-to: version-updates
+        patterns: ["*"]
+      docker-frontend-security-updates:
+        applies-to: security-updates
+        patterns: ["*"]

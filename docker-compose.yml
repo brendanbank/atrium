@@ -1,0 +1,123 @@
+# Production compose. See docker-compose.dev.yml for dev overrides.
+#
+# Services:
+#   proxy    — nginx w/ self-signed cert, terminates TLS on :443
+#              (edge Caddy on the firewall reverse-proxies to us)
+#   api      — FastAPI (uvicorn)
+#   worker   — APScheduler + email sender
+#   web      — built frontend served by nginx (internal)
+#   mysql    — MySQL 8 (internal network only)
+#
+# Outbound SMTP relays via the host's Postfix, reached at
+# host.docker.internal (see extra_hosts below).
+
+services:
+  proxy:
+    image: nginx:alpine
+    restart: unless-stopped
+    environment:
+      PROXY_CERT_CN: ${PROXY_CERT_CN:-atrium-internal}
+    volumes:
+      - ./infra/proxy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./infra/proxy/gen-cert.sh:/docker-entrypoint.d/30-gen-cert.sh:ro
+      - proxy_certs:/etc/nginx/certs
+    ports:
+      # Host 9443 → container 443. Edge Caddy on the firewall proxies
+      # to this host:9443 over the private link.
+      - "9443:443"
+    depends_on:
+      - api
+      - web
+    networks:
+      - edge
+
+  api:
+    build:
+      context: ./backend
+      target: runtime
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_ROLE: api
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - edge
+      - internal
+    extra_hosts:
+      # Reach host Postfix for outbound mail
+      - "host.docker.internal:host-gateway"
+
+  worker:
+    build:
+      context: ./backend
+      target: runtime
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      APP_ROLE: worker
+    command: ["python", "-m", "app.worker"]
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - internal
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # The shared backend image bakes in an HTTP healthcheck (curl
+    # /healthz) that fits the api container but not the worker —
+    # APScheduler exposes no HTTP port, so the inherited check always
+    # fails. Disable here; restart-policy catches crashes.
+    healthcheck:
+      disable: true
+
+  web:
+    build:
+      context: ./frontend
+      target: runtime
+      args:
+        # Relative URL — the SPA and the API are served from the same
+        # origin (edge Caddy → proxy → api), so whatever host the
+        # browser loaded the page from is the host the XHRs go to.
+        VITE_API_BASE_URL: /api
+        VITE_DEFAULT_LANGUAGE: en
+        # Pulled from .env so the GPL / paid key lands in the bundle.
+        # Defaults to GPL if unset; invalid/missing values make
+        # CKEditor throw invalid-license-key at runtime.
+        VITE_CKEDITOR_LICENSE_KEY: ${VITE_CKEDITOR_LICENSE_KEY:-GPL}
+    restart: unless-stopped
+    networks:
+      - edge
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+00:00
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./infra/mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+networks:
+  edge:
+    name: atrium_edge
+  internal:
+    name: atrium_internal
+
+volumes:
+  mysql_data:
+    name: atrium_mysql_data
+  proxy_certs:
+    name: atrium_proxy_certs

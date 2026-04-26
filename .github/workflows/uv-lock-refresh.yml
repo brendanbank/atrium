@@ -1,0 +1,53 @@
+name: uv-lock-refresh
+
+# Dependabot reads ``backend/pyproject.toml`` and opens PRs bumping
+# the pinned version constraints, but it has no uv.lock support —
+# so ``uv sync --frozen`` in CI fails on those PRs until someone
+# runs ``uv lock`` manually.
+#
+# This workflow runs on every Dependabot-authored PR targeting a
+# ``backend/`` file, regenerates the lockfile, and commits the
+# refreshed file back to the same PR branch. Non-Dependabot PRs
+# are ignored.
+
+on:
+  pull_request:
+    paths:
+      - "backend/pyproject.toml"
+      - "backend/uv.lock"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  relock:
+    if: github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          # Check out the PR head (not the merge ref) so we can
+          # push back; GITHUB_TOKEN's default perms cover this
+          # thanks to ``permissions: contents: write`` above.
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
+
+      - name: Regenerate uv.lock
+        working-directory: backend
+        run: uv lock
+
+      - name: Commit lockfile if changed
+        run: |
+          if [ -n "$(git status --porcelain backend/uv.lock)" ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add backend/uv.lock
+            git commit -m "chore(deps): refresh uv.lock after Dependabot bump"
+            git push
+          fi

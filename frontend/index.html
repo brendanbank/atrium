@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Atrium</title>
+
+    <!--
+      CKEditor 5 — CDN build, matching bcource. Loaded via <script> (not
+      npm) because the predefined builds on npm are deprecated and the
+      CDN carries both base + premium features cleanly. The license key
+      is picked up from VITE_CKEDITOR_LICENSE_KEY at build time.
+    -->
+    <link
+      rel="stylesheet"
+      href="https://cdn.ckeditor.com/ckeditor5/47.6.0/ckeditor5.css"
+      crossorigin
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdn.ckeditor.com/ckeditor5-premium-features/47.6.0/ckeditor5-premium-features.css"
+      crossorigin
+    />
+    <script>
+      window.CKEDITOR_LICENSE_KEY = '%VITE_CKEDITOR_LICENSE_KEY%';
+    </script>
+    <script
+      src="https://cdn.ckeditor.com/ckeditor5/47.6.0/ckeditor5.umd.js"
+      crossorigin
+    ></script>
+    <script
+      src="https://cdn.ckeditor.com/ckeditor5-premium-features/47.6.0/ckeditor5-premium-features.umd.js"
+      crossorigin
+    ></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

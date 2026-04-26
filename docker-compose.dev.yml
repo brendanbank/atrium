@@ -1,0 +1,65 @@
+# Dev overrides. Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# - Traefik is disabled (talk to api/web directly on host ports)
+# - MySQL exposed on 127.0.0.1:3306
+# - Backend runs uvicorn with --reload, source bind-mounted
+# - Frontend runs `vite` dev server on 5173
+
+services:
+  traefik:
+    profiles: ["disabled"]
+
+  api:
+    build:
+      context: ./backend
+      target: dev
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    volumes:
+      - ./backend:/app
+    ports:
+      - "127.0.0.1:8000:8000"
+    environment:
+      APP_BASE_URL: http://localhost:5173
+      # /health probes the web container via this URL. Dev runs vite
+      # on 5173; prod serves nginx on 80 (the default in code).
+      HEALTH_WEB_URL: http://web:5173/
+    labels:
+      - traefik.enable=false
+
+  worker:
+    build:
+      context: ./backend
+      target: dev
+    command: ["python", "-m", "app.worker"]
+    volumes:
+      - ./backend:/app
+
+  web:
+    build:
+      context: ./frontend
+      target: dev
+    command: ["pnpm", "dev", "--host", "0.0.0.0", "--port", "5173"]
+    volumes:
+      - ./frontend:/app
+      # Named volume keeps node_modules out of the bind mount. Remove
+      # with `docker compose down -v` to force a reinstall after
+      # package.json changes.
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "127.0.0.1:5173:5173"
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000
+      # Forwarded from the host .env so Vite's %VITE_*% HTML-var
+      # substitution can inject the CKEditor license into index.html.
+      VITE_CKEDITOR_LICENSE_KEY: ${VITE_CKEDITOR_LICENSE_KEY:-GPL}
+    labels:
+      - traefik.enable=false
+
+  mysql:
+    ports:
+      - "127.0.0.1:3306:3306"
+
+volumes:
+  frontend_node_modules:
+    name: atrium_frontend_node_modules

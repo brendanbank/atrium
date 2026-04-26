@@ -1,0 +1,17 @@
+/* iOS Safari auto-zooms on *editable* inputs whose computed font-size
+ * is below 16px. Readonly inputs (e.g. Mantine's MonthPickerInput)
+ * don't trigger the zoom, so leave those at their design size to
+ * avoid a font-size mismatch with adjacent controls. */
+@media (hover: none) and (pointer: coarse) {
+  input[type='text']:not([readonly]),
+  input[type='email']:not([readonly]),
+  input[type='password']:not([readonly]),
+  input[type='number']:not([readonly]),
+  input[type='tel']:not([readonly]),
+  input[type='url']:not([readonly]),
+  input[type='search']:not([readonly]),
+  input:not([type]):not([readonly]),
+  textarea:not([readonly]) {
+    font-size: 16px !important;
+  }
+}
