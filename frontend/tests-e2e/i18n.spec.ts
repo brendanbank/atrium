@@ -48,9 +48,10 @@ test.describe('Phase 9 — i18n', () => {
 
     // The Mantine Select in the header carries
     // ``aria-label={t('common.language')}`` — "Language" in EN, "Taal"
-    // in NL. Probe by aria-label so it works regardless of which
-    // locale is active when this test mounts.
-    const langSelect = page.getByLabel(/Language|Taal/i);
+    // in NL. Mantine v9 attaches the same aria-label to both the
+    // combobox input AND the listbox container; pick the input
+    // explicitly via the ``combobox`` role.
+    const langSelect = page.getByRole('combobox', { name: /Language|Taal/i });
     await expect(langSelect).toBeVisible();
 
     // The current displayed value is the upper-cased locale code.
