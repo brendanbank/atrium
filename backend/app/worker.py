@@ -20,14 +20,17 @@ from apscheduler.triggers.interval import IntervalTrigger
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 
 from app.db import get_engine, get_session_factory
+from app.jobs.builtin_handlers import register_builtin_handlers
 from app.jobs.runner import run_one
 from app.logging import configure_logging, log
-from app.models.ops import AppSetting
+from app.models.enums import JobState
+from app.models.ops import AppSetting, ScheduledJob
 
 POLL_INTERVAL_SECONDS = 60
 MAX_JOBS_PER_TICK = 50
 HEARTBEAT_INTERVAL_SECONDS = 30
 HEARTBEAT_KEY = "worker_heartbeat"
+AUDIT_PRUNE_INTERVAL_SECONDS = 24 * 60 * 60
 
 
 async def _tick() -> None:
@@ -65,8 +68,33 @@ async def _heartbeat() -> None:
             await session.rollback()
 
 
+async def _enqueue_audit_prune() -> None:
+    """Insert a ``scheduled_jobs`` row so the runner picks the prune up
+    on its next tick. Mirrors ``_heartbeat`` for transaction handling
+    so a failure here doesn't tear the worker down."""
+    factory = get_session_factory()
+    async with factory() as session:
+        try:
+            session.add(
+                ScheduledJob(
+                    job_type="audit_prune",
+                    # MySQL DATETIME(0) rounds half-up; nudge into the
+                    # past so ``run_at <= NOW()`` is true on the next
+                    # runner tick (see CLAUDE.md gotcha #1).
+                    run_at=datetime.now(UTC).replace(tzinfo=None),
+                    state=JobState.PENDING.value,
+                    payload={},
+                )
+            )
+            await session.commit()
+        except Exception as exc:
+            log.error("worker.audit_prune.enqueue_failed", error=str(exc))
+            await session.rollback()
+
+
 async def main() -> None:
     configure_logging()
+    register_builtin_handlers()
     log.info("worker.startup", poll_interval=POLL_INTERVAL_SECONDS)
 
     scheduler = AsyncIOScheduler()
@@ -84,6 +112,13 @@ async def main() -> None:
         _heartbeat,
         trigger=IntervalTrigger(seconds=HEARTBEAT_INTERVAL_SECONDS),
         id="worker-heartbeat",
+        coalesce=True,
+        max_instances=1,
+    )
+    scheduler.add_job(
+        _enqueue_audit_prune,
+        trigger=IntervalTrigger(seconds=AUDIT_PRUNE_INTERVAL_SECONDS),
+        id="audit-prune-enqueue",
         coalesce=True,
         max_instances=1,
     )
