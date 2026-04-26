@@ -1,9 +1,241 @@
 import { execSync } from 'child_process';
 
-import type { Page } from '@playwright/test';
+import type { APIRequestContext, Page } from '@playwright/test';
 import { generate as generateTOTP } from 'otplib';
 
-const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000';
+export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000';
+
+/**
+ * Convenience: log in as the smoke-seeded super_admin (the same
+ * account ``loginAndPassTOTP`` uses when given the smoke env vars).
+ * The seed-step in ``make smoke-up`` grants the ``super_admin`` role,
+ * so this is just a thin alias kept around for readability when a
+ * spec specifically depends on super-admin authority.
+ */
+export async function loginAsSuperAdmin(page: Page): Promise<void> {
+  const email = process.env.E2E_ADMIN_EMAIL;
+  const password = process.env.E2E_ADMIN_PASSWORD;
+  const totpSecret = process.env.E2E_ADMIN_TOTP_SECRET;
+  if (!email || !password || !totpSecret) {
+    throw new Error(
+      'E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD / E2E_ADMIN_TOTP_SECRET must be set.',
+    );
+  }
+  await loginAndPassTOTP(page, email, password, totpSecret);
+}
+
+/**
+ * Alias of ``loginAsSuperAdmin`` for specs whose dependency is "any
+ * admin who can manage app_setting" rather than super-admin
+ * specifically. The seeded admin holds both roles, so they're
+ * indistinguishable at the API level — the alias just keeps spec
+ * intent readable.
+ */
+export async function loginAsAdmin(page: Page): Promise<void> {
+  await loginAsSuperAdmin(page);
+}
+
+/**
+ * Provision a fresh non-admin user (``user`` role only) via the
+ * invite + accept flow, enrol them in TOTP, and leave the supplied
+ * ``page`` logged in as that user with a fully promoted session.
+ *
+ * Atrium ships a single seeded admin per smoke run, so any spec that
+ * needs to assert a *negative* permission case (no Branding tab,
+ * /profile language preference) has to mint its own non-admin. We
+ * piggy-back on the admin's API session to mint the invite, then drop
+ * cookies and accept + enrol the new user.
+ *
+ * Returns the credentials so the caller can re-login the same user
+ * across logout/login boundaries (e.g. the "preferred_language
+ * persists" spec).
+ */
+export interface ProvisionedUser {
+  email: string;
+  password: string;
+  totpSecret: string;
+}
+
+export async function loginAsUser(page: Page): Promise<ProvisionedUser> {
+  const adminEmail = process.env.E2E_ADMIN_EMAIL;
+  const adminPassword = process.env.E2E_ADMIN_PASSWORD;
+  const adminTotpSecret = process.env.E2E_ADMIN_TOTP_SECRET;
+  if (!adminEmail || !adminPassword || !adminTotpSecret) {
+    throw new Error(
+      'E2E_ADMIN_EMAIL / E2E_ADMIN_PASSWORD / E2E_ADMIN_TOTP_SECRET must be set.',
+    );
+  }
+  const browserContext = page.context();
+  const reqCtx = browserContext.request;
+
+  // Authenticate as admin, mint the invite.
+  const adminLogin = await reqCtx.post(`${API_URL}/auth/jwt/login`, {
+    form: { username: adminEmail, password: adminPassword },
+  });
+  if (!adminLogin.ok() && adminLogin.status() !== 204) {
+    throw new Error(`admin login failed: ${adminLogin.status()}`);
+  }
+  const adminCode = await generateTOTP({ secret: adminTotpSecret });
+  const adminVerify = await reqCtx.post(`${API_URL}/auth/totp/verify`, {
+    data: { code: adminCode },
+  });
+  if (!adminVerify.ok() && adminVerify.status() !== 204) {
+    throw new Error(`admin totp verify failed: ${adminVerify.status()}`);
+  }
+
+  const email = `e2e-user-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
+  const password = 'user-pw-12345';
+  const inviteResp = await reqCtx.post(`${API_URL}/invites`, {
+    data: { email, full_name: 'E2E User', role_codes: ['user'] },
+  });
+  if (inviteResp.status() !== 201) {
+    throw new Error(
+      `invite create failed: ${inviteResp.status()} ${await inviteResp.text()}`,
+    );
+  }
+  const invite = (await inviteResp.json()) as { token: string };
+
+  // Wipe the admin cookie before any user-side request so we don't
+  // accept the invite under the admin session.
+  await browserContext.clearCookies();
+
+  // Accept invite (no auth needed), then log the user in fresh.
+  const acceptResp = await reqCtx.post(`${API_URL}/invites/accept`, {
+    data: { token: invite.token, password },
+  });
+  if (!acceptResp.ok() && acceptResp.status() !== 204) {
+    throw new Error(
+      `invite accept failed: ${acceptResp.status()} ${await acceptResp.text()}`,
+    );
+  }
+  const userLogin = await reqCtx.post(`${API_URL}/auth/jwt/login`, {
+    form: { username: email, password },
+  });
+  if (!userLogin.ok() && userLogin.status() !== 204) {
+    throw new Error(`user login failed: ${userLogin.status()}`);
+  }
+
+  // Enrol TOTP and confirm — this flips ``totp_passed=True`` on the
+  // current ``auth_sessions`` row so domain endpoints accept the
+  // cookie. Far simpler than driving the /2fa setup picker through
+  // the browser for every spec that needs a non-admin.
+  const setupResp = await reqCtx.post(`${API_URL}/auth/totp/setup`);
+  if (!setupResp.ok()) {
+    throw new Error(
+      `totp setup failed: ${setupResp.status()} ${await setupResp.text()}`,
+    );
+  }
+  const { secret } = (await setupResp.json()) as { secret: string };
+  const code = await generateTOTP({ secret });
+  const confirmResp = await reqCtx.post(`${API_URL}/auth/totp/confirm`, {
+    data: { code },
+  });
+  if (!confirmResp.ok() && confirmResp.status() !== 204) {
+    throw new Error(
+      `totp confirm failed: ${confirmResp.status()} ${await confirmResp.text()}`,
+    );
+  }
+
+  // Mirror cookies onto the browser jar in case Playwright keeps them
+  // separate on this version, then navigate.
+  const cookies = await browserContext.cookies();
+  if (!cookies.some((c) => c.name === 'atrium_auth')) {
+    const apiCookies = await reqCtx.storageState();
+    await browserContext.addCookies(apiCookies.cookies);
+  }
+  await page.goto('/');
+  return { email, password, totpSecret: secret };
+}
+
+/**
+ * PUT the ``brand`` namespace through the admin API. Caller must
+ * already hold a session with ``app_setting.manage`` (an admin /
+ * super_admin login on ``request``).
+ */
+export async function setBrandConfig(
+  request: APIRequestContext,
+  patch: Partial<{
+    name: string;
+    logo_url: string | null;
+    support_email: string | null;
+    preset: 'default' | 'dark-glass' | 'classic';
+    overrides: Record<string, string>;
+  }>,
+): Promise<void> {
+  const cur = await request.get(`${API_URL}/admin/app-config`);
+  if (!cur.ok()) {
+    throw new Error(`app-config read failed: ${cur.status()}`);
+  }
+  const body = (await cur.json()) as { brand?: Record<string, unknown> };
+  const merged = { ...(body.brand ?? {}), ...patch };
+  const resp = await request.put(`${API_URL}/admin/app-config/brand`, {
+    data: merged,
+  });
+  if (!resp.ok()) {
+    throw new Error(`brand put failed: ${resp.status()} ${await resp.text()}`);
+  }
+}
+
+/**
+ * PUT the ``i18n`` namespace through the admin API. Caller must
+ * already hold a session with ``app_setting.manage``.
+ */
+export async function setI18nConfig(
+  request: APIRequestContext,
+  patch: Partial<{
+    enabled_locales: string[];
+    overrides: Record<string, Record<string, string>>;
+  }>,
+): Promise<void> {
+  const cur = await request.get(`${API_URL}/admin/app-config`);
+  if (!cur.ok()) {
+    throw new Error(`app-config read failed: ${cur.status()}`);
+  }
+  const body = (await cur.json()) as { i18n?: Record<string, unknown> };
+  const merged = { ...(body.i18n ?? {}), ...patch };
+  const resp = await request.put(`${API_URL}/admin/app-config/i18n`, {
+    data: merged,
+  });
+  if (!resp.ok()) {
+    throw new Error(`i18n put failed: ${resp.status()} ${await resp.text()}`);
+  }
+}
+
+/**
+ * Reset both branding and i18n namespaces to their atrium defaults.
+ * Used by branding / translations spec teardown so no test leaks an
+ * override into a sibling spec or the next ``make smoke`` run.
+ */
+export async function resetBrandAndI18n(
+  request: APIRequestContext,
+): Promise<void> {
+  // Atrium defaults from app.services.app_config.BrandConfig /
+  // I18nConfig — kept inline rather than hard-coding the model
+  // import path. If a host app extends defaults, override these
+  // by passing the shape they want via setBrandConfig directly.
+  const brandResp = await request.put(`${API_URL}/admin/app-config/brand`, {
+    data: {
+      name: 'Atrium',
+      logo_url: '/logo.svg',
+      support_email: null,
+      preset: 'default',
+      overrides: {},
+    },
+  });
+  if (!brandResp.ok()) {
+    throw new Error(
+      `brand reset failed: ${brandResp.status()} ${await brandResp.text()}`,
+    );
+  }
+  const i18nResp = await request.put(`${API_URL}/admin/app-config/i18n`, {
+    data: { enabled_locales: ['en', 'nl'], overrides: {} },
+  });
+  if (!i18nResp.ok()) {
+    throw new Error(
+      `i18n reset failed: ${i18nResp.status()} ${await i18nResp.text()}`,
+    );
+  }
+}
 
 /**
  * Log in and clear the TOTP challenge using the smoke-seeded secret.
@@ -106,6 +338,160 @@ export async function loginAndPassEmailOTP(
   await page.goto('/');
 }
 
+
+/**
+ * Drive the invite + accept + TOTP enrolment flow end-to-end against
+ * the API and return a fresh user that's logged in on
+ * ``inviteeRequest`` with a full-2FA session (i.e. ``totp_passed=True``
+ * — domain endpoints will accept their cookie).
+ *
+ * We avoid driving the UI for this because the value of these specs
+ * is the maintenance / account-deletion behaviour, not yet-another
+ * pass through the invite flow that ``invite-flow.spec`` already
+ * covers.
+ *
+ * ``adminRequest`` must already hold an admin / super_admin session
+ * (use ``loginAsSuperAdmin`` first). ``inviteeRequest`` should be a
+ * fresh, cookie-less request context so the invitee's
+ * ``atrium_auth`` cookie doesn't collide with the caller's.
+ */
+export interface SeededUser {
+  email: string;
+  password: string;
+  totpSecret: string;
+  inviteId: number;
+}
+
+export async function createAndEnrolUserViaApi(
+  adminRequest: APIRequestContext,
+  inviteeRequest: APIRequestContext,
+  opts: { roleCodes?: string[] } = {},
+): Promise<SeededUser> {
+  const email = `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
+  const password = 'invitee-pw-12345';
+
+  const createResp = await adminRequest.post(`${API_URL}/invites`, {
+    data: {
+      email,
+      full_name: 'E2E Account',
+      role_codes: opts.roleCodes ?? ['user'],
+    },
+  });
+  if (createResp.status() !== 201) {
+    throw new Error(
+      `invite create failed: ${createResp.status()} ${await createResp.text()}`,
+    );
+  }
+  const created = (await createResp.json()) as { id: number; token: string };
+
+  const acceptResp = await inviteeRequest.post(`${API_URL}/invites/accept`, {
+    data: { token: created.token, password },
+  });
+  if (acceptResp.status() !== 201) {
+    throw new Error(
+      `invite accept failed: ${acceptResp.status()} ${await acceptResp.text()}`,
+    );
+  }
+
+  // Log the freshly-created user in to obtain an auth cookie on
+  // ``inviteeRequest``.
+  const loginResp = await inviteeRequest.post(`${API_URL}/auth/jwt/login`, {
+    form: { username: email, password },
+  });
+  if (!loginResp.ok() && loginResp.status() !== 204) {
+    throw new Error(`login failed: ${loginResp.status()}`);
+  }
+
+  // Enroll TOTP and confirm with the first code so the session flips
+  // to ``totp_passed=True``.
+  const setupResp = await inviteeRequest.post(`${API_URL}/auth/totp/setup`);
+  if (!setupResp.ok()) {
+    throw new Error(
+      `totp setup failed: ${setupResp.status()} ${await setupResp.text()}`,
+    );
+  }
+  const { secret } = (await setupResp.json()) as { secret: string };
+  const code = await generateTOTP({ secret });
+  const confirmResp = await inviteeRequest.post(
+    `${API_URL}/auth/totp/confirm`,
+    { data: { code } },
+  );
+  if (!confirmResp.ok() && confirmResp.status() !== 204) {
+    throw new Error(
+      `totp confirm failed: ${confirmResp.status()} ${await confirmResp.text()}`,
+    );
+  }
+
+  return { email, password, totpSecret: secret, inviteId: created.id };
+}
+
+/**
+ * Drive ``POST /auth/jwt/login`` + ``POST /auth/totp/verify`` on a
+ * given page using a pre-seeded TOTP secret. The caller-page-context
+ * variant of ``loginAndPassTOTP`` that doesn't navigate afterwards —
+ * useful when you want to inspect the post-login URL yourself.
+ */
+export async function loginPassTOTPNoNav(
+  page: Page,
+  email: string,
+  password: string,
+  totpSecret: string,
+): Promise<void> {
+  const loginResp = await page.request.post(`${API_URL}/auth/jwt/login`, {
+    form: { username: email, password },
+  });
+  if (!loginResp.ok() && loginResp.status() !== 204) {
+    throw new Error(`login failed: ${loginResp.status()}`);
+  }
+  const code = await generateTOTP({ secret: totpSecret });
+  const verifyResp = await page.request.post(`${API_URL}/auth/totp/verify`, {
+    data: { code },
+  });
+  if (!verifyResp.ok() && verifyResp.status() !== 204) {
+    throw new Error(
+      `totp verify failed: ${verifyResp.status()} ${await verifyResp.text()}`,
+    );
+  }
+  const cookies = await page.context().cookies();
+  if (!cookies.some((c) => c.name === 'atrium_auth')) {
+    const apiCookies = await page.request.storageState();
+    await page.context().addCookies(apiCookies.cookies);
+  }
+}
+
+/**
+ * Set the ``system`` app-config namespace via the admin API. Caller
+ * must hold ``app_setting.manage`` (super_admin / admin).
+ */
+export async function setSystemConfig(
+  request: APIRequestContext,
+  patch: {
+    maintenance_mode?: boolean;
+    maintenance_message?: string;
+    announcement?: string | null;
+    announcement_level?: 'info' | 'warning' | 'critical';
+  },
+): Promise<void> {
+  // The PUT endpoint replaces the namespace, so we read the current
+  // value first and merge our patch on top — keeps unrelated fields
+  // intact if a previous test (or the admin) had configured them.
+  const cur = await request.get(`${API_URL}/admin/app-config`);
+  if (!cur.ok()) {
+    throw new Error(
+      `admin app-config read failed: ${cur.status()} ${await cur.text()}`,
+    );
+  }
+  const body = (await cur.json()) as { system?: Record<string, unknown> };
+  const merged = { ...(body.system ?? {}), ...patch };
+  const resp = await request.put(`${API_URL}/admin/app-config/system`, {
+    data: merged,
+  });
+  if (!resp.ok()) {
+    throw new Error(
+      `system put failed: ${resp.status()} ${await resp.text()}`,
+    );
+  }
+}
 
 function readLatestEmailOTPCodeFromLogs(recipientEmail: string): string {
   // The ConsoleMailBackend prints the rendered plain-text body to
