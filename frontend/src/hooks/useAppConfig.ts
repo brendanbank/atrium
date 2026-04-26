@@ -55,10 +55,15 @@ export function useAppConfig() {
   return useQuery({
     queryKey: PUBLIC_KEY,
     queryFn: async () => (await api.get<PublicAppConfig>('/app-config')).data,
-    // /app-config is hit on every cold load before /users/me — if we
-    // refetch on every focus, the Mantine theme would flicker on tab
-    // switches. The admin Branding form invalidates this key on save.
-    staleTime: Infinity,
+    // Other browsers never see the admin's invalidateQueries on save —
+    // staleTime: Infinity would leave a regular user stuck on the
+    // MaintenancePage or staring at an outdated AnnouncementBanner
+    // until they hard-reloaded. Refetch every 30 s so admin changes
+    // propagate. TanStack Query's structural sharing returns the same
+    // reference when the response is unchanged, so Mantine doesn't
+    // rebuild the theme on each tick.
+    staleTime: 30_000,
+    refetchInterval: 30_000,
     retry: false,
   });
 }
