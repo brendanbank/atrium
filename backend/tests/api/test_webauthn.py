@@ -196,6 +196,7 @@ async def test_register_finish_persists_credential_and_promotes(
     # role is configured. Set enforcement explicitly so the webauthn
     # finish call has something to promote.
     from sqlalchemy.dialects.mysql import insert as mysql_insert
+
     from app.models.ops import AppSetting
 
     factory = async_sessionmaker(engine, expire_on_commit=False)
