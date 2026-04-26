@@ -148,6 +148,41 @@ export async function loginAsUser(page: Page): Promise<ProvisionedUser> {
 }
 
 /**
+ * PUT the ``auth`` namespace through the admin API. Reads the current
+ * value first and merges the patch on top so unrelated fields stay
+ * intact when only flipping a single knob (e.g. ``allow_signup``).
+ *
+ * Caller must already hold a session with ``app_setting.manage``.
+ */
+export async function setAuthConfig(
+  request: APIRequestContext,
+  patch: Partial<{
+    allow_self_delete: boolean;
+    delete_grace_days: number;
+    allow_signup: boolean;
+    signup_default_role_code: string;
+    require_email_verification: boolean;
+  }>,
+): Promise<void> {
+  const cur = await request.get(`${API_URL}/admin/app-config`);
+  if (!cur.ok()) {
+    throw new Error(
+      `admin app-config read failed: ${cur.status()} ${await cur.text()}`,
+    );
+  }
+  const body = (await cur.json()) as { auth?: Record<string, unknown> };
+  const merged = { ...(body.auth ?? {}), ...patch };
+  const resp = await request.put(`${API_URL}/admin/app-config/auth`, {
+    data: merged,
+  });
+  if (!resp.ok()) {
+    throw new Error(
+      `auth put failed: ${resp.status()} ${await resp.text()}`,
+    );
+  }
+}
+
+/**
  * PUT the ``brand`` namespace through the admin API. Caller must
  * already hold a session with ``app_setting.manage`` (an admin /
  * super_admin login on ``request``).
@@ -491,6 +526,66 @@ export async function setSystemConfig(
       `system put failed: ${resp.status()} ${await resp.text()}`,
     );
   }
+}
+
+/**
+ * Read the most recent ``[email/console]`` block out of the api
+ * container's stdout that targets ``recipientEmail`` and was rendered
+ * from ``template``. Returns the parsed ``Subject:`` line plus the
+ * plain-text body so a spec can assert the variant the recipient
+ * actually received (subject in their preferred locale, fallback to
+ * EN when the host hasn't authored their language yet).
+ *
+ * The console backend prints ``Subject:  <one line>`` followed by a
+ * separator and the plain-text body — this helper splits on those
+ * boundaries rather than re-parsing arbitrary HTML.
+ */
+export interface EmailLogEntry {
+  subject: string;
+  body_text: string;
+}
+
+export function readLatestEmailLogEntry(
+  template: string,
+  recipientEmail: string,
+): EmailLogEntry {
+  const compose = process.env.E2E_COMPOSE_FILES ??
+    '-f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml';
+  const raw = execSync(`docker compose ${compose} logs api --tail 400`, {
+    encoding: 'utf-8',
+    cwd: '..',
+  });
+
+  const blocks = raw.split(/={50,}/);
+  for (let i = blocks.length - 1; i >= 0; i--) {
+    const block = blocks[i];
+    if (
+      block.includes('[email/console]') &&
+      block.includes(`To:       ${recipientEmail}`) &&
+      block.includes(`template=${template}`)
+    ) {
+      // Strip docker-compose's leading ``api  | `` prefix from each
+      // line so the body text reads cleanly. The pipe-prefix only
+      // appears when ``docker compose logs`` interleaves containers,
+      // but stripping unconditionally is harmless.
+      const cleaned = block
+        .split('\n')
+        .map((l) => l.replace(/^[a-zA-Z0-9_-]+\s+\|\s?/, ''))
+        .join('\n');
+      const subjectMatch = cleaned.match(/Subject:\s+(.+)/);
+      const subject = subjectMatch ? subjectMatch[1].trim() : '';
+      // The console block separates headers / body / html-marker with
+      // a 70-char ``-`` rule. The text body is the chunk between the
+      // first and second rule (or block end if no html alternative).
+      const parts = cleaned.split(/-{50,}/);
+      // parts[0] = header, parts[1] = text body, parts[2] = html marker
+      const body_text = (parts[1] ?? '').trim();
+      return { subject, body_text };
+    }
+  }
+  throw new Error(
+    `no ${template} message for ${recipientEmail} found in api logs`,
+  );
 }
 
 function readLatestEmailOTPCodeFromLogs(recipientEmail: string): string {
