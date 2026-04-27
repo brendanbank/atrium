@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Brendan Bank
 // SPDX-License-Identifier: BSD-2-Clause
 
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -27,6 +27,7 @@ import { useNavigate } from 'react-router-dom';
 import { TwoFactorSetupModal } from '@/components/TwoFactorSetupModal';
 import { useSelfDelete } from '@/hooks/useAccountDeletion';
 import { ME_QUERY_KEY, useMe } from '@/hooks/useAuth';
+import { getProfileItems, type ProfileSlot } from '@/host/registry';
 import { useLogoutAll, useSessions } from '@/hooks/useSessions';
 import {
   useEmailOTPDisable,
@@ -158,6 +159,27 @@ export function ProfilePage() {
   if (isLoading) return <Loader />;
   if (!me) return <Alert color="red">{t('profile.notLoggedIn')}</Alert>;
 
+  // Items registered by host bundles via ``registerProfileItem``. We
+  // resolve them once per render and bucket by slot so each slot
+  // marker below is just an array lookup. ``condition`` is evaluated
+  // here so a host can hide an item based on roles / permissions.
+  const slottedItems: Record<ProfileSlot, ReturnType<typeof getProfileItems>[number][]> = {
+    'after-profile': [],
+    'after-password': [],
+    'after-2fa': [],
+    'after-roles': [],
+    'after-sessions': [],
+    'before-delete': [],
+  };
+  for (const item of getProfileItems()) {
+    if (item.condition && !item.condition({ me })) continue;
+    slottedItems[item.slot ?? 'after-roles'].push(item);
+  }
+  const renderSlot = (slot: ProfileSlot) =>
+    slottedItems[slot].map((item) => (
+      <Fragment key={item.key}>{item.render()}</Fragment>
+    ));
+
   return (
     <Stack maw={820} gap={6}>
       <Title order={2}>{t('profile.title')}</Title>
@@ -204,6 +226,8 @@ export function ProfilePage() {
         </form>
       </Paper>
 
+      {renderSlot('after-profile')}
+
       <Paper withBorder p="sm" radius="md">
         <Title order={5} mb={4}>
           {t('profile.changePassword')}
@@ -232,6 +256,8 @@ export function ProfilePage() {
           </Stack>
         </form>
       </Paper>
+
+      {renderSlot('after-password')}
 
       <Paper withBorder p="sm" radius="md">
         <Title order={5} mb={4}>
@@ -411,7 +437,11 @@ export function ProfilePage() {
         onEnrolled={() => refetchTotpState()}
       />
 
+      {renderSlot('after-2fa')}
+
       <RolesSummary roles={me.roles} />
+
+      {renderSlot('after-roles')}
 
       <Paper withBorder p="sm" radius="md">
         <Title order={5} mb={4}>
@@ -486,6 +516,10 @@ export function ProfilePage() {
           </Button>
         </Group>
       </Paper>
+
+      {renderSlot('after-sessions')}
+
+      {renderSlot('before-delete')}
 
       <Paper withBorder p="sm" radius="md">
         <Title order={5} mb={4}>

@@ -25,10 +25,12 @@ import {
   getAdminTabs,
   getHomeWidgets,
   getNavItems,
+  getProfileItems,
   getRoutes,
   registerAdminTab,
   registerHomeWidget,
   registerNavItem,
+  registerProfileItem,
   registerRoute,
 } from '@/host/registry';
 
@@ -97,6 +99,36 @@ describe('host registry', () => {
     });
     const tabs = getAdminTabs();
     expect(tabs[0]?.perm).toBe('thing.manage');
+  });
+
+  it('registerProfileItem appends in registration order', () => {
+    registerProfileItem({
+      key: 'a',
+      slot: 'after-roles',
+      render: () => <span>A</span>,
+    });
+    registerProfileItem({
+      key: 'b',
+      slot: 'before-delete',
+      render: () => <span>B</span>,
+    });
+    const items = getProfileItems();
+    expect(items.map((i) => i.key)).toEqual(['a', 'b']);
+    expect(items[0]?.slot).toBe('after-roles');
+    expect(items[1]?.slot).toBe('before-delete');
+  });
+
+  it('registerProfileItem replaces on duplicate key with a warning', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      registerProfileItem({ key: 'p', render: () => <span>first</span> });
+      registerProfileItem({ key: 'p', render: () => <span>second</span> });
+      const items = getProfileItems();
+      expect(items).toHaveLength(1);
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('window.__ATRIUM_REGISTRY__ writes through to the same state', () => {

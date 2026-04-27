@@ -619,6 +619,15 @@ System tab) and the `audit_prune` job will DELETE older rows daily.
 - CKEditor 5 is loaded from the CDN (see `index.html`); the
   `VITE_CKEDITOR_LICENSE_KEY` is injected via Vite HTML
   `%VITE_*%` substitution. Set it to `GPL` to use the free tier.
+- Host bundles inject UI fragments via the registry in
+  `src/host/registry.ts`: `registerHomeWidget`, `registerRoute`,
+  `registerNavItem`, `registerAdminTab`, `registerProfileItem`. All
+  five must be called at import-time before React mounts (see
+  `loadHostBundle` in `src/main.tsx`). `registerProfileItem` takes an
+  optional `slot` (`after-profile` / `after-password` / `after-2fa` /
+  `after-roles` (default) / `after-sessions` / `before-delete`) and an
+  optional `condition({ me })` predicate; the host owns the card
+  chrome (no auto-wrapping in a `Paper`).
 
 ## Testing
 

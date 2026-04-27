@@ -21,6 +21,7 @@ import { IconHandStop } from '@tabler/icons-react';
 
 import { HelloAdminTab } from './HelloAdminTab';
 import { HelloPage } from './HelloPage';
+import { HelloProfileItem } from './HelloProfileItem';
 import { HelloWidget } from './HelloWidget';
 
 interface AtriumRegistry {
@@ -44,6 +45,17 @@ interface AtriumRegistry {
     icon?: unknown;
     perm?: string;
     element: unknown;
+  }) => void;
+  registerProfileItem: (p: {
+    key: string;
+    slot?:
+      | 'after-profile'
+      | 'after-password'
+      | 'after-2fa'
+      | 'after-roles'
+      | 'after-sessions'
+      | 'before-delete';
+    render: () => unknown;
   }) => void;
 }
 
@@ -112,5 +124,10 @@ if (!reg) {
     icon: AtriumReact.createElement(IconHandStop, { size: 14 }),
     perm: 'hello.toggle',
     element: makeWrapperElement(<HelloAdminTab />),
+  });
+  reg.registerProfileItem({
+    key: 'hello-profile',
+    slot: 'after-roles',
+    render: () => makeWrapperElement(<HelloProfileItem />),
   });
 }

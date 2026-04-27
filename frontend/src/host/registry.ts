@@ -5,9 +5,10 @@
  * Atrium host-extension registry.
  *
  * Atrium ships only the platform shell. Host applications inject their
- * own UI fragments via four registries — home widgets, routes, nav
- * items, and admin tabs — populated at SPA boot from a runtime-loaded
- * host bundle (see ``main.tsx`` and ``system.host_bundle_url``).
+ * own UI fragments via five registries — home widgets, routes, nav
+ * items, admin tabs, and profile items — populated at SPA boot from a
+ * runtime-loaded host bundle (see ``main.tsx`` and
+ * ``system.host_bundle_url``).
  *
  * The registries are deliberately thin: each one is an array, ordered
  * by registration call order, and the consumer components iterate
@@ -66,10 +67,33 @@ export type AdminTab = {
   element: ReactElement;
 };
 
+/** Slot inside ``ProfilePage``'s vertical card stack where a host
+ *  item is inserted. Default ``after-roles`` — the natural place for
+ *  extra preferences. */
+export type ProfileSlot =
+  | 'after-profile'
+  | 'after-password'
+  | 'after-2fa'
+  | 'after-roles'
+  | 'after-sessions'
+  | 'before-delete';
+
+export type ProfileItem = {
+  key: string;
+  /** Insertion slot. Default ``after-roles``. */
+  slot?: ProfileSlot;
+  /** Optional visibility predicate, mirrors ``NavItem``. The profile
+   *  page early-returns on a missing user, so ``me`` is never null
+   *  when this fires. */
+  condition?: (ctx: { me: CurrentUser }) => boolean;
+  render: () => ReactElement;
+};
+
 const homeWidgets: HomeWidget[] = [];
 const routes: RouteEntry[] = [];
 const navItems: NavItem[] = [];
 const adminTabs: AdminTab[] = [];
+const profileItems: ProfileItem[] = [];
 
 function registerHomeWidget(widget: HomeWidget): void {
   if (homeWidgets.some((w) => w.key === widget.key)) {
@@ -119,11 +143,24 @@ function registerAdminTab(tab: AdminTab): void {
   adminTabs.push(tab);
 }
 
+function registerProfileItem(item: ProfileItem): void {
+  if (profileItems.some((p) => p.key === item.key)) {
+    console.warn(
+      `[atrium-registry] duplicate profile item key "${item.key}"; ` +
+        `last registration wins`,
+    );
+    const idx = profileItems.findIndex((p) => p.key === item.key);
+    profileItems.splice(idx, 1);
+  }
+  profileItems.push(item);
+}
+
 export const __ATRIUM_REGISTRY__ = {
   registerHomeWidget,
   registerRoute,
   registerNavItem,
   registerAdminTab,
+  registerProfileItem,
 } as const;
 
 export type AtriumRegistry = typeof __ATRIUM_REGISTRY__;
@@ -144,6 +181,10 @@ export function getAdminTabs(): readonly AdminTab[] {
   return adminTabs;
 }
 
+export function getProfileItems(): readonly ProfileItem[] {
+  return profileItems;
+}
+
 /** Test-only: drop every registration. Production code never calls
  *  this — host bundles register once at boot and stay. */
 export function __resetRegistryForTests(): void {
@@ -151,6 +192,7 @@ export function __resetRegistryForTests(): void {
   routes.length = 0;
   navItems.length = 0;
   adminTabs.length = 0;
+  profileItems.length = 0;
 }
 
 declare global {
@@ -168,4 +210,5 @@ export {
   registerRoute,
   registerNavItem,
   registerAdminTab,
+  registerProfileItem,
 };
