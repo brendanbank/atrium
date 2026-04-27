@@ -22,6 +22,8 @@ COMPOSE_HELLO_E2E := $(COMPOSE_E2E) \
     -f examples/hello-world/compose.yaml \
     -f examples/hello-world/compose.dev.yaml \
     -f examples/hello-world/compose.e2e.yaml
+COMPOSE_HELLO_GHCR := $(COMPOSE_HELLO_E2E) \
+    -f examples/hello-world/compose.ghcr.yaml
 
 help:
 	@echo "Atrium — common tasks"
@@ -415,6 +417,104 @@ smoke-hello: smoke-hello-build-bundle
 smoke-hello-down:
 	$(COMPOSE_HELLO_E2E) down -v --remove-orphans
 	$(COMPOSE_HELLO_DEV) down -v --remove-orphans
+
+# --- Hello World against published GHCR images ---
+# Brings up the example with api/worker/web all extending the
+# published ghcr.io/brendan-bank/atrium-{backend,web} images via the
+# overlays in examples/hello-world/{backend,frontend}/Dockerfile, so
+# the run is a faithful test of the published-image extension model
+# rather than locally-built atrium binaries with bind mounts.
+#
+# Pulls dev creds from the same 1Password item dev-bootstrap uses
+# (vault='$(OP_VAULT)', item='$(OP_ITEM)') so you can click around
+# at http://localhost:5173 with your normal admin login.
+dev-bootstrap-hello-ghcr:
+	@command -v op >/dev/null 2>&1 || { \
+		echo "1Password CLI not found. Install with: brew install 1password-cli"; \
+		exit 1; \
+	}
+	@op account list >/dev/null 2>&1 || { \
+		echo "1Password CLI is not signed in. Run: eval \$$(op signin)"; \
+		exit 1; \
+	}
+	@if [ ! -f .env ]; then \
+		echo "creating .env from .env.example"; \
+		cp .env.example .env; \
+	fi
+	@gh auth token | docker login ghcr.io -u brendan-bank --password-stdin >/dev/null 2>&1 || { \
+		echo "docker login to ghcr.io failed (gh auth required for private images)"; exit 1; \
+	}
+	docker pull ghcr.io/brendan-bank/atrium-backend:0.9.1
+	docker pull ghcr.io/brendan-bank/atrium-web:0.9.1
+	$(COMPOSE_HELLO_GHCR) up -d --build
+	@echo "waiting for api /readyz..."
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
+		curl -fsS http://localhost:8000/readyz > /dev/null && break; \
+		sleep 2; \
+	done
+	$(COMPOSE_HELLO_GHCR) exec -T api alembic upgrade head
+	$(COMPOSE_HELLO_GHCR) exec -T api alembic -c /opt/host_app/alembic.ini upgrade head
+	@set -eu; \
+	echo "fetching admin credentials from 1Password (vault='$(OP_VAULT)', item='$(OP_ITEM)')..."; \
+	EMAIL=$$(op item get "$(OP_ITEM)" --vault "$(OP_VAULT)" --fields label=username); \
+	PASSWORD=$$(op item get "$(OP_ITEM)" --vault "$(OP_VAULT)" --fields label=password --reveal); \
+	TOTP_SECRET=$$(op item get "$(OP_ITEM)" --vault "$(OP_VAULT)" --fields type=otp --format=json \
+		| python3 -c "import json,sys; print(json.load(sys.stdin)['value'])"); \
+	if [ -z "$$EMAIL" ] || [ -z "$$PASSWORD" ] || [ -z "$$TOTP_SECRET" ]; then \
+		echo "missing field in 1Password item '$(OP_ITEM)' (need username + password + OTP)"; exit 1; \
+	fi; \
+	$(COMPOSE_HELLO_GHCR) exec -T api python -m app.scripts.seed_admin \
+		--email "$$EMAIL" \
+		--password "$$PASSWORD" \
+		--full-name "$(DEV_ADMIN_NAME)" \
+		--super-admin --totp-secret "$$TOTP_SECRET"; \
+	$(COMPOSE_HELLO_GHCR) exec -T api python -m atrium_hello_world.scripts.seed_host_bundle "$(HELLO_BUNDLE_URL_E2E)"; \
+	echo ""; \
+	echo "hello-world (GHCR images) ready:"; \
+	echo "  email:       $$EMAIL"; \
+	echo "  password:    (from 1Password '$(OP_ITEM)')"; \
+	echo "  totp secret: (from 1Password '$(OP_ITEM)' -> Authenticator)"; \
+	echo "  url:         https://localhost:9443"; \
+	echo ""; \
+	echo "Note: the GHCR atrium-web is published with VITE_API_BASE_URL=/api,"; \
+	echo "so it must be reached via the prod proxy on :9443 (where /api"; \
+	echo "routes to the api service). The :5173 dev port serves the SPA"; \
+	echo "directly with no /api router and won't work for this stack."; \
+	echo "Browsers will warn about the self-signed cert — click through."
+
+dev-bootstrap-hello-ghcr-down:
+	$(COMPOSE_HELLO_GHCR) down -v --remove-orphans
+
+# CI-style end-to-end smoke against the published GHCR images. Same
+# shape as smoke-hello but uses examples/hello-world/compose.ghcr.yaml,
+# seeds with the fixed smoke creds, and points Playwright at the
+# prod proxy on :9443 (which is where the GHCR-built SPA expects /api
+# to be reachable).
+smoke-hello-ghcr:
+	@gh auth token | docker login ghcr.io -u brendan-bank --password-stdin >/dev/null 2>&1 || { \
+		echo "docker login to ghcr.io failed (gh auth required for private images)"; exit 1; \
+	}
+	docker pull ghcr.io/brendan-bank/atrium-backend:0.9.1
+	docker pull ghcr.io/brendan-bank/atrium-web:0.9.1
+	$(COMPOSE_HELLO_GHCR) up -d --build
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
+		curl -fsS http://localhost:8000/readyz > /dev/null && break; \
+		sleep 2; \
+	done
+	$(COMPOSE_HELLO_GHCR) exec -T api alembic upgrade head
+	$(COMPOSE_HELLO_GHCR) exec -T api alembic -c /opt/host_app/alembic.ini upgrade head
+	$(COMPOSE_HELLO_GHCR) exec -T api python -m app.scripts.seed_admin \
+		--email "$(SMOKE_EMAIL)" --password "$(SMOKE_PASSWORD)" --full-name 'Smoke Admin' \
+		--super-admin --totp-secret "$(SMOKE_TOTP_SECRET)"
+	$(COMPOSE_HELLO_GHCR) exec -T api python -m atrium_hello_world.scripts.seed_host_bundle "$(HELLO_BUNDLE_URL_E2E)"
+	cd examples/hello-world/frontend && \
+		E2E_ADMIN_EMAIL=$(SMOKE_EMAIL) \
+		E2E_ADMIN_PASSWORD=$(SMOKE_PASSWORD) \
+		E2E_ADMIN_TOTP_SECRET=$(SMOKE_TOTP_SECRET) \
+		E2E_BASE_URL=https://localhost:9443 \
+		E2E_API_URL=https://localhost:9443/api \
+		E2E_COMPOSE_FILES='-f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml -f examples/hello-world/compose.yaml -f examples/hello-world/compose.dev.yaml -f examples/hello-world/compose.e2e.yaml -f examples/hello-world/compose.ghcr.yaml' \
+		CI=1 pnpm exec playwright test
 
 # --- Prod ---
 prod-build:

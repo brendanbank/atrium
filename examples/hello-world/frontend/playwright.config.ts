@@ -42,6 +42,10 @@ export default defineConfig({
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   use: {
     baseURL: process.env.E2E_BASE_URL ?? 'http://localhost:5173',
+    // The GHCR variant runs against the prod proxy on :9443 with a
+    // self-signed cert; tests are local-only so blanket-accept TLS
+    // errors rather than threading a per-target switch.
+    ignoreHTTPSErrors: true,
     // Per-action ceilings so a hung click or fetch doesn't sit at the
     // 30 s test ceiling.
     actionTimeout: 5_000,

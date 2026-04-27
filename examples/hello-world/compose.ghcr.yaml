@@ -1,0 +1,64 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
+# GHCR overlay — runs the example against the published GHCR images
+# rather than locally-built atrium-{backend,web}. Symmetric with the
+# e2e overlay: both api/worker and web are extended via a Dockerfile
+# that COPYs / pip-installs the host bits onto the published base.
+#
+# api/worker: rebuilds examples/hello-world/backend/Dockerfile against
+# the GHCR atrium-backend base and tags as atrium-hello-backend:latest
+# (the e2e overlay's image: pin picks it up).
+#
+# web: previously relied on compose.e2e.yaml's bind mount of
+# ./examples/hello-world/frontend/dist into the locally-built
+# atrium-web container. That isn't how a real host would deploy on
+# top of the published image, so this overlay swaps the bind mount
+# for a Dockerfile-baked image (FROM ghcr.io/.../atrium-web:0.9.1
+# + COPY dist/ /usr/share/nginx/html/host).
+#
+# Usage (from repo root):
+#   docker compose \
+#     -f docker-compose.yml \
+#     -f docker-compose.dev.yml \
+#     -f docker-compose.e2e.yml \
+#     -f examples/hello-world/compose.yaml \
+#     -f examples/hello-world/compose.dev.yaml \
+#     -f examples/hello-world/compose.e2e.yaml \
+#     -f examples/hello-world/compose.ghcr.yaml \
+#     up -d --build
+
+services:
+  api:
+    build: !override
+      context: .
+      dockerfile: examples/hello-world/backend/Dockerfile
+      args:
+        ATRIUM_BACKEND_IMAGE: ghcr.io/brendan-bank/atrium-backend:0.9.1
+    image: atrium-hello-backend:latest
+    pull_policy: never
+
+  worker:
+    build: !override
+      context: .
+      dockerfile: examples/hello-world/backend/Dockerfile
+      args:
+        ATRIUM_BACKEND_IMAGE: ghcr.io/brendan-bank/atrium-backend:0.9.1
+    image: atrium-hello-backend:latest
+    pull_policy: never
+
+  web:
+    build:
+      context: .
+      dockerfile: examples/hello-world/frontend/Dockerfile
+      args:
+        ATRIUM_WEB_IMAGE: ghcr.io/brendan-bank/atrium-web:0.9.1
+        # Same-origin /api routes via the prod proxy on :9443. The
+        # GHCR atrium-web SPA is built with the same value, so the
+        # SPA and the host bundle agree on a single API base.
+        VITE_API_BASE_URL: /api
+    image: atrium-hello-web:latest
+    pull_policy: never
+    # Drop compose.e2e.yaml's bind mount of dist into /host — the
+    # bundle is now baked into the image at the same path.
+    volumes: !override []
