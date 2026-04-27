@@ -24,6 +24,22 @@ wired in and tested.
 It's not opinionated about your domain — it ships *only* the
 platform layer. Bring your own bookings, posts, invoices, whatever.
 
+There are two ways to add a domain on top:
+
+- **Out-of-tree (recommended for new projects)**: atrium is consumed as
+  a base Docker image; the host project lives in its own repo, FROMs the
+  published image, and adds bespoke functionality through declared
+  extension points without editing atrium files. The contract is
+  documented in [`docs/published-images.md`](docs/published-images.md);
+  the bootstrap walkthrough is in
+  [`docs/new-project/`](docs/new-project/) (`README.md` for humans,
+  `SKILL.md` for AI agents); the canonical example is
+  [`examples/hello-world/`](examples/hello-world/).
+- **In-tree**: fork atrium, add models / routers / schemas directly
+  under `backend/app/`. Works fine if you only have one app and don't
+  mind merging atrium upgrades manually. The README's *Building on top*
+  section describes this path.
+
 ## Stack at a glance
 
 | Layer        | What                                                    |
@@ -120,6 +136,17 @@ frontend/
 infra/
   mysql/my.cnf
   proxy/nginx.conf, gen-cert.sh   internal TLS terminator (prod)
+
+docs/
+  published-images.md     image catalogue + host extension contract
+  new-project/            from-scratch bootstrap walkthrough
+    README.md             verbose human guide (full file templates,
+                          retrofit playbook, gotchas)
+    SKILL.md              AI-driveable procedure (frontmatter + steps)
+
+examples/
+  hello-world/            canonical worked example exercising every
+                          extension slot end to end
 
 docker-compose.yml        prod
 docker-compose.dev.yml    dev overrides: bind mounts, --reload, host ports

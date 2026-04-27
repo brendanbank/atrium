@@ -390,6 +390,16 @@ toggles) take effect without a restart.
 
 ## Building on top
 
+> **Starting a new project from scratch?** See
+> [`docs/new-project/`](docs/new-project/) — a step-by-step bootstrap
+> guide ([`README.md`](docs/new-project/README.md)) and an AI-driveable
+> [`SKILL.md`](docs/new-project/SKILL.md). Atrium is consumed as a base
+> Docker image; your project lives in its own repo and extends atrium
+> through declared extension points without editing atrium files. The
+> guide covers the full skeleton (host package + frontend bundle +
+> Dockerfile + compose), the first-boot ritual, and a retrofit playbook
+> for moving an existing app onto atrium.
+
 The starter ships *only* the platform layer. To add your domain:
 
 1. Add models in `backend/app/models/your_thing.py`, import them from
