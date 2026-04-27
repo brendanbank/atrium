@@ -30,8 +30,15 @@ updates:
         patterns: ["*"]
 
   # Frontend (pnpm). Dependabot reads pnpm-lock.yaml directly.
+  # `directories` (plural) folds the example app under the same
+  # group, so a weekly refresh produces one PR across both paths
+  # instead of one per directory. Without this, a vite bump in
+  # /examples/hello-world/frontend opens its own PR even though
+  # the same package lives in /frontend.
   - package-ecosystem: "npm"
-    directory: "/frontend"
+    directories:
+      - "/frontend"
+      - "/examples/hello-world/frontend"
     schedule:
       interval: "weekly"
     groups:
