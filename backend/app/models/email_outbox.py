@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Outbox queue for outbound email.
 
 When ``MAIL_BACKEND=smtp`` and the relay is unavailable, ``send_and_log``

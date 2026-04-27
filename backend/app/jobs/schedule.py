@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Queue helpers for the scheduled_jobs table.
 
 Atrium ships only the claim primitive (`next_due_job`). Host apps

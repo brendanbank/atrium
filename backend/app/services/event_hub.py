@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """In-process pub/sub for server-sent notification events.
 
 One asyncio.Queue per connection, keyed by user id. Multiple open

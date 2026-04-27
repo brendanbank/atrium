@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """APScheduler worker.
 
 One process, one container. Every ``POLL_INTERVAL_SECONDS`` it drains

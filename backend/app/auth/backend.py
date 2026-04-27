@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """JWT auth backend with httpOnly cookie transport, backed by a
 server-side ``auth_sessions`` row.
 

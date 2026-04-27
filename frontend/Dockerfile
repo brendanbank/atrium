@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 # Multi-stage frontend Dockerfile.
 # - dev:     pnpm dev server with HMR (used by docker-compose.dev.yml)
 # - builder: pnpm build → dist/

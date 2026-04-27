@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 import { describe, it, expect } from 'vitest';
 
 import i18n from '@/i18n';

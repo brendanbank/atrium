@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 # Host backend image — extends atrium-backend with the example package
 # pip-installed into atrium's virtualenv. The base image's CMD (uvicorn)
 # is unchanged; the host's behaviour is wired in by setting

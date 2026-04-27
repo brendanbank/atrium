@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Role + permission administration (gated by ``role.manage``).
 
 Permissions are a fixed, code-defined catalogue seeded via migrations —

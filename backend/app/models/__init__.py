@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """SQLAlchemy models — import everything so Base.metadata is populated
 before Alembic autogenerate and before any query runs."""
 

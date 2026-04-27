@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """ATRIUM_HOST_MODULE bootstrap hook (main.py + worker.py).
 
 The hook lets a host project register routers, app-config namespaces,

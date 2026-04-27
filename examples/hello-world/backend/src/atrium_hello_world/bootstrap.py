@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Atrium host bootstrap entry points.
 
 The atrium image imports this module on startup when the operator sets

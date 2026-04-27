@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Session-management endpoints that live above fastapi-users.
 
 ``/auth/logout-all`` revokes every active session for the current

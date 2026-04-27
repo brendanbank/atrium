@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 # E2E overlay — runs the example against the prod images that
 # `make smoke` uses. Built from the repo root via the example's
 # Dockerfile (FROM atrium-backend + pip install ./backend) so the

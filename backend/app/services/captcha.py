@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Pluggable CAPTCHA verification.
 
 Two providers — Cloudflare Turnstile and hCaptcha — share the same

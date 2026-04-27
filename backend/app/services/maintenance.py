@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Maintenance-mode gate.
 
 Reads the ``system`` namespace from ``app_settings``. When

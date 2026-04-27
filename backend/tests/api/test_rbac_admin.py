@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Role admin CRUD + privilege-escalation guard on user role assignment.
 
 Two surfaces to pin down:

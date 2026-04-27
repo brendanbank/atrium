@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """In-app notification helper.
 
 Writes a `notifications` row and pokes the user's SSE channel via

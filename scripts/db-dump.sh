@@ -1,4 +1,7 @@
 #!/usr/bin/env bash
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 # Stream a full mysqldump of the running MySQL container to stdout.
 #
 # Usage:

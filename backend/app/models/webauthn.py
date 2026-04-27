@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """WebAuthn / FIDO2 tables.
 
 ``WebAuthnCredential`` — one row per registered authenticator. A user

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 import type { AppNotification } from '@/hooks/useNotifications';
 
 /** Atrium ships a kind-agnostic notification renderer. The backend

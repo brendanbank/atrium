@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Idempotent permission + role-grant seeding for atrium and host apps.
 
 Atrium seeds its own permissions in migration 0001. Host apps need the

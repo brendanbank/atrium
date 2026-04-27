@@ -1,3 +1,7 @@
+/* Copyright (c) 2026 Brendan Bank
+ * SPDX-License-Identifier: BSD-2-Clause
+ */
+
 /* iOS Safari auto-zooms on *editable* inputs whose computed font-size
  * is below 16px. Readonly inputs (e.g. Mantine's MonthPickerInput)
  * don't trigger the zoom, so leave those at their design size to

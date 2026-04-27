@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """User impersonation — "log in as another user" for testing.
 
 Gated on the ``user.impersonate`` permission (carried by the

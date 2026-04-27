@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Per-locale email templates + outbox locale column.
 
 Revision ID: 0005_email_template_per_locale

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 # Multi-stage backend Dockerfile. Shared by api + worker containers.
 # - builder: installs deps into a virtualenv
 # - dev:     adds dev deps, bind-mounts source at runtime

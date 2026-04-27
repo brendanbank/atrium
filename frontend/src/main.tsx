@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { Notifications } from '@mantine/notifications';

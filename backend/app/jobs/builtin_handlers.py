@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Built-in scheduled-job handlers shipped with Atrium.
 
 Most platform-level work belongs in host apps (atrium ships the queue

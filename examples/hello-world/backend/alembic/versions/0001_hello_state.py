@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """hello_state table + permission seed
 
 Revision ID: 0001_hello_state

@@ -1,4 +1,7 @@
 #!/bin/sh
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 # Generate a self-signed cert on first boot. The cert lives in a named
 # volume so it's stable across container restarts (same fingerprint to
 # pin against from the edge Caddy). Delete the volume to rotate.

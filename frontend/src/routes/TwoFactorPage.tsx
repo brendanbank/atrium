@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
@@ -718,5 +721,4 @@ function WebAuthnSetupFlow({
     </Center>
   );
 }
-
 

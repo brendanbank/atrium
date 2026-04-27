@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Shared test helpers — user / role factories.
 
 Tests create users directly via SQLAlchemy (rather than via the invite

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 /**
  * Hello World end-to-end smoke. Exercises every B1 slot kind plus the
  * scheduler pipeline so the example doubles as the live contract for

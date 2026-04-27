@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 import { Group, Text, Tooltip } from '@mantine/core';
 import { IconInfoCircle } from '@tabler/icons-react';
 import type { ReactNode } from 'react';

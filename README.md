@@ -413,7 +413,6 @@ The frontend pattern is the same: add hooks under `src/hooks/`,
 routes under `src/routes/`, mount them in `src/App.tsx`, gate with
 `usePerm("…")` or `<RequireAuth role="…">`.
 
-## License
+## Licence
 
-Pick your own. Atrium ships without one — fork it, vendor it, do
-whatever.
+BSD 2-Clause. See [`LICENCE.md`](LICENCE.md).

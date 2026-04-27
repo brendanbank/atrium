@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Operational tables: notifications, scheduled jobs, email log, audit log,
 app settings. These are infrastructure, not core domain."""
 from datetime import datetime

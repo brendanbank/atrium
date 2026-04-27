@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 import { Alert } from '@mantine/core';
 import { IconInfoCircle, IconAlertTriangle, IconAlertOctagon } from '@tabler/icons-react';
 

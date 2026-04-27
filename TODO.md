@@ -141,4 +141,3 @@ scratch; resist anything that's actually domain logic.
   `system.maintenance_mode`", "what `audit.retention_days` means
   legally", etc. Today this is vibes + the comments in
   `app_config.py`.
-- add BSD-2 licence to all files.

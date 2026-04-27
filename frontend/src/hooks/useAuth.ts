@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { fetchMe, logout as apiLogout, type CurrentUser } from '@/lib/auth';

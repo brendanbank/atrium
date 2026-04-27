@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Audit-log retention pruning.
 
 Atrium keeps an unbounded ``audit_log`` by default. Operators that need

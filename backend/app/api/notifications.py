@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Notifications API for the bell icon in the header.
 
 Each user only sees their own notifications. Atrium ships the

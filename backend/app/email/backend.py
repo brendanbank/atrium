@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Pluggable mail backend.
 
 The active backend is chosen by the ``MAIL_BACKEND`` env var:

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 /** Slim copy of the helpers atrium's frontend smoke uses, scoped to
  *  what the Hello World spec needs. Vendored rather than imported
  *  across project boundaries so Playwright's module resolver has all

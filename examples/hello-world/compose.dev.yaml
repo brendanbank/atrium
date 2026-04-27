@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 # Smoke-test overlay for the Hello World example against the dev stack.
 # Layered on top of compose.yaml; only override is HELLO_TICK_SECONDS=2
 # so the Playwright spec doesn't have to wait 30 seconds per assertion.

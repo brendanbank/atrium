@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Email outbox queue — enqueue + handler retry behaviour.
 
 The outbox is the durable side of the email send path. ``enqueue_and_log``

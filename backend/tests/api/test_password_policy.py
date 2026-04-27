@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Password-policy + 2FA-enforcement coverage (Phase 3).
 
 Driven through ``POST /auth/register`` because that's the realistic

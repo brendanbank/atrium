@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Pydantic schemas for users.
 
 Same shape as fastapi-users' ``schemas.BaseUser*`` minus ``is_superuser``

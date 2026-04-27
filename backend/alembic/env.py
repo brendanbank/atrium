@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Alembic environment. Supports async SQLAlchemy via asyncio.run_sync."""
 from __future__ import annotations
 

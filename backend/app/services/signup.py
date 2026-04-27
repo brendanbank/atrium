@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Self-serve signup + email verification.
 
 Two operations: ``register_user`` creates a fresh account (when the

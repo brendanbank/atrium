@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """HTTP surface for the Hello World demo.
 
 - ``GET /hello/state`` — read-only state. Auth required so the widget

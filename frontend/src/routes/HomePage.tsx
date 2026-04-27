@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 import { Button, Container, Group, Stack, Text, Title } from '@mantine/core';
 import { IconBell, IconSettings, IconUser } from '@tabler/icons-react';
 import { Link } from 'react-router-dom';

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Singleton state row for the Hello World demo.
 
 The host owns its own ``DeclarativeBase`` (and therefore its own

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Render a DB-stored email template, send it via the configured
 backend, and write an email_log row.
 

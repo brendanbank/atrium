@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 /** Admin-tab rendering of the Hello World state.
  *
  * Registered with ``perm: 'hello.toggle'`` so atrium hides the tab

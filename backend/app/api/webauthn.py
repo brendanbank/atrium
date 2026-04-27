@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """WebAuthn / FIDO2 second-factor — alongside TOTP and email OTP.
 
 A user can register multiple authenticators at once (primary YubiKey

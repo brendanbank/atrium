@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """User soft-delete columns + GDPR deletion email templates.
 
 Revision ID: 0003_user_soft_delete

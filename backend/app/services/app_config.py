@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Typed namespace-scoped reader/writer over the ``app_settings`` KV table.
 
 Each namespace owns one row whose ``value`` JSON column matches a Pydantic

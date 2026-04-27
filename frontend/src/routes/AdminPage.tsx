@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 import { Stack, Tabs, Title } from '@mantine/core';
 import {
   IconBrush,

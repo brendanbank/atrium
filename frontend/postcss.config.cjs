@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 module.exports = {
   plugins: {
     'postcss-preset-mantine': {},

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Tests for the ``i18n`` app-config namespace.
 
 Phase 9 ships locale enablement plus per-locale string overrides

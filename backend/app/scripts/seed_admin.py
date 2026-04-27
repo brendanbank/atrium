@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Create or reset the bootstrap admin account.
 
 No public registration — this script is the only way to get the first

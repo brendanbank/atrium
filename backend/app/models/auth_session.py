@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Server-side session rows for DB-backed JWT auth.
 
 fastapi-users' default ``JWTStrategy`` is stateless — a stolen cookie

@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """GDPR-aligned soft-delete for user accounts.
 
 The flow is three-stage:

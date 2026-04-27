@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Job runner — claims and dispatches a single ScheduledJob.
 
 Atrium ships no built-in job handlers. Host apps register them via

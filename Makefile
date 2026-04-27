@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 .PHONY: help up down logs ps build rebuild migrate migration \
         seed-admin seed-super-admin dev-bootstrap \
         shell-api shell-db test test-backend test-frontend lint format \

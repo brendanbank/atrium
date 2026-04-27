@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Coverage for the GDPR-aligned account-deletion flow.
 
 What's pinned:

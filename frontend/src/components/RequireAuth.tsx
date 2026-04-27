@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 import { ReactNode } from 'react';
 import { Center, Loader } from '@mantine/core';
 import { Navigate, useLocation } from 'react-router-dom';

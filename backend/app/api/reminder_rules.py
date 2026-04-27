@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Admin CRUD for reminder rules. Owner-only."""
 from __future__ import annotations
 

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 import { createTheme, type MantineColorScheme, type MantineThemeOverride } from '@mantine/core';
 
 import type { BrandConfig, ThemePreset } from '@/hooks/useAppConfig';

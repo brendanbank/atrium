@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """One-shot CLI: write ``system.host_bundle_url`` so atrium picks up
 the host frontend bundle on the next page load.
 

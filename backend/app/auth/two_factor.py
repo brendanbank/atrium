@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Shared 2FA-gate helpers.
 
 ``write_token`` (in ``backend.py``) and ``current_user`` (in ``users.py``)

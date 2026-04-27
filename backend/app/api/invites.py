@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Invite flow: owners create invites; recipients accept with a token
 to set a password and activate their account.
 

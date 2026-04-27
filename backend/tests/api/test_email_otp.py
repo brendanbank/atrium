@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Email-OTP second-factor: setup / confirm / request / verify /
 disable flows, plus the updated ``/auth/totp/state`` and admin reset.
 

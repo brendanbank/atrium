@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Email-OTP second-factor — parallel to authenticator-app TOTP.
 
 Flow mirrors ``/auth/totp/*``:

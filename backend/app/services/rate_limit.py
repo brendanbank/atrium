@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Tiny in-memory sliding-window rate limiter.
 
 Sized for a single-worker deployment. The bucket is a per-key deque of

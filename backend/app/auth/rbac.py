@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Permission resolver + FastAPI dependencies for RBAC checks.
 
 The effective permission set for a user is the union over every role

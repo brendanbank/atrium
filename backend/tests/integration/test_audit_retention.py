@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Audit-log retention pruning.
 
 Covers the service helper plus the ``audit_prune`` handler:

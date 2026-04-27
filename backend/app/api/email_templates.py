@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Admin API for email templates. Owner-only; agents have no reason
 to see template content.
 

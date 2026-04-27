@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Test fixtures — real MySQL via testcontainers.
 
 A single MySQL container is started for the whole session; tests get

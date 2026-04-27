@@ -1,3 +1,6 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
 """Thin helper for writing audit_log rows.
 
 Callers don't commit — the audit entry travels in the same transaction

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Brendan Bank
+// SPDX-License-Identifier: BSD-2-Clause
+
 // Shared frontend types. Most domain types live alongside the hooks
 // that fetch them (see hooks/useNotifications, useUsersAdmin, etc.);
 // this module re-exports the cross-cutting ones for convenience.
