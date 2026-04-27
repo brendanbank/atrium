@@ -312,6 +312,12 @@ registerProfileItem({ key, slot?, render, condition? })
 - **Never edit atrium files.** Pin a tag, FROM the image, override
   through extension points only.
 - **Never share `Base` between host and atrium.** Use `HostBase`.
+- **Cross-base FKs are DDL-only.** Host models on `HostBase` cannot use
+  column-level `ForeignKey("users.id")` (or any atrium-table reference)
+  — SQLAlchemy can't resolve across metadata. Declare the column without
+  a `ForeignKey()`, add the constraint in the host alembic migration via
+  `sa.ForeignKeyConstraint([...], ["users.id"], ondelete=...)`. See
+  README.md *Referencing atrium tables from host models*.
 - **Never use atrium's alembic version table.** Use
   `alembic_version_app`.
 - **Never bake secrets into the host bundle.** It's served public.

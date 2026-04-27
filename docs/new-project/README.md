@@ -199,6 +199,66 @@ class YourThing(HostBase):
 **Never** mix host tables into `app.db.Base`. The next atrium upgrade
 may collide with whatever you added.
 
+#### Referencing atrium tables from host models
+
+Host models live on `HostBase`, which has its own `MetaData` separate
+from atrium's `app.db.Base`. SQLAlchemy resolves `ForeignKey("users.id")`
+within a single `MetaData`, so a column-level `ForeignKey()` pointing at
+an atrium table (`users`, `roles`, `user_invites`, ...) cannot resolve
+and will fail at mapper configuration. Sharing `Base` to "fix" it would
+break alembic autogenerate isolation — don't.
+
+The pattern: declare the column with the right type but **no**
+`ForeignKey(...)`, then add the constraint at the DB layer in the host's
+alembic migration.
+
+```python
+from sqlalchemy import BigInteger
+from sqlalchemy.orm import Mapped, mapped_column
+
+class Booking(HostBase):
+    __tablename__ = "bookings"
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    # No ForeignKey() here - cross-metadata reference.
+    # The DB constraint is declared in the alembic migration below.
+    user_id: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, index=True
+    )
+```
+
+```python
+# backend/alembic/versions/0001_bookings.py
+import sqlalchemy as sa
+from alembic import op
+
+def upgrade() -> None:
+    op.create_table(
+        "bookings",
+        sa.Column("id", sa.BigInteger, primary_key=True),
+        sa.Column("user_id", sa.BigInteger, nullable=False),
+        sa.ForeignKeyConstraint(
+            ["user_id"], ["users.id"], ondelete="CASCADE"
+        ),
+    )
+    op.create_index("ix_bookings_user_id", "bookings", ["user_id"])
+```
+
+The database enforces referential integrity; the ORM just doesn't model
+the relationship. Same goes for `relationship()` — you can't declare one
+to `app.models.auth.User` from a `HostBase` model. When you need the
+atrium row, load it explicitly:
+
+```python
+from app.models.auth import User
+
+user = await session.get(User, booking.user_id)
+```
+
+This is the same "soft FK" pattern atrium uses internally for
+`reminder_rules.template_key` -> `email_templates.key` after the
+per-locale PK reshape in migration `0005_email_template_per_locale` (see
+CLAUDE.md, *Email pipeline*).
+
 ### `backend/src/<your_pkg>/router.py`
 
 A normal FastAPI router. Atrium auth dependencies are imported from
