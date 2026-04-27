@@ -7,6 +7,7 @@
         clean clean-atrium prod-build prod-up prod-down \
         smoke smoke-extended smoke-dev smoke-up smoke-down \
         smoke-hello smoke-hello-dev smoke-hello-down smoke-hello-ghcr \
+        dev-bootstrap-hello dev-bootstrap-hello-down \
         dev-bootstrap-hello-ghcr dev-bootstrap-hello-ghcr-down hello-smoke-env \
         smoke-hello-build-bundle-dev \
         web-install web-reinstall reset-test-state
@@ -80,6 +81,13 @@ help:
 	@echo "                          (prod images + baked-in host backend image)."
 	@echo "                          What CI runs."
 	@echo "  make smoke-hello-down   Tear down the Hello World e2e stack."
+	@echo "  make dev-bootstrap-hello"
+	@echo "                          Hello World bootstrap on a locally-built atrium"
+	@echo "                          image. Builds atrium-local:source, brings up the"
+	@echo "                          example compose, runs atrium + host migrations,"
+	@echo "                          seeds a super_admin from 1Password (item 'atrium"
+	@echo "                          dev'). URL: http://localhost:8000."
+	@echo "  make dev-bootstrap-hello-down  Tear down the local Hello World stack."
 
 # --- Dev stack ---
 up:
@@ -495,6 +503,55 @@ smoke-hello: hello-smoke-env
 smoke-hello-down:
 	$(COMPOSE_HELLO_PROD) down -v --remove-orphans
 	$(COMPOSE_HELLO_DEV) down -v --remove-orphans
+	rm -f $(HELLO_SMOKE_ENV)
+
+# --- Hello World bootstrap (local atrium build) ---
+# Same shape as ``dev-bootstrap-hello-ghcr`` but resolves the atrium
+# runtime from a local ``docker build`` instead of pulling from GHCR.
+# Useful when iterating on atrium itself and you want the example
+# extension layered on top of your in-tree changes.
+dev-bootstrap-hello: hello-smoke-env
+	@command -v op >/dev/null 2>&1 || { \
+		echo "1Password CLI not found. Install with: brew install 1password-cli"; \
+		exit 1; \
+	}
+	@op account list >/dev/null 2>&1 || { \
+		echo "1Password CLI is not signed in. Run: eval \$$(op signin)"; \
+		exit 1; \
+	}
+	docker build -t atrium-local:source --target runtime .
+	ATRIUM_IMAGE=atrium-local:source $(COMPOSE_HELLO_PROD) up -d --build
+	@echo "waiting for api /readyz..."
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
+		curl -fsS http://localhost:8000/readyz > /dev/null && break; \
+		sleep 2; \
+	done
+	$(COMPOSE_HELLO_PROD) exec -T api alembic upgrade head
+	$(COMPOSE_HELLO_PROD) exec -T api alembic -c /opt/host_app/alembic.ini upgrade head
+	@set -eu; \
+	echo "fetching admin credentials from 1Password (vault='$(OP_VAULT)', item='$(OP_ITEM)')..."; \
+	EMAIL=$$(op item get "$(OP_ITEM)" --vault "$(OP_VAULT)" --fields label=username); \
+	PASSWORD=$$(op item get "$(OP_ITEM)" --vault "$(OP_VAULT)" --fields label=password --reveal); \
+	TOTP_SECRET=$$(op item get "$(OP_ITEM)" --vault "$(OP_VAULT)" --fields type=otp --format=json \
+		| python3 -c "import json,sys; print(json.load(sys.stdin)['value'])"); \
+	if [ -z "$$EMAIL" ] || [ -z "$$PASSWORD" ] || [ -z "$$TOTP_SECRET" ]; then \
+		echo "missing field in 1Password item '$(OP_ITEM)' (need username + password + OTP)"; exit 1; \
+	fi; \
+	$(COMPOSE_HELLO_PROD) exec -T api python -m app.scripts.seed_admin \
+		--email "$$EMAIL" \
+		--password "$$PASSWORD" \
+		--full-name "$(DEV_ADMIN_NAME)" \
+		--super-admin --totp-secret "$$TOTP_SECRET"; \
+	$(COMPOSE_HELLO_PROD) exec -T api python -m atrium_hello_world.scripts.seed_host_bundle "$(HELLO_BUNDLE_URL_E2E)"; \
+	echo ""; \
+	echo "hello-world (local atrium image) ready:"; \
+	echo "  email:       $$EMAIL"; \
+	echo "  password:    (from 1Password '$(OP_ITEM)')"; \
+	echo "  totp secret: (from 1Password '$(OP_ITEM)' -> Authenticator)"; \
+	echo "  url:         http://localhost:8000"
+
+dev-bootstrap-hello-down:
+	$(COMPOSE_HELLO_PROD) down -v --remove-orphans
 	rm -f $(HELLO_SMOKE_ENV)
 
 # --- Hello World against published GHCR images ---
