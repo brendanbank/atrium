@@ -7,7 +7,11 @@ describes what gets published, where, how it's tagged, and the contract a host
 app implements.
 
 For a worked example that exercises every extension point, see
-[`examples/hello-world/`](../examples/hello-world/).
+[`examples/hello-world/`](../examples/hello-world/). For a step-by-step
+walkthrough of standing up a fresh host project from nothing — including
+the retrofit playbook for moving an existing app onto atrium — see
+[`new-project/`](new-project/) ([`README.md`](new-project/README.md) for
+humans, [`SKILL.md`](new-project/SKILL.md) for AI agents).
 
 ---
 
