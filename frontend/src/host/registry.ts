@@ -29,9 +29,17 @@ import type { ReactElement } from 'react';
 
 import type { CurrentUser } from '@/lib/auth';
 
+/** Layout width for a home-page widget. ``narrow`` matches the default
+ *  680px column atrium ships for the welcome content; ``wide`` extends
+ *  out to a comfortable dashboard column; ``full`` lets the widget own
+ *  the full panel (still inside ``AppShell.Main``'s padding). Default
+ *  is ``narrow`` so existing widgets keep their current layout. */
+export type HomeWidgetWidth = 'narrow' | 'wide' | 'full';
+
 export type HomeWidget = {
   key: string;
   render: () => ReactElement;
+  width?: HomeWidgetWidth;
 };
 
 export type RouteEntry = {
@@ -155,7 +163,7 @@ function registerProfileItem(item: ProfileItem): void {
   profileItems.push(item);
 }
 
-export const __ATRIUM_REGISTRY__ = {
+const baseRegistry = {
   registerHomeWidget,
   registerRoute,
   registerNavItem,
@@ -163,7 +171,35 @@ export const __ATRIUM_REGISTRY__ = {
   registerProfileItem,
 } as const;
 
-export type AtriumRegistry = typeof __ATRIUM_REGISTRY__;
+export type AtriumRegistry = typeof baseRegistry;
+
+/** Wrap the registry in a Proxy so a host bundle that targets a newer
+ *  atrium build (e.g. it calls ``registerSettingsTab`` against an
+ *  image that hasn't shipped that slot yet) gets a clear console
+ *  warning instead of a ``TypeError: ... is not a function`` that
+ *  unwinds mid-bundle and loses every prior registration. The typed
+ *  exports above stay the source of truth for what should exist; the
+ *  Proxy is purely a runtime safety net. */
+const registryProxy = new Proxy(baseRegistry, {
+  get(target, prop, receiver) {
+    if (typeof prop === 'symbol' || prop in target) {
+      return Reflect.get(target, prop, receiver);
+    }
+    const propStr = String(prop);
+    return (...args: unknown[]): void => {
+      const arg = args[0] as { key?: unknown } | undefined;
+      const key = typeof arg?.key === 'string' ? arg.key : '<unknown>';
+      console.warn(
+        `[atrium-registry] host bundle called __ATRIUM_REGISTRY__.${propStr}(...) ` +
+          `but that method is not available in this atrium build ` +
+          `(key="${key}"). Registration ignored — upgrade the atrium ` +
+          `image or remove the call from the host bundle.`,
+      );
+    };
+  },
+}) as AtriumRegistry;
+
+export const __ATRIUM_REGISTRY__: AtriumRegistry = registryProxy;
 
 export function getHomeWidgets(): readonly HomeWidget[] {
   return homeWidgets;

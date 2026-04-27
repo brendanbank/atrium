@@ -38,6 +38,10 @@ async def get_user_permissions(
 
     One query, joined through user_roles → role_permissions. Empty set
     if the user has no roles (which shouldn't happen in practice).
+
+    Prefer ``current_user_permissions`` from a route — it resolves once
+    per request via FastAPI's dep cache, so multiple ``require_perm``
+    gates on the same endpoint don't re-query.
     """
     result = await session.execute(
         select(role_permissions.c.permission_code)
@@ -49,14 +53,29 @@ async def get_user_permissions(
     return {row[0] for row in result.all()}
 
 
+async def current_user_permissions(
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> set[str]:
+    """Effective permission set for the current user, cached per request.
+
+    FastAPI memoises a ``Depends`` by callable identity within a single
+    request, so any number of ``require_perm("...")`` gates on one
+    endpoint resolve to a single ``get_user_permissions`` call. Host
+    code that needs the full set (e.g. to render a UI gate server-side
+    or branch on a non-fatal capability) should depend on this rather
+    than calling ``get_user_permissions`` directly.
+    """
+    return await get_user_permissions(session, user.id)
+
+
 def require_perm(code: str):
     """Dependency factory: 403 unless the current user has ``code``."""
 
     async def _dep(
         user: User = Depends(current_user),
-        session: AsyncSession = Depends(get_session),
+        perms: set[str] = Depends(current_user_permissions),
     ) -> User:
-        perms = await get_user_permissions(session, user.id)
         if code not in perms:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

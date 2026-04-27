@@ -289,7 +289,15 @@ required, ~250 KB gzipped.
 
 ```ts
 // vite.config.ts
+import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
+
 export default defineConfig({
+  // Vite's lib build extracts every `import 'pkg/styles.css'` into a
+  // sibling `main.css`. atrium dynamic-imports `main.js` only — that
+  // sibling is never fetched and the bundle ships unstyled. The
+  // plugin inlines those imports as a runtime `<style>` tag so a
+  // single `main.js` carries everything.
+  plugins: [cssInjectedByJsPlugin()],
   build: {
     lib: { entry: 'src/main.tsx', formats: ['es'], fileName: () => 'main.js' },
   },
@@ -344,9 +352,20 @@ serves. Until then, self-contained is the path of least resistance.
 
 The [`examples/hello-world/`](../examples/hello-world/) directory ships a
 host bundle that registers one of every slot kind (home widget, route, nav
-item, admin tab) plus the backend half (`init_app` + `init_worker`,
-permission seeding, scheduler pipeline). It doubles as the smoke-test for
-the slot system itself — `make smoke-hello` runs the full end-to-end spec.
+item, admin tab, profile item) plus the backend half (`init_app` +
+`init_worker`, permission seeding, scheduler pipeline). It doubles as the
+smoke-test for the slot system itself — `make smoke-hello` runs the full
+end-to-end spec.
+
+The example tracks `master`. If you pin your atrium image to an older
+`X.Y` tag, read the example **at the matching git tag** (`git checkout
+vX.Y.Z -- examples/hello-world/`) before copying patterns wholesale —
+slots added in later releases (e.g. `registerProfileItem` in `v0.11`)
+will be present at HEAD but missing from older images. The frontend
+registry catches calls to unknown methods and logs a console warning
+instead of throwing, so a bundle built against a newer atrium degrades
+gracefully (the rest of its registrations still land); the unknown slot
+just doesn't render.
 
 ---
 

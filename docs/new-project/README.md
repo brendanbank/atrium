@@ -521,7 +521,8 @@ out of the host subtree.
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "typescript": "^6.0.3",
-    "vite": "^8.0.10"
+    "vite": "^8.0.10",
+    "vite-plugin-css-injected-by-js": "^3.5.2"
   }
 }
 ```
@@ -531,6 +532,7 @@ out of the host subtree.
 ```ts
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
+import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 
 export default defineConfig({
   define: {
@@ -540,6 +542,16 @@ export default defineConfig({
     'process.env.NODE_ENV': JSON.stringify('production'),
     'process.env': '{}',
   },
+  // Vite's lib build extracts every imported `.css` to a sibling
+  // file. atrium dynamic-imports `main.js` only, so a sibling
+  // `<bundle-name>.css` would sit there orphaned and the bundle would
+  // render unstyled. The plugin rewrites those imports to inject the
+  // CSS via a runtime `<style>` tag — a single `main.js` carries
+  // everything. Keep the plugin in even when the bundle has no CSS
+  // imports today: the failure mode (silently unstyled widgets the
+  // first time you `import 'fullcalendar/main.css'`) is unpleasant
+  // to diagnose.
+  plugins: [cssInjectedByJsPlugin()],
   build: {
     target: 'es2022',
     lib: {
@@ -924,6 +936,54 @@ Permission gating on the API: `Depends(require_perm("your_thing.read"))`.
 Permission gating on the SPA: pass `perm:` to `registerAdminTab`, or
 read `me.permissions` directly in your component (your bundle can fetch
 `/users/me/context` itself).
+
+### Running backend tests in-container
+
+The published atrium image is a runtime image — `pytest`, `pytest-asyncio`,
+and `httpx` are not installed. Two paths:
+
+**Inline install + run** (good for one-off runs, no Dockerfile churn):
+
+```bash
+docker compose exec -u root api /opt/venv/bin/python -m pip install \
+    --no-cache-dir pytest pytest-asyncio httpx
+docker compose exec api /opt/venv/bin/python -m pytest /opt/host_app/tests
+```
+
+The `-u root` is needed because `/opt/venv` is owned by root in the
+runtime image; the host package itself was installed at image build
+time when the Dockerfile dropped to `USER root` for that step.
+
+**Make target** (recommended once you have more than one test invocation
+to remember):
+
+```makefile
+.PHONY: test-backend
+test-backend:
+	docker compose exec -u root -T api /opt/venv/bin/python -m pip install \
+	    --quiet --no-cache-dir pytest pytest-asyncio httpx
+	docker compose exec -T api /opt/venv/bin/python -m pytest /opt/host_app/tests
+```
+
+The pip install is idempotent — it's a no-op once the deps are present
+in the running container's venv. (A container restart wipes them; the
+next `make test-backend` reinstalls.)
+
+**Bake a `dev` image** (cleanest for active development, costs one
+extra Docker layer and a `--target dev` flag in compose). Add a stage
+to your Dockerfile after the `runtime` stage:
+
+```dockerfile
+FROM runtime AS dev
+USER root
+RUN /opt/venv/bin/python -m pip install --no-cache-dir \
+    pytest pytest-asyncio httpx
+USER app
+```
+
+…and pin the dev compose file to `target: dev`. The runtime image
+stays slim; the dev image carries the test deps so `pytest` is on
+PATH the moment the container boots.
 
 ## Retrofitting an existing app
 

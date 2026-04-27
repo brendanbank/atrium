@@ -3,6 +3,7 @@
 
 import { resolve } from 'node:path';
 import { defineConfig } from 'vite';
+import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 
 // Library build that emits a single ES module loaded by atrium via
 // dynamic import (`system.host_bundle_url` → `await import(url)`).
@@ -30,6 +31,16 @@ export default defineConfig({
     'process.env.NODE_ENV': JSON.stringify('production'),
     'process.env': '{}',
   },
+  // Vite's library build extracts every imported ``.css`` to a sibling
+  // file (``main.css``) by default. Atrium dynamic-imports
+  // ``main.js`` only — sibling CSS is never fetched, leaving widgets
+  // unstyled. ``vite-plugin-css-injected-by-js`` rewrites those
+  // imports to inject the CSS via a runtime ``<style>`` tag so a
+  // single ``main.js`` is sufficient. This example doesn't import any
+  // CSS today, but the plugin stays here so the very first ``import
+  // 'pkg/styles.css'`` you add (FullCalendar, react-big-calendar,
+  // any rich-text editor) doesn't quietly ship without styles.
+  plugins: [cssInjectedByJsPlugin()],
   build: {
     target: 'es2022',
     lib: {

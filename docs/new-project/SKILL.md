@@ -17,6 +17,16 @@ canonical worked example is [`../../examples/hello-world/`](../../examples/hello
 This SKILL.md is the procedure to follow when an agent is doing the
 bootstrap.
 
+> **Example version-pinning.** `examples/hello-world/` tracks `master`
+> and exercises whatever extension surface ships at HEAD. If the user
+> pins their atrium image to an older `X.Y` tag (sensible for prod),
+> read the example **at the matching git tag** — `git checkout vX.Y.Z
+> -- examples/hello-world/` — before copying snippets. The host
+> registry tolerates calls to slots that don't exist in the running
+> image (logs a console warning, the rest of the bundle continues
+> registering), so a newer-than-image bundle degrades gracefully
+> rather than catastrophically — but the slot still won't render.
+
 ## Up-front decisions to confirm with the user
 
 Before writing files, confirm:
@@ -96,10 +106,19 @@ host subtree.
 
 - `frontend/package.json` — react/react-dom 19, mantine 9, tanstack
   query 5, vite 8, typescript 6, tabler icons 3. Single script: `vite
-  build`.
+  build`. **Add `vite-plugin-css-injected-by-js` as a devDependency** —
+  see vite.config.ts below.
 - `frontend/vite.config.ts` — library mode (`build.lib`), single
   output `main.js`, define `process.env.NODE_ENV` and `process.env`
-  so React/TanStack don't throw on a missing process shim.
+  so React/TanStack don't throw on a missing process shim. **Plug
+  `vite-plugin-css-injected-by-js` into `plugins`**: Vite's lib build
+  extracts every `import 'pkg/styles.css'` into a sibling
+  `<bundle-name>.css`, but atrium dynamic-imports `main.js` only —
+  the sibling never loads and the page renders unstyled. The plugin
+  rewrites those imports to inject CSS via a runtime `<style>` tag,
+  so a single `main.js` carries everything. Add it preemptively even
+  if the bundle has no CSS imports today: the failure mode (silently
+  unstyled widgets) is annoying to diagnose later.
 - `frontend/src/main.tsx` — the entry. Reads `window.React` and
   `window.__ATRIUM_REGISTRY__` (both set by atrium's main.tsx before
   the dynamic import). Calls `reg.register{HomeWidget,Route,NavItem,AdminTab,ProfileItem}`.
@@ -221,6 +240,14 @@ docker compose exec api python -m <your_pkg>.scripts.seed_host_bundle /host/main
 
 Or do it inline with the Python snippet in [`README.md`](README.md)
 section *Step 8*.
+
+### 9b. Backend tests in-container (optional)
+
+The runtime image strips `pytest`, `pytest-asyncio`, and `httpx`. If the
+host wants to run backend tests in the api container, install them on
+demand or bake a `dev` Dockerfile stage. See [`README.md`](README.md)
+section *Running backend tests in-container* for both patterns and a
+Make target.
 
 ### 10. Verify
 

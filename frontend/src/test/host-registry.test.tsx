@@ -46,6 +46,27 @@ describe('host registry', () => {
     expect(widgets.map((w) => w.key)).toEqual(['a', 'b']);
   });
 
+  it('registerHomeWidget carries the optional width prop through', () => {
+    registerHomeWidget({
+      key: 'narrow-default',
+      render: () => <span>n</span>,
+    });
+    registerHomeWidget({
+      key: 'wide',
+      render: () => <span>w</span>,
+      width: 'wide',
+    });
+    registerHomeWidget({
+      key: 'full',
+      render: () => <span>f</span>,
+      width: 'full',
+    });
+    const widgets = getHomeWidgets();
+    expect(widgets.find((w) => w.key === 'narrow-default')?.width).toBeUndefined();
+    expect(widgets.find((w) => w.key === 'wide')?.width).toBe('wide');
+    expect(widgets.find((w) => w.key === 'full')?.width).toBe('full');
+  });
+
   it('registerHomeWidget replaces on duplicate key', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
@@ -126,6 +147,36 @@ describe('host registry', () => {
       const items = getProfileItems();
       expect(items).toHaveLength(1);
       expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('__ATRIUM_REGISTRY__ logs a warning for unknown register* methods without throwing', () => {
+    // A host bundle built against a newer atrium that registers a
+    // slot this build doesn't ship must not crash mid-import: the
+    // earlier registrations would be lost. The Proxy returns a
+    // logging shim instead of letting `undefined()` throw.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const reg = window.__ATRIUM_REGISTRY__ as unknown as Record<
+        string,
+        (arg: unknown) => void
+      >;
+      expect(typeof reg.registerSomethingFromTheFuture).toBe('function');
+      reg.registerSomethingFromTheFuture({ key: 'futurey' });
+      expect(warn).toHaveBeenCalledOnce();
+      const message = String(warn.mock.calls[0]?.[0] ?? '');
+      expect(message).toContain('registerSomethingFromTheFuture');
+      expect(message).toContain('futurey');
+      // The bundle's later calls still land — that's the whole point.
+      registerHomeWidget({
+        key: 'after-future-call',
+        render: () => <span>ok</span>,
+      });
+      expect(getHomeWidgets().map((w) => w.key)).toContain(
+        'after-future-call',
+      );
     } finally {
       warn.mockRestore();
     }
