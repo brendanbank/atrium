@@ -128,13 +128,6 @@ scratch; resist anything that's actually domain logic.
   (e.g. when `document.readyState !== 'complete'`) so RequireAuth can
   bounce via SPA navigation. Would also harden any other admin
   surface that fetches before `me` resolves.
-- **Strict password policy by default.** `password_require_mixed_case`
-  / `_digit` / `_symbol` / `_check_breach` should ship `True` so a
-  fresh instance has a safe baseline. Reverted in PR #6 because the
-  Playwright suite registers / accepts invites with simple lowercase
-  passwords (`fresh-pw-12345`, `real-pw-12345`). Pair the flip with
-  an e2e sweep to update those passwords to compliant values.
-
 ## Documentation
 
 - **Per-namespace operator playbook.** "When to flip

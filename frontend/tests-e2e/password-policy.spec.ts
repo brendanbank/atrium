@@ -126,7 +126,7 @@ async function createUserNoEnrolViaApi(
   opts: { roleCodes?: string[] } = {},
 ): Promise<{ email: string; password: string }> {
   const email = `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
-  const password = 'invitee-pw-12345';
+  const password = 'Invitee-Pw-12345!';
 
   const createResp = await adminRequest.post(`${API_URL}/invites`, {
     data: {

@@ -123,7 +123,7 @@ function uniqueEmail(prefix: string): string {
   return `${prefix}-${stamp}@example.com`;
 }
 
-const VALID_PASSWORD = 'signup-pw-12345';
+const VALID_PASSWORD = 'Signup-Pw-12345!';
 
 // ---------------------------------------------------------------------------
 // State setup / teardown — flip allow_signup on for the duration of the

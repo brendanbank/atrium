@@ -101,14 +101,15 @@ class AuthConfig(BaseModel):
     # Phase 3 password policy. The minimum is configurable but bounded
     # — six is the absolute floor (anything below is a typing accident),
     # 128 matches the bcrypt input ceiling. Mixed-case / digit / symbol
-    # are off by default so atrium stays usable for low-stakes deploys;
-    # operators opt-in. ``password_check_breach`` calls HIBP's range API;
-    # network failures fail open (see services.password_policy).
+    # / breach-check default ON so a fresh atrium ships with a safe
+    # baseline; operators relax for low-stakes deploys.
+    # ``password_check_breach`` calls HIBP's range API; network failures
+    # fail open (see services.password_policy).
     password_min_length: int = Field(default=8, ge=6, le=128)
-    password_require_mixed_case: bool = False
-    password_require_digit: bool = False
-    password_require_symbol: bool = False
-    password_check_breach: bool = False
+    password_require_mixed_case: bool = True
+    password_require_digit: bool = True
+    password_require_symbol: bool = True
+    password_check_breach: bool = True
     # Role codes that require a confirmed second factor. A user holding
     # any of these roles without an enrolled 2FA method gets bounced to
     # /2fa with ``code: 2fa_enrollment_required`` until they finish

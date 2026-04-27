@@ -84,7 +84,7 @@ export async function loginAsUser(page: Page): Promise<ProvisionedUser> {
   }
 
   const email = `e2e-user-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
-  const password = 'user-pw-12345';
+  const password = 'User-Pw-12345!';
   const inviteResp = await reqCtx.post(`${API_URL}/invites`, {
     data: { email, full_name: 'E2E User', role_codes: ['user'] },
   });
@@ -403,7 +403,7 @@ export async function createAndEnrolUserViaApi(
   opts: { roleCodes?: string[] } = {},
 ): Promise<SeededUser> {
   const email = `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
-  const password = 'invitee-pw-12345';
+  const password = 'Invitee-Pw-12345!';
 
   const createResp = await adminRequest.post(`${API_URL}/invites`, {
     data: {

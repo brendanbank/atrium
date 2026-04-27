@@ -264,13 +264,17 @@ of the selected key.
 **Admin → System** or via PUT `/admin/app-config/auth`):
 
 - `password_min_length` (default 8, bounded 6 to 128)
-- `password_require_mixed_case` (off by default)
-- `password_require_digit` (off)
-- `password_require_symbol` (off)
-- `password_check_breach` (off; calls
+- `password_require_mixed_case` (on by default)
+- `password_require_digit` (on)
+- `password_require_symbol` (on)
+- `password_check_breach` (on; calls
   [haveibeenpwned.com's k-anonymity range API](https://haveibeenpwned.com/API/v3#PwnedPasswords)
   with the first 5 chars of the SHA-1 — your password never leaves
   the box)
+
+A fresh atrium ships with all four toggles on so the default posture
+is safe; relax them per-deployment from **Admin → System** when you
+need to.
 
 `app.services.password_policy.validate_password_against_policy` is
 called from the self-serve signup, invite-accept, and

@@ -47,7 +47,7 @@ test('admin invites a user, the user accepts and lands at 2FA setup', async ({
   // Use a unique address per run so the spec is hermetic against a
   // dev DB that might already hold a previous accept.
   const inviteEmail = `e2e-invitee-${Date.now()}@example.com`;
-  const newPassword = 'invitee-pw-12345';
+  const newPassword = 'Invitee-Pw-12345!';
 
   const createResp = await adminPage.request.post(`${API_URL}/invites`, {
     data: {

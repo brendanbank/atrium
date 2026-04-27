@@ -174,6 +174,23 @@ def _bind_middleware_to_test_engine(monkeypatch, engine, mysql_url):
 
 
 @pytest.fixture(autouse=True)
+def _default_hibp_fail_open(monkeypatch):
+    """Default: pretend HIBP returned no breach. The strict-by-default
+    password policy ships with ``password_check_breach=True``, so any
+    test that hits ``/auth/register`` or ``/invites/accept`` would
+    otherwise make a real network call. Tests that exercise the breach
+    branch (test_password_policy.py) re-monkeypatch the same symbol
+    inside their body, which overrides this fallback for that test."""
+    from app.services import password_policy as pp
+
+    async def _no_breach(prefix: str):
+        return None
+
+    monkeypatch.setattr(pp, "_hibp_suffixes_for_prefix", _no_breach)
+    pp._reset_hibp_cache_for_tests()
+
+
+@pytest.fixture(autouse=True)
 def _auto_pass_2fa(monkeypatch, request):
     """Make every freshly-issued ``AuthSession`` row full-access
     (``totp_passed=True``) by default so tests that just need an

@@ -17,7 +17,7 @@ from app.models.rbac import Role, user_roles
 from tests.helpers import login, seed_admin, seed_user
 
 
-def _accept_payload(token: str, password: str = "fresh-pw-12345") -> dict:
+def _accept_payload(token: str, password: str = "Fresh-Pw-12345!") -> dict:
     return {"token": token, "password": password}
 
 
@@ -196,7 +196,7 @@ async def test_accept_marks_invite_used(client, engine):
     assert r.status_code == 201
 
     # Second use of the same token: 409 already-accepted.
-    r = await client.post("/invites/accept", json=_accept_payload(token, "another-pw-12345"))
+    r = await client.post("/invites/accept", json=_accept_payload(token, "Another-Pw-12345!"))
     assert r.status_code == 409
 
 
@@ -291,7 +291,7 @@ async def test_accept_creates_user_via_user_manager(client, engine):
         )
     ).json()["token"]
 
-    r = await client.post("/invites/accept", json=_accept_payload(token, "real-pw-12345"))
+    r = await client.post("/invites/accept", json=_accept_payload(token, "Real-Pw-12345!"))
     assert r.status_code == 201
 
     factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -300,6 +300,6 @@ async def test_accept_creates_user_via_user_manager(client, engine):
             await s.execute(select(User).where(User.email == "hashed@example.com"))
         ).scalar_one()
         # Password was hashed (bcrypt prefix) — never stored as the literal.
-        assert u.hashed_password != "real-pw-12345"
+        assert u.hashed_password != "Real-Pw-12345!"
         assert u.hashed_password.startswith(("$argon2", "$2b$", "$2a$"))
         assert u.is_verified is True

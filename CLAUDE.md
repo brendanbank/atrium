@@ -279,7 +279,12 @@ mixed case, digit, symbol), then — if `password_check_breach` is on
 is fail-open with a 5-minute per-prefix in-memory cache: an upstream
 incident at HIBP must not lock every user out of registration. The
 validator is wired into both the self-serve `/auth/register` flow
-and the invite-accept flow.
+and the invite-accept flow. All four toggles ship **on** by default
+so a fresh atrium starts with a safe baseline; relax them per
+deployment. The backend test conftest patches the HIBP fetcher to
+return None (fail-open) so test suites don't depend on the network;
+tests that exercise the breach branch override the patch in their
+body.
 
 **CAPTCHA** is opt-in (`auth.captcha_provider`: `none` /
 `turnstile` / `hcaptcha`). When on, `CaptchaLoginMiddleware` reads

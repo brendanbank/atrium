@@ -107,7 +107,7 @@ async def test_signup_disabled_returns_404(client, engine):
         "/auth/register",
         json={
             "email": "newbie@example.com",
-            "password": "fresh-pw-12345",
+            "password": "Fresh-Pw-12345!",
             "full_name": "Newbie",
         },
     )
@@ -122,7 +122,7 @@ async def test_signup_happy_path(client, engine):
         "/auth/register",
         json={
             "email": "happy@example.com",
-            "password": "fresh-pw-12345",
+            "password": "Fresh-Pw-12345!",
             "full_name": "Happy User",
             "language": "en",
         },
@@ -164,7 +164,7 @@ async def test_signup_duplicate_email_returns_409(client, engine):
     await _enable_signup(engine)
     payload = {
         "email": "dup@example.com",
-        "password": "fresh-pw-12345",
+        "password": "Fresh-Pw-12345!",
         "full_name": "First",
     }
     r1 = await client.post("/auth/register", json=payload)
@@ -183,7 +183,7 @@ async def test_verify_email_flips_email_verified_at(client, engine):
         "/auth/register",
         json={
             "email": "verify@example.com",
-            "password": "fresh-pw-12345",
+            "password": "Fresh-Pw-12345!",
             "full_name": "V",
         },
     )
@@ -305,7 +305,7 @@ async def test_login_refused_when_unverified(client, engine):
         "/auth/register",
         json={
             "email": "unverified@example.com",
-            "password": "fresh-pw-12345",
+            "password": "Fresh-Pw-12345!",
             "full_name": "U",
         },
     )
@@ -313,7 +313,7 @@ async def test_login_refused_when_unverified(client, engine):
 
     login = await client.post(
         "/auth/jwt/login",
-        data={"username": "unverified@example.com", "password": "fresh-pw-12345"},
+        data={"username": "unverified@example.com", "password": "Fresh-Pw-12345!"},
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
     assert login.status_code in (400, 401)
@@ -328,7 +328,7 @@ async def test_login_allowed_when_verification_disabled(client, engine):
         "/auth/register",
         json={
             "email": "open@example.com",
-            "password": "fresh-pw-12345",
+            "password": "Fresh-Pw-12345!",
             "full_name": "O",
         },
     )
@@ -336,7 +336,7 @@ async def test_login_allowed_when_verification_disabled(client, engine):
 
     login = await client.post(
         "/auth/jwt/login",
-        data={"username": "open@example.com", "password": "fresh-pw-12345"},
+        data={"username": "open@example.com", "password": "Fresh-Pw-12345!"},
         headers={"Content-Type": "application/x-www-form-urlencoded"},
     )
     assert login.status_code in (200, 204), login.text
@@ -352,7 +352,7 @@ async def test_default_role_assignment_uses_config(client, engine):
         "/auth/register",
         json={
             "email": "default-role@example.com",
-            "password": "fresh-pw-12345",
+            "password": "Fresh-Pw-12345!",
             "full_name": "DR",
         },
     )

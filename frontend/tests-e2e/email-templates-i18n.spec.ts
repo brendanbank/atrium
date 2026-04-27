@@ -233,7 +233,7 @@ test.describe('Phase 11 — multi-language email templates', () => {
           {
             data: {
               email,
-              password: 'signup-pw-12345',
+              password: 'Signup-Pw-12345!',
               full_name: 'NL Tester',
               language: 'nl',
             },
