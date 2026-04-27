@@ -67,7 +67,8 @@ export function AdminPage() {
     (requested !== 'emails' || canManageEmailTemplates);
   const isHostValid =
     requested !== null && visibleHostTabs.some((t) => t.key === requested);
-  const active: string = isBuiltinValid || isHostValid ? requested! : 'users';
+  const fallback: string = canManageAppConfig ? 'system' : 'users';
+  const active: string = isBuiltinValid || isHostValid ? requested! : fallback;
 
   const onTabChange = (v: string | null) => {
     if (!v) return;

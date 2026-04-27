@@ -26,7 +26,15 @@ api.interceptors.response.use(
     const isPublic = url && PUBLIC_401_PATHS.some((p) => url.includes(p));
     if (status === 401 && !isPublic && typeof window !== 'undefined') {
       const path = window.location.pathname;
+      // While the document is still loading, an early 401 from a
+      // component that mounted before RequireAuth's /me probe resolved
+      // can race with the in-flight navigation: window.location.replace
+      // aborts the load (Playwright sees ERR_ABORTED). Skip the hard
+      // redirect — RequireAuth will SPA-Navigate to /login once the
+      // probe lands.
+      const isInitialLoad = document.readyState !== 'complete';
       if (
+        !isInitialLoad &&
         path !== '/login' &&
         !path.startsWith('/accept-invite') &&
         !path.startsWith('/register') &&

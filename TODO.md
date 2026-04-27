@@ -117,17 +117,6 @@ scratch; resist anything that's actually domain logic.
 
 ## UX polish (deferred from PR #6)
 
-- **Default `/admin` to the System tab for app-config managers.**
-  Tried in PR #6 but reverted: the System tab's `useAdminAppConfig`
-  fires its `GET /admin/app-config` fast enough that on the second
-  `goto('/admin')` after a logout, the 401 hard-redirects via
-  `window.location.replace('/login')` before Playwright's `page.goto`
-  resolves its `load` event — `ERR_ABORTED`. The master default of
-  `users` happens to lose this race. Real fix: change the api.ts 401
-  interceptor to skip the hard redirect during initial page load
-  (e.g. when `document.readyState !== 'complete'`) so RequireAuth can
-  bounce via SPA navigation. Would also harden any other admin
-  surface that fetches before `me` resolves.
 - **Strict password policy by default.** `password_require_mixed_case`
   / `_digit` / `_symbol` / `_check_breach` should ship `True` so a
   fresh instance has a safe baseline. Reverted in PR #6 because the
