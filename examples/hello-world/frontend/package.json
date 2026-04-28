@@ -10,6 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@brendan-bank/atrium-host-bundle-utils": "workspace:*",
+    "@brendan-bank/atrium-host-types": "workspace:*",
     "@mantine/core": "^9.1.0",
     "@mantine/hooks": "^9.1.0",
     "@tabler/icons-react": "^3.41.1",

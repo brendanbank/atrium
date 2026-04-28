@@ -1,0 +1,77 @@
+{
+  "name": "@brendan-bank/atrium-host-bundle-utils",
+  "version": "0.14.0",
+  "description": "Runtime helpers, Vite preset, and React hooks for atrium host bundles. Wraps the dual-tree mount pattern, the host-bundle Vite library config, and the /users/me/context hook so a host's main.tsx is ~10 lines of registration calls.",
+  "license": "BSD-2-Clause",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./vite": {
+      "types": "./dist/vite/index.d.ts",
+      "default": "./dist/vite/index.js"
+    },
+    "./react": {
+      "types": "./dist/react/index.d.ts",
+      "default": "./dist/react/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@brendan-bank/atrium-host-types": "workspace:*"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.0.0",
+    "react": "^18.0.0 || ^19.0.0",
+    "react-dom": "^18.0.0 || ^19.0.0",
+    "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0",
+    "vite-plugin-css-injected-by-js": "^3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    },
+    "vite-plugin-css-injected-by-js": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@tanstack/react-query": "^5.100.5",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/node": "^25.6.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "jsdom": "^29.0.2",
+    "msw": "^2.7.0",
+    "react": "^19.2.5",
+    "react-dom": "^19.2.5",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.10",
+    "vite-plugin-css-injected-by-js": "^3.5.2",
+    "vitest": "^4.1.5"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Brendan-Bank/atrium.git",
+    "directory": "packages/host-bundle-utils"
+  }
+}

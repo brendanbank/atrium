@@ -1,25 +1,21 @@
 // Copyright (c) 2026 Brendan Bank
 // SPDX-License-Identifier: BSD-2-Clause
 
-/** Thin fetch wrapper for the host's /hello/* endpoints + the
- *  atrium /users/me/context probe used to gate the toggle.
+/** Thin fetch wrapper for the host's `/hello/*` endpoints.
  *
  * We don't import atrium's axios instance — this bundle is loaded at
  * runtime and atrium's modules aren't reachable as imports. The
  * cookie-based session is shared on the same origin so
- * ``credentials: 'include'`` is enough. */
+ * ``credentials: 'include'`` is enough.
+ *
+ * Permission gating against the signed-in user's RBAC context now
+ * lives in `@brendan-bank/atrium-host-bundle-utils/react`
+ * (`useMe` / `usePerm`);
+ * the `getMeContext` helper that used to live here is gone. */
 export interface HelloState {
   message: string;
   counter: number;
   enabled: boolean;
-}
-
-export interface MeContext {
-  id: number;
-  email: string;
-  full_name: string;
-  roles: string[];
-  permissions: string[];
 }
 
 const apiBase = (import.meta as { env?: { VITE_API_BASE_URL?: string } }).env
@@ -52,13 +48,4 @@ export async function postHelloToggle(enabled: boolean): Promise<HelloState> {
     body: JSON.stringify({ enabled }),
   });
   return jsonOrThrow<HelloState>(res);
-}
-
-export async function getMeContext(): Promise<MeContext | null> {
-  const res = await fetch(`${apiBase}/users/me/context`, {
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-  });
-  if (res.status === 401 || res.status === 403) return null;
-  return jsonOrThrow<MeContext>(res);
 }

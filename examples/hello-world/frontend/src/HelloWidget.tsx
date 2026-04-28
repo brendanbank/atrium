@@ -9,6 +9,12 @@
  * atrium's. Two MantineProviders nested in the DOM is supported by
  * Mantine; theming inside this subtree won't follow atrium's brand
  * changes (acceptable for a demo).
+ *
+ * Permission gating uses `usePerm()` from
+ * `@brendan-bank/atrium-host-bundle-utils/react`
+ * — a single TanStack Query subscription against atrium's
+ * `/users/me/context`, shared across this widget, the dedicated
+ * page, and the admin tab.
  */
 import {
   Badge,
@@ -27,17 +33,16 @@ import {
   useQueryClient,
   QueryClientProvider,
 } from '@tanstack/react-query';
+import { AtriumProvider, usePerm } from '@brendan-bank/atrium-host-bundle-utils/react';
 
 import {
   getHelloState,
-  getMeContext,
   postHelloToggle,
   type HelloState,
 } from './api';
 import { queryClient } from './queryClient';
 
 const STATE_KEY = ['hello', 'state'] as const;
-const ME_KEY = ['hello', 'me-context'] as const;
 
 function HelloWidgetInner() {
   const qc = useQueryClient();
@@ -45,11 +50,8 @@ function HelloWidgetInner() {
     queryKey: STATE_KEY,
     queryFn: getHelloState,
   });
-  const { data: me } = useQuery({
-    queryKey: ME_KEY,
-    queryFn: getMeContext,
-  });
-  const canToggle = me?.permissions.includes('hello.toggle') ?? false;
+  const hasPerm = usePerm();
+  const canToggle = hasPerm('hello.toggle');
   const toggleMutation = useMutation({
     mutationFn: (enabled: boolean) => postHelloToggle(enabled),
     onSuccess: (next: HelloState) => {
@@ -103,7 +105,9 @@ export function HelloWidget() {
   return (
     <MantineProvider>
       <QueryClientProvider client={queryClient}>
-        <HelloWidgetInner />
+        <AtriumProvider>
+          <HelloWidgetInner />
+        </AtriumProvider>
       </QueryClientProvider>
     </MantineProvider>
   );

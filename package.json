@@ -1,0 +1,12 @@
+{
+  "name": "atrium-host-sdk-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Workspace overlay for the host-facing npm packages (@brendan-bank/atrium-host-types, @brendan-bank/atrium-host-bundle-utils) and the in-tree examples that consume them. Atrium's own SPA lives under frontend/ as a standalone package.",
+  "scripts": {
+    "build": "pnpm -r --filter './packages/*' build",
+    "typecheck": "pnpm -r --filter './packages/*' --filter './examples/*/frontend' typecheck",
+    "test": "pnpm -r --filter './packages/*' test"
+  },
+  "packageManager": "pnpm@10.33.1"
+}
