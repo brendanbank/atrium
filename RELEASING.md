@@ -1,0 +1,254 @@
+# Cutting an atrium release
+
+The procedure for taking a green branch through to a published GHCR
+image and a hand-written GitHub release. Atrium versions follow
+semver; the registry tag fan-out (`X.Y.Z`, `X.Y`, `X`, `latest`) is
+produced by `.github/workflows/publish-images.yml` on `v*` tag push,
+not by hand.
+
+## 0. Prerequisites
+
+- GPG signing configured for commits *and* tags (the global default in
+  this setup, see `~/.claude/CLAUDE.md`). The publish key is the RSA
+  4096 hardware-token subkey ending `F60F2EAA7F5ACC52`.
+- `gh` CLI authenticated against the `Brendan-Bank/atrium` repo.
+- `.env` present at the repo root (`make smoke` needs it). If missing:
+  `cp .env.example .env`.
+- A clean working tree on the feature branch.
+
+## 1. Pre-flight tests
+
+In order, all four must be green before opening the PR:
+
+```bash
+make test-backend            # ~1 min, testcontainers-mysql
+make test-frontend           # vitest unit tests, ~10 s
+( cd frontend && pnpm typecheck )
+make lint                    # ruff + eslint; 1 pre-existing warning is OK
+make smoke                   # Playwright against the e2e stack, ~30 s
+```
+
+Run `make smoke-hello` too if the change touches any of:
+
+- `app/services/notifications.py` or the SSE stream
+- the `frontend/src/host/` registry surface
+- `examples/hello-world/`
+- the published-images contract documented in `docs/published-images.md`
+
+`make smoke-hello` has a known flaky test — `toggle on starts the
+tick, toggle off stops it` — that fails with `socket hang up` when
+the api container restarts mid-poll. If only that test fails, retry
+just it before chasing root causes:
+
+```bash
+( cd examples/hello-world/frontend && \
+  E2E_BASE_URL=http://localhost:8000 \
+  E2E_ADMIN_EMAIL=admin@example.com \
+  E2E_ADMIN_PASSWORD=smoke-pw-12345 \
+  E2E_ADMIN_TOTP_SECRET=JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP \
+  E2E_COMPOSE_FILES='-f compose.yaml' E2E_COMPOSE_CWD='..' \
+  CI=1 pnpm exec playwright test --grep 'toggle on starts' )
+```
+
+Tear the smoke stacks down between runs — they share named volumes:
+
+```bash
+make smoke-down              # before make smoke-hello
+make smoke-hello-down        # after make smoke-hello
+```
+
+## 2. Branch + commit hygiene
+
+- Branch names: concrete, descriptive, **under 30 characters**, no
+  `feature/` or other prefix. Recent examples:
+  `sse-typed-events`, `docs-published-images`.
+- Commit messages: imperative subject, no Co-Authored-By trailer,
+  no "Generated with Claude Code" attribution. Wrap the body at ~72
+  cols. Reference issues with `Closes #NN` so the squash-merge auto-
+  closes them.
+- **Bundling two independent fixes in one release: keep them as two
+  commits on the branch.** Squash-merge collapses both into one
+  commit on master, but the diff stays reviewable as two logical
+  units in the PR view.
+
+## 3. Push the branch — no PR yet
+
+Pushing a feature branch is safe: `.github/workflows/ci.yml` is
+gated on `pull_request` events only, no `push:` trigger on feature
+branches. So:
+
+```bash
+git push -u origin <branch>
+```
+
+…fires no CI. Use this window to link the branch from the issue(s)
+it implements:
+
+```bash
+gh issue comment <N> --body "WIP on branch [\`<branch>\`](https://github.com/Brendan-Bank/atrium/tree/<branch>)."
+```
+
+That gives anyone tracking the issue a real link to the work in
+progress without burning CI minutes.
+
+## 4. Open the PR
+
+```bash
+gh pr create --base master --head <branch> \
+  --title "<short, plain-English summary>" \
+  --body "$(cat <<'EOF'
+## Summary
+<1-3 bullets — what changed, why>
+
+## Test plan
+- [x] make test-backend — N passed
+- [x] make test-frontend — N passed
+- [x] pnpm typecheck — clean
+- [x] make lint — clean
+- [x] make smoke — N/N passed
+- [x] make smoke-hello — N/N passed (or note any retried flake)
+EOF
+)"
+```
+
+PR title is what `--squash` will use as the merged-commit subject —
+keep it under ~70 chars.
+
+## 5. Watch CI
+
+Three workflows fire on PR: `CI`, `CodeQL`, `Security`. Find the run
+IDs and watch them with `gh run watch --exit-status` — **never poll
+with `gh run list`**, and don't drop `--exit-status` (bare `watch`
+exits 0 even when the run failed):
+
+```bash
+gh run list --branch <branch> --limit 5
+gh run watch <ci-run-id> --exit-status
+```
+
+Watching `CI` alone is usually enough; `CodeQL` and `Security` finish
+faster and have rarely been the long pole. Confirm overall conclusion
+afterwards:
+
+```bash
+gh run view <ci-run-id> --json conclusion,status -q '{conclusion,status}'
+```
+
+## 6. Merge
+
+Squash-merge — the established repo convention for the last ~10 PRs:
+
+```bash
+gh pr merge <N> --squash
+```
+
+Confirm:
+
+```bash
+gh pr view <N> --json state,mergedAt,mergeCommit \
+  -q '{state, mergedAt, mergeCommit: .mergeCommit.oid}'
+```
+
+Note the merge SHA — the next step tags it directly.
+
+## 7. Tag
+
+**Conductor gotcha.** If you're working in a Conductor workspace, the
+main `master` branch may be checked out by another worktree, in which
+case `git checkout master` fails with `'master' is already used by
+worktree at <path>`. Don't fight it — tag `origin/master` directly
+by SHA. `git fetch origin` first to refresh the ref:
+
+```bash
+git fetch origin
+git tag -s v<X.Y.Z> <merge-sha> -m "v<X.Y.Z> — <terse summary>
+
+<one-bullet-per-issue body>"
+git tag -v v<X.Y.Z>           # confirm "Good signature"
+git push origin v<X.Y.Z>      # triggers publish-images.yml
+```
+
+Use **signed annotated tags** (`-s`), not lightweight. Older tags in
+the repo are mixed but signed-annotated is the established direction
+and aligns with the global commit-signing default.
+
+## 8. Watch publish-images
+
+The tag push fires `.github/workflows/publish-images.yml`. It builds
+`linux/amd64` + `linux/arm64` and pushes to `ghcr.io/brendan-bank/atrium`
+with the full semver fan-out (`0.11.3`, `0.11`, `0`, `latest`).
+Typical run time: ~3-5 minutes.
+
+```bash
+gh run list --workflow=publish-images.yml --limit 3
+gh run watch <publish-run-id> --exit-status
+```
+
+A non-zero exit here means the image isn't published — don't create
+the GitHub release until this is green, otherwise users following
+the release notes will pull a tag that doesn't exist.
+
+## 9. Hand-write the release notes
+
+**Always hand-write atrium release notes.** Don't use
+`--generate-notes` — the release email goes to non-engineers and
+auto-generated bullet lists read like changelog noise. The user
+reads them top-to-bottom on a phone.
+
+Structure (match the v0.11.2 / v0.11.3 reference):
+
+- **Title:** `v<X.Y.Z> — <plain-English headline>`. Headline focuses on
+  what changed for *users*, not what changed in the code.
+- **## Highlights.** Opening paragraph: what shipped, what's the
+  motivation, what's *not* in scope. Mention if there are no
+  migrations / no breaking changes / no env additions — the absence
+  of upgrade pain is itself the headline.
+- **One `##` section per closed issue or PR.** Lead with the user-
+  visible behaviour, then the technical detail. Code blocks for any
+  new API surface. Inline `(closes #NN)` or `(PR #NN)` at the end of
+  the section so future readers can find the diff.
+- **## Documentation.** What changed in `docs/` — even a one-liner.
+  Hosts read this to know whether to re-skim the contract docs.
+- **## Image details.** The registry-tag table (`X.Y.Z`, `X.Y`, `X`,
+  `latest`). Keep it identical to the previous release; readers learn
+  to skim it.
+- **## Upgrading from v\<previous\>.** Compose snippet showing both
+  the auto-uptake and fully-pinned forms. Call out migrations / env
+  changes / breaking changes here, even if they're "none".
+
+Then create the release:
+
+```bash
+gh release create v<X.Y.Z> \
+  --title "v<X.Y.Z> — <headline>" \
+  --notes "$(cat <<'EOF'
+## Highlights
+
+...
+EOF
+)"
+```
+
+Pre-releases use `--prerelease`; mainline releases don't need any
+extra flag (the tag becomes "Latest" automatically).
+
+## 10. Verify
+
+```bash
+gh release view v<X.Y.Z>      # confirm body, isLatest, isPrerelease
+gh issue view <N>             # each "Closes #N" issue should be CLOSED
+```
+
+If you wrote `Closes #N` in the squashed commit body, GitHub closes
+the issue when the commit lands on master — no manual close needed.
+
+## Reference: prior releases as templates
+
+- `gh release view v0.11.3` — typed SSE events + HomePage intro fix
+- `gh release view v0.11.2` — `registerNotificationKind` host slot
+- `gh release view v0.11.1` — resilient host bundles + width opt-out
+- `gh release view v0.10.0` — single-image consolidation
+
+When in doubt, copy the structure from the most recent release that
+shipped the same flavour of change (extension-point addition, image
+shape change, host-bundle ergonomics, etc.).
