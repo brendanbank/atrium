@@ -57,6 +57,41 @@ make smoke-down              # before make smoke-hello
 make smoke-hello-down        # after make smoke-hello
 ```
 
+## 1.5. Bump the version + sync docs
+
+The version that ships in the image comes from
+`backend/pyproject.toml` — `app.services.app_config._atrium_version()`
+reads it via `importlib.metadata.version("atrium-backend")` and exposes
+it on `GET /app-config`, which the SPA mirrors onto
+`window.__ATRIUM_VERSION__` for host-bundle feature detection. If you
+don't bump it here, every host running the new image will report the
+old version.
+
+Land the bump on the feature branch *before* tagging so master and the
+git tag agree:
+
+```bash
+# backend/pyproject.toml — set ``version = "X.Y.Z"`` to match the tag
+# you're about to push. Refresh the lockfile so uv.lock stays in sync:
+( cd backend && uv lock --quiet )
+```
+
+While you're at it, sweep the documentation and the AI bootstrap
+skill for stale version references — both are reader-facing and
+quickly fall behind:
+
+- `docs/published-images.md` — anywhere it cites a concrete atrium
+  version (compat matrix rows, "since 0.X" notes, example pulls).
+- `docs/new-project/README.md` and `docs/new-project/SKILL.md` —
+  any pinned `ghcr.io/.../atrium:X.Y.Z` references in the bootstrap
+  walkthroughs. The SKILL.md is the AI-driveable variant; missing
+  it leaves agents emitting stale tags.
+- `examples/hello-world/` — same sweep for any pinned base-image
+  reference.
+
+If a doc references an atrium version, it needs updating with each
+release. If it doesn't, it stays untouched.
+
 ## 2. Branch + commit hygiene
 
 - Branch names: concrete, descriptive, **under 30 characters**, no

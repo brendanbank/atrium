@@ -35,6 +35,18 @@ async def _wipe_app_config(engine, *keys: str) -> None:
 
 
 @pytest.mark.asyncio
+async def test_public_endpoint_includes_version(client, engine):
+    """Issue #43 — top-level ``version`` lets host bundles mirror the
+    running atrium release onto ``window.__ATRIUM_VERSION__``."""
+    r = await client.get("/app-config")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "version" in body, body
+    assert isinstance(body["version"], str)
+    assert body["version"]
+
+
+@pytest.mark.asyncio
 async def test_public_endpoint_returns_brand_defaults(client, engine):
     await _wipe_app_config(engine, "brand")
     r = await client.get("/app-config")

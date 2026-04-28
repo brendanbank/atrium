@@ -18,7 +18,8 @@ audit retention, i18n overrides).
 """
 from __future__ import annotations
 
-from typing import Literal
+from importlib import metadata as _metadata
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -26,6 +27,23 @@ from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.ops import AppSetting
+
+
+def _atrium_version() -> str:
+    """Resolve the atrium backend's version string for the public bundle.
+
+    Sourced from the installed dist metadata so a single bump of
+    ``backend/pyproject.toml`` at release time propagates to
+    ``window.__ATRIUM_VERSION__`` on every host without code changes.
+    Falls back to ``"unknown"`` if the package isn't installed (e.g. a
+    bare-source dev tree without ``uv sync``) — host bundles already
+    treat the value as best-effort observability, not a contract.
+    """
+
+    try:
+        return _metadata.version("atrium-backend")
+    except _metadata.PackageNotFoundError:
+        return "unknown"
 
 
 class BrandConfig(BaseModel):
@@ -180,10 +198,15 @@ async def put_namespace(
     return validated
 
 
-async def get_public_config(session: AsyncSession) -> dict[str, dict]:
+async def get_public_config(session: AsyncSession) -> dict[str, Any]:
     """Bundle every public namespace into one response — the frontend
-    hits this once at boot and feeds it to MantineProvider/i18n/etc."""
-    out: dict[str, dict] = {}
+    hits this once at boot and feeds it to MantineProvider/i18n/etc.
+
+    Top-level ``version`` carries the running backend's version so the
+    SPA can mirror it to ``window.__ATRIUM_VERSION__`` for host-bundle
+    feature detection (issue #43).
+    """
+    out: dict[str, Any] = {"version": _atrium_version()}
     for ns in NAMESPACES.values():
         if not ns.public:
             continue

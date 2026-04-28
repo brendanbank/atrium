@@ -36,9 +36,15 @@ import './i18n';
 // expose the SPA's React instance on ``window`` for them to pick up;
 // without this, an externalised bundle would resolve to ``undefined``
 // at runtime.
+//
+// ``__ATRIUM_VERSION__`` is the running backend's version string,
+// mirrored from ``GET /app-config`` so host bundles can do runtime
+// feature detection (issue #43). Optional because the field is also
+// missing on atrium images that predate it.
 declare global {
   interface Window {
     React?: typeof React;
+    __ATRIUM_VERSION__?: string;
   }
 }
 if (typeof window !== 'undefined') {
@@ -50,6 +56,7 @@ interface BootSystemSlice {
 }
 
 interface BootAppConfig {
+  version?: string;
   system?: BootSystemSlice;
 }
 
@@ -57,6 +64,12 @@ async function loadHostBundle(): Promise<void> {
   let url: string | null | undefined;
   try {
     const { data } = await api.get<BootAppConfig>('/app-config');
+    // Set the global before importing the host bundle so its
+    // import-time side-effects can read ``window.__ATRIUM_VERSION__``
+    // when deciding whether to call newer registry methods.
+    if (typeof data?.version === 'string') {
+      window.__ATRIUM_VERSION__ = data.version;
+    }
     url = data?.system?.host_bundle_url ?? null;
   } catch (err) {
     // /app-config is the same call useAppConfig() makes once React
