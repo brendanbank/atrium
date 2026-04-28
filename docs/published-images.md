@@ -14,7 +14,10 @@ the retrofit playbook for moving an existing app onto atrium — see
 humans, [`SKILL.md`](new-project/SKILL.md) for AI agents). For the
 live-reload, GHCR pull access, and security-CI configuration that
 host integrations converge on, see
-[`host-dev-recipe.md`](host-dev-recipe.md).
+[`host-dev-recipe.md`](host-dev-recipe.md). For the per-release
+extension surface (which versions added which registry hooks, when the
+SSE wire format changed, when something was soft-deprecated), see
+[`compat-matrix.md`](compat-matrix.md).
 
 ---
 
@@ -347,6 +350,10 @@ calls to missing methods into no-ops, so version-gating is for
 *observability* (logging the version on bundle init) and for branching
 on intended fallbacks — not for safety. The field is `undefined` on
 atrium images that predate 0.14.0; treat it as best-effort.
+
+For the per-release extension-surface delta (which versions added which
+registry hooks, when wire formats changed, when anything was
+soft-deprecated), see [`compat-matrix.md`](compat-matrix.md).
 
 ### Building the host bundle
 
