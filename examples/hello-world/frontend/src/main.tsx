@@ -23,6 +23,18 @@ import { HelloAdminTab } from './HelloAdminTab';
 import { HelloPage } from './HelloPage';
 import { HelloProfileItem } from './HelloProfileItem';
 import { HelloWidget } from './HelloWidget';
+import {
+  HelloToggledNotification,
+  helloToggledTitle,
+} from './HelloNotification';
+
+interface HostNotification {
+  id: number;
+  kind: string;
+  payload: Record<string, unknown>;
+  read_at: string | null;
+  created_at: string;
+}
 
 interface AtriumRegistry {
   registerHomeWidget: (w: { key: string; render: () => unknown }) => void;
@@ -56,6 +68,12 @@ interface AtriumRegistry {
       | 'after-sessions'
       | 'before-delete';
     render: () => unknown;
+  }) => void;
+  registerNotificationKind: (r: {
+    kind: string;
+    render: (n: HostNotification) => unknown;
+    title?: (n: HostNotification) => string;
+    href?: (n: HostNotification) => string;
   }) => void;
 }
 
@@ -129,5 +147,16 @@ if (!reg) {
     key: 'hello-profile',
     slot: 'after-roles',
     render: () => makeWrapperElement(<HelloProfileItem />),
+  });
+  reg.registerNotificationKind({
+    kind: 'hello.toggled',
+    title: helloToggledTitle,
+    render: (n) =>
+      makeWrapperElement(
+        <HelloToggledNotification
+          payload={n.payload}
+          createdAt={n.created_at}
+        />,
+      ),
   });
 }

@@ -1,7 +1,7 @@
 // Copyright (c) 2026 Brendan Bank
 // SPDX-License-Identifier: BSD-2-Clause
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   ActionIcon,
   Badge,
@@ -19,7 +19,9 @@ import {
 } from '@mantine/core';
 import { IconBell, IconCheck, IconX } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
+import { lookupNotificationRenderer } from '@/host/registry';
 import { useMe } from '@/hooks/useAuth';
 import {
   useDeleteNotification,
@@ -54,13 +56,33 @@ export function NotificationsBell() {
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
   const delNotif = useDeleteNotification();
+  const navigate = useNavigate();
   const [opened, setOpened] = useState(false);
   const [payloadOpen, setPayloadOpen] = useState<AppNotification | null>(null);
 
   const handleNotifClick = (n: AppNotification) => {
     if (n.read_at === null) markRead.mutate(n.id);
-    setPayloadOpen(n);
     setOpened(false);
+    // A registered href short-circuits the modal: the host wants the
+    // click to deep-link into their own UI, not show the raw payload.
+    const renderer = lookupNotificationRenderer(n.kind);
+    let href: string | undefined;
+    if (renderer?.href) {
+      try {
+        href = renderer.href(n);
+      } catch (err) {
+        console.warn(
+          `[atrium] notification href() for kind "${n.kind}" threw; ` +
+            `opening detail modal instead`,
+          err,
+        );
+      }
+    }
+    if (href) {
+      navigate(href);
+    } else {
+      setPayloadOpen(n);
+    }
   };
 
   // Subscribe to the SSE stream while the user is logged in; EventSource
@@ -198,14 +220,37 @@ export function NotificationPayloadModal({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  return (
-    <Modal
-      opened={notif !== null}
-      onClose={onClose}
-      title={notif?.kind ?? ''}
-      size="lg"
-    >
-      {notif && (
+  const renderer = notif ? lookupNotificationRenderer(notif.kind) : undefined;
+
+  let title = notif?.kind ?? '';
+  if (notif && renderer?.title) {
+    try {
+      title = renderer.title(notif);
+    } catch (err) {
+      console.warn(
+        `[atrium] notification title() for kind "${notif.kind}" threw; ` +
+          `falling back to kind code`,
+        err,
+      );
+    }
+  }
+
+  let body: ReactNode = null;
+  if (notif) {
+    if (renderer) {
+      try {
+        body = renderer.render(notif);
+      } catch (err) {
+        console.warn(
+          `[atrium] notification render() for kind "${notif.kind}" threw; ` +
+            `falling back to raw payload`,
+          err,
+        );
+        body = null;
+      }
+    }
+    if (body === null) {
+      body = (
         <Stack>
           <Text size="xs" c="dimmed">
             {t('notifs.payloadHint')}
@@ -222,7 +267,13 @@ export function NotificationPayloadModal({
             {JSON.stringify(notif.payload, null, 2)}
           </Code>
         </Stack>
-      )}
+      );
+    }
+  }
+
+  return (
+    <Modal opened={notif !== null} onClose={onClose} title={title} size="lg">
+      {body}
     </Modal>
   );
 }

@@ -601,6 +601,15 @@ interface AtriumRegistry {
       | 'after-roles' | 'after-sessions' | 'before-delete';
     render: () => unknown;
   }) => void;
+  registerNotificationKind: (r: {
+    kind: string;
+    render: (n: {
+      id: number; kind: string; payload: Record<string, unknown>;
+      read_at: string | null; created_at: string;
+    }) => unknown;
+    title?: (n: { kind: string; payload: Record<string, unknown> }) => string;
+    href?: (n: { kind: string; payload: Record<string, unknown> }) => string;
+  }) => void;
 }
 
 const AtriumReact = (
@@ -930,6 +939,7 @@ Adding an endpoint, a job, a UI fragment — the standard moves:
 | Sidebar link                  | A label + path                                           | `reg.registerNavItem({ key, label, to, icon?, condition? })`               |
 | Admin tab                     | A component, gated by a permission                       | `reg.registerAdminTab({ key, label, icon?, perm, element })`               |
 | Profile-page card             | A component                                              | `reg.registerProfileItem({ key, slot?, render, condition? })`              |
+| Bell / inbox per-kind UI      | Title + (optional) detail-modal element                  | `reg.registerNotificationKind({ kind, render, title?, href? })`            |
 
 Permission gating on the API: `Depends(require_perm("your_thing.read"))`.
 

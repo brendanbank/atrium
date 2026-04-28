@@ -20,6 +20,7 @@ from app.auth.users import current_user
 from app.db import get_session
 from app.models.auth import User
 from app.services.audit import record as record_audit
+from app.services.notifications import notify_user
 
 from .models import HelloState
 
@@ -79,6 +80,18 @@ async def toggle(
         entity_id=state.id,
         action="toggle",
         diff={"enabled": {"before": before, "after": body.enabled}},
+    )
+    # Demonstrates the registerNotificationKind extension slot — the
+    # host bundle's HelloNotification renderer picks this up.
+    notify_user(
+        session,
+        user_id=user.id,
+        kind="hello.toggled",
+        payload={
+            "enabled": body.enabled,
+            "counter": state.counter,
+            "actor_user_id": user.id,
+        },
     )
     await session.commit()
     return StateOut(

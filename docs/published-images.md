@@ -228,7 +228,7 @@ and matches the schema-shaped nature of permissions.
 
 ## Frontend extension contract
 
-Atrium exposes four registries for the SPA. The host populates them at
+Atrium exposes six registries for the SPA. The host populates them at
 runtime by serving a JS bundle that atrium dynamically imports on boot.
 
 ### How the loader works
@@ -254,7 +254,7 @@ container serves it at `/host/...` (same origin as the SPA, so no CORS).
 ### The registries
 
 ```ts
-// All four exposed on window.__ATRIUM_REGISTRY__:
+// All six exposed on window.__ATRIUM_REGISTRY__:
 registerHomeWidget({ key, render })           // Card on the home page.
 registerRoute({ key, path, element,           // Adds a <Route> in the
                 requireAuth?, layout? })       //   app router.
@@ -262,6 +262,10 @@ registerNavItem({ key, label, to, icon?,      // Sidebar link.
                   condition? })
 registerAdminTab({ key, label, icon?,         // Adds a tab to /admin.
                    perm?, element })
+registerProfileItem({ key, slot?,             // Card on /profile.
+                      condition?, render })
+registerNotificationKind({ kind, render,      // Per-kind rendering for
+                           title?, href? })   //   the bell + inbox.
 ```
 
 - `registerRoute`'s `requireAuth` defaults to `true`; `layout` defaults to
@@ -272,9 +276,21 @@ registerAdminTab({ key, label, icon?,         // Adds a tab to /admin.
   permission).
 - `registerAdminTab`'s `perm` filters the tab on `me.permissions` — users
   who lack the code never see the tab in the markup.
+- `registerProfileItem`'s `slot` (default `'after-roles'`) picks where the
+  card lands in the `/profile` stack; the host owns the chrome — atrium
+  drops the rendered element straight in without wrapping.
+- `registerNotificationKind` is keyed on the notification `kind` string
+  (not a `key`). `render(n)` is invoked for the detail-modal body;
+  `title(n)` is the compact summary atrium uses for the bell list /
+  inbox row line and the modal title; `href(n)` deep-links the row
+  click into the host's UI (atrium hands the string to react-router
+  `navigate`, so keep it relative to the SPA root). `render` is the
+  only required field — atrium falls back to the kind code +
+  `JSON.stringify(payload)` when no renderer is registered, so kinds
+  without renderers keep working.
 
-Same key registered twice → last write wins, with a `console.warn`
-collision notice.
+Same key (or `kind`) registered twice → last write wins, with a
+`console.warn` collision notice.
 
 ### Building the host bundle
 
@@ -360,8 +376,9 @@ end-to-end spec.
 The example tracks `master`. If you pin your atrium image to an older
 `X.Y` tag, read the example **at the matching git tag** (`git checkout
 vX.Y.Z -- examples/hello-world/`) before copying patterns wholesale —
-slots added in later releases (e.g. `registerProfileItem` in `v0.11`)
-will be present at HEAD but missing from older images. The frontend
+slots added in later releases (e.g. `registerProfileItem` in `v0.11`,
+`registerNotificationKind` in `v0.12`) will be present at HEAD but
+missing from older images. The frontend
 registry catches calls to unknown methods and logs a console warning
 instead of throwing, so a bundle built against a newer atrium degrades
 gracefully (the rest of its registrations still land); the unknown slot

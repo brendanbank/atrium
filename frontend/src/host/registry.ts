@@ -5,10 +5,10 @@
  * Atrium host-extension registry.
  *
  * Atrium ships only the platform shell. Host applications inject their
- * own UI fragments via five registries — home widgets, routes, nav
- * items, admin tabs, and profile items — populated at SPA boot from a
- * runtime-loaded host bundle (see ``main.tsx`` and
- * ``system.host_bundle_url``).
+ * own UI fragments via six registries — home widgets, routes, nav
+ * items, admin tabs, profile items, and notification renderers —
+ * populated at SPA boot from a runtime-loaded host bundle (see
+ * ``main.tsx`` and ``system.host_bundle_url``).
  *
  * The registries are deliberately thin: each one is an array, ordered
  * by registration call order, and the consumer components iterate
@@ -28,6 +28,7 @@
 import type { ReactElement } from 'react';
 
 import type { CurrentUser } from '@/lib/auth';
+import type { AppNotification } from '@/hooks/useNotifications';
 
 /** Layout width for a home-page widget. ``narrow`` matches the default
  *  680px column atrium ships for the welcome content; ``wide`` extends
@@ -97,11 +98,52 @@ export type ProfileItem = {
   render: () => ReactElement;
 };
 
+/** Per-kind renderer for a notification row. Atrium emits
+ *  ``{kind, payload}`` rows but ships no built-in formatting — each
+ *  host app registers a renderer for the kinds it cares about. The
+ *  bell + inbox fall back to ``kind`` + raw-JSON payload for any kind
+ *  with no registered renderer.
+ *
+ *  Atrium calls the helpers in three places:
+ *
+ *  - bell list line / inbox row body → ``title(n)`` if provided,
+ *    otherwise ``n.kind``. ``render`` is *not* invoked per row;
+ *    list rendering is intentionally a string lookup so a long inbox
+ *    isn't a per-row React tree.
+ *  - row click / "View" → ``href(n)`` if provided is passed to
+ *    react-router ``navigate``; otherwise atrium opens the detail
+ *    modal.
+ *  - detail modal body → ``render(n)`` element if provided,
+ *    otherwise the fallback ``<pre>`` of ``JSON.stringify(payload)``.
+ *
+ *  The ``render`` element follows the same wrapper-element contract
+ *  as ``HomeWidget.render`` / ``RouteEntry.element``: it's an
+ *  atrium-React element, typically a ``<div>`` whose ``ref`` mounts
+ *  the host's React tree inside.
+ */
+export type NotificationKindRenderer = {
+  /** Notification ``kind`` string this renderer handles. Match is
+   *  exact; no glob / prefix matching. Duplicate registrations for
+   *  the same kind warn and last-write-wins. */
+  kind: string;
+  /** Detail-modal body. Receives the full notification row. */
+  render: (n: AppNotification) => ReactElement;
+  /** Compact summary for the bell + inbox row (and the modal title).
+   *  Plain string so the list iterates cheaply. */
+  title?: (n: AppNotification) => string;
+  /** App-internal href for the row click. Passed to react-router
+   *  ``navigate`` — keep it relative to the SPA root (e.g.
+   *  ``/calendar?focus=block:1``). When set, the row click navigates
+   *  instead of opening the detail modal. */
+  href?: (n: AppNotification) => string;
+};
+
 const homeWidgets: HomeWidget[] = [];
 const routes: RouteEntry[] = [];
 const navItems: NavItem[] = [];
 const adminTabs: AdminTab[] = [];
 const profileItems: ProfileItem[] = [];
+const notificationRenderers: NotificationKindRenderer[] = [];
 
 function registerHomeWidget(widget: HomeWidget): void {
   if (homeWidgets.some((w) => w.key === widget.key)) {
@@ -163,12 +205,27 @@ function registerProfileItem(item: ProfileItem): void {
   profileItems.push(item);
 }
 
+function registerNotificationKind(renderer: NotificationKindRenderer): void {
+  if (notificationRenderers.some((r) => r.kind === renderer.kind)) {
+    console.warn(
+      `[atrium-registry] duplicate notification renderer kind "${renderer.kind}"; ` +
+        `last registration wins`,
+    );
+    const idx = notificationRenderers.findIndex(
+      (r) => r.kind === renderer.kind,
+    );
+    notificationRenderers.splice(idx, 1);
+  }
+  notificationRenderers.push(renderer);
+}
+
 const baseRegistry = {
   registerHomeWidget,
   registerRoute,
   registerNavItem,
   registerAdminTab,
   registerProfileItem,
+  registerNotificationKind,
 } as const;
 
 export type AtriumRegistry = typeof baseRegistry;
@@ -221,6 +278,19 @@ export function getProfileItems(): readonly ProfileItem[] {
   return profileItems;
 }
 
+export function getNotificationRenderers(): readonly NotificationKindRenderer[] {
+  return notificationRenderers;
+}
+
+/** Look up the renderer for a single notification kind. Returns
+ *  ``undefined`` when no host has registered for it; callers fall
+ *  back to atrium's generic kind+JSON rendering. */
+export function lookupNotificationRenderer(
+  kind: string,
+): NotificationKindRenderer | undefined {
+  return notificationRenderers.find((r) => r.kind === kind);
+}
+
 /** Test-only: drop every registration. Production code never calls
  *  this — host bundles register once at boot and stay. */
 export function __resetRegistryForTests(): void {
@@ -229,6 +299,7 @@ export function __resetRegistryForTests(): void {
   navItems.length = 0;
   adminTabs.length = 0;
   profileItems.length = 0;
+  notificationRenderers.length = 0;
 }
 
 declare global {
@@ -247,4 +318,5 @@ export {
   registerNavItem,
   registerAdminTab,
   registerProfileItem,
+  registerNotificationKind,
 };

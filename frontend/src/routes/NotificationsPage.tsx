@@ -17,8 +17,10 @@ import {
 } from '@mantine/core';
 import { IconCheck, IconTrash } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
 
 import { NotificationPayloadModal } from '@/components/NotificationsBell';
+import { lookupNotificationRenderer } from '@/host/registry';
 import { renderNotificationBody } from '@/lib/notifications';
 import {
   useDeleteNotification,
@@ -44,13 +46,31 @@ export function NotificationsPage() {
   const markRead = useMarkRead();
   const markAllRead = useMarkAllRead();
   const delNotif = useDeleteNotification();
+  const navigate = useNavigate();
   const [payloadOpen, setPayloadOpen] = useState<AppNotification | null>(null);
 
   const unreadCount = list.filter((n) => n.read_at === null).length;
 
   const view = (n: AppNotification) => {
     if (n.read_at === null) markRead.mutate(n.id);
-    setPayloadOpen(n);
+    const renderer = lookupNotificationRenderer(n.kind);
+    let href: string | undefined;
+    if (renderer?.href) {
+      try {
+        href = renderer.href(n);
+      } catch (err) {
+        console.warn(
+          `[atrium] notification href() for kind "${n.kind}" threw; ` +
+            `opening detail modal instead`,
+          err,
+        );
+      }
+    }
+    if (href) {
+      navigate(href);
+    } else {
+      setPayloadOpen(n);
+    }
   };
 
   if (isLoading) {

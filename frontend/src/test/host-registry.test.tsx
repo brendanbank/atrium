@@ -2,16 +2,18 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 /**
- * Vitest coverage for the four host extension registries.
+ * Vitest coverage for the host extension registries.
  *
  * The registries are module-level state, so each test resets via the
  * exposed ``__resetRegistryForTests`` to avoid bleed between cases.
  *
  * Behaviour pinned down here:
  *  - register* push entries that get* return in registration order.
- *  - duplicate ``key`` for the same registry replaces the prior entry
- *    rather than double-counting.
+ *  - duplicate ``key`` (or ``kind`` for notifications) replaces the
+ *    prior entry rather than double-counting.
  *  - ``registerRoute`` warns on path collisions (last-write-wins).
+ *  - ``lookupNotificationRenderer`` returns the registered entry for
+ *    a kind, ``undefined`` otherwise.
  *  - the global ``window.__ATRIUM_REGISTRY__`` is bound to the same
  *    underlying state as the typed ``register*`` exports — host
  *    bundles loaded at runtime use the global, in-tree code uses the
@@ -25,14 +27,29 @@ import {
   getAdminTabs,
   getHomeWidgets,
   getNavItems,
+  getNotificationRenderers,
   getProfileItems,
   getRoutes,
+  lookupNotificationRenderer,
   registerAdminTab,
   registerHomeWidget,
   registerNavItem,
+  registerNotificationKind,
   registerProfileItem,
   registerRoute,
 } from '@/host/registry';
+import type { AppNotification } from '@/hooks/useNotifications';
+
+const sampleNotification = (
+  overrides: Partial<AppNotification> = {},
+): AppNotification => ({
+  id: 1,
+  kind: 'sample.kind',
+  payload: {},
+  read_at: null,
+  created_at: '2026-01-01T00:00:00Z',
+  ...overrides,
+});
 
 describe('host registry', () => {
   beforeEach(() => {
@@ -150,6 +167,78 @@ describe('host registry', () => {
     } finally {
       warn.mockRestore();
     }
+  });
+
+  it('registerNotificationKind appends entries that getNotificationRenderers returns', () => {
+    registerNotificationKind({
+      kind: 'block.updated',
+      render: () => <span>block</span>,
+    });
+    registerNotificationKind({
+      kind: 'booking.created',
+      render: () => <span>booking</span>,
+    });
+    const entries = getNotificationRenderers();
+    expect(entries.map((r) => r.kind)).toEqual([
+      'block.updated',
+      'booking.created',
+    ]);
+  });
+
+  it('registerNotificationKind carries optional title and href through', () => {
+    registerNotificationKind({
+      kind: 'block.updated',
+      render: () => <span>block</span>,
+      title: (n) => `Block ${(n.payload.block_id as number) ?? '?'} updated`,
+      href: (n) => `/calendar?focus=block:${n.payload.block_id ?? ''}`,
+    });
+    registerNotificationKind({
+      kind: 'minimal.kind',
+      render: () => <span>minimal</span>,
+    });
+    const block = lookupNotificationRenderer('block.updated');
+    expect(
+      block?.title?.(sampleNotification({ payload: { block_id: 7 } })),
+    ).toBe('Block 7 updated');
+    expect(
+      block?.href?.(sampleNotification({ payload: { block_id: 7 } })),
+    ).toBe('/calendar?focus=block:7');
+    const minimal = lookupNotificationRenderer('minimal.kind');
+    expect(minimal?.title).toBeUndefined();
+    expect(minimal?.href).toBeUndefined();
+  });
+
+  it('registerNotificationKind replaces on duplicate kind with a warning', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      registerNotificationKind({
+        kind: 'block.updated',
+        render: () => <span>first</span>,
+      });
+      registerNotificationKind({
+        kind: 'block.updated',
+        render: () => <span>second</span>,
+      });
+      const entries = getNotificationRenderers();
+      expect(entries).toHaveLength(1);
+      // The whole point of last-write-wins is that the second renderer
+      // is the live one — exercise it via the lookup.
+      const found = lookupNotificationRenderer('block.updated');
+      const element = found?.render(sampleNotification());
+      const props = element?.props as { children?: string };
+      expect(props?.children).toBe('second');
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('lookupNotificationRenderer returns undefined for an unregistered kind', () => {
+    registerNotificationKind({
+      kind: 'block.updated',
+      render: () => <span>block</span>,
+    });
+    expect(lookupNotificationRenderer('not.a.kind')).toBeUndefined();
   });
 
   it('__ATRIUM_REGISTRY__ logs a warning for unknown register* methods without throwing', () => {

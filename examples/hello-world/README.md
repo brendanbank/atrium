@@ -18,6 +18,9 @@ is lying.
 | `registerRoute`                | Dedicated `/hello` page                              |
 | `registerNavItem`              | Sidebar link                                         |
 | `registerAdminTab`             | Admin tab gated by `hello.toggle`                    |
+| `registerProfileItem`          | Toggle card on `/profile`                            |
+| `registerNotificationKind`     | Bell + inbox renderer for `hello.toggled`            |
+| `notify_user`                  | Backend writes a `hello.toggled` notification on toggle |
 
 ## Layout
 
