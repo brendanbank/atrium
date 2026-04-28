@@ -61,7 +61,7 @@ your-app/
     src/
       your_app/
         __init__.py
-        bootstrap.py         # init_app(app), init_worker(scheduler)
+        bootstrap.py         # init_app(app), init_worker(host)
         models.py            # HostBase = DeclarativeBase()
         router.py            # APIRouter mounted by init_app
     alembic/
@@ -130,6 +130,8 @@ this module:
 from __future__ import annotations
 from fastapi import FastAPI
 
+from app.host_sdk.worker import HostWorkerCtx
+
 
 def init_app(app: FastAPI) -> None:
     """Called once during create_app(), after every atrium router is
@@ -142,18 +144,21 @@ def init_app(app: FastAPI) -> None:
     # register_namespace("your_ns", YourConfig, public=False)
 
 
-def init_worker(scheduler) -> None:  # noqa: ANN001 - APScheduler types are loose
+def init_worker(host: HostWorkerCtx) -> None:
     """Called on worker startup, after register_builtin_handlers() and
     before scheduler.start()."""
     # Recurring APScheduler tick:
     # from .schedule import tick
-    # scheduler.add_job(tick, "interval", seconds=30,
-    #                   id="your-tick", coalesce=True, max_instances=1)
+    # host.scheduler.add_job(tick, "interval", seconds=30,
+    #                        id="your-tick", coalesce=True, max_instances=1)
     #
     # Durable scheduled_jobs handler:
-    # from app.jobs.runner import register_handler
     # from .handlers import handle_thing
-    # register_handler("your_kind", handle_thing)
+    # host.register_job_handler(
+    #     kind="your_kind",
+    #     handler=handle_thing,
+    #     description="Drain your_kind scheduled_jobs rows",
+    # )
     pass
 ```
 
@@ -937,8 +942,8 @@ Adding an endpoint, a job, a UI fragment — the standard moves:
 |-------------------------------|----------------------------------------------------------|----------------------------------------------------------------------------|
 | HTTP endpoint                 | `<your_pkg>/router.py`                                   | `app.include_router(router)` in `init_app`                                 |
 | New permission                | A new alembic migration                                  | `seed_permissions_sync(op.get_bind(), [...], grants={...})`                |
-| Recurring tick                | `<your_pkg>/schedule.py` async function                  | `scheduler.add_job(fn, "interval", seconds=N, ...)` in `init_worker`       |
-| Durable async job             | A handler `(session, job, payload) -> None`              | `register_handler("kind", handler)` in `init_worker`                       |
+| Recurring tick                | `<your_pkg>/schedule.py` async function                  | `host.scheduler.add_job(fn, "interval", seconds=N, ...)` in `init_worker`  |
+| Durable async job             | A handler `(session, job, payload) -> None`              | `host.register_job_handler(kind="...", handler=..., description="...")` in `init_worker` |
 | Admin-tunable flag            | A Pydantic `BaseModel` config class                      | `register_namespace("ns", Model, public=False)` in `init_app`              |
 | Per-user notification         | Inside the txn that mutated the row                      | `from app.services.notifications import notify_user`                       |
 | Outbound email (queued)       | A template row in `email_templates` + a callsite         | `from app.email.sender import enqueue_and_log`                             |
@@ -1048,10 +1053,11 @@ Mapping an existing FastAPI/SQLAlchemy/React app onto these slots:
    `email_log` for the admin mail log.
 
 7. **Background jobs**. Each existing cron/celery task becomes either:
-   - **APScheduler tick** (`scheduler.add_job(...)`) for stateless,
+   - **APScheduler tick** (`host.scheduler.add_job(...)`) for stateless,
      idempotent recurring work.
-   - **`scheduled_jobs` queue handler** (`register_handler(...)`) for
-     work that must survive worker restarts and have retry semantics.
+   - **`scheduled_jobs` queue handler** (`host.register_job_handler(...)`)
+     for work that must survive worker restarts and have retry
+     semantics.
 
 8. **Audit**. Replace your audit log with `app.services.audit.record(...)`
    — same call signature, atrium gets impersonator-aware actor
@@ -1108,7 +1114,7 @@ from app.services.app_config import register_namespace
 from app.email.sender import send_and_log, enqueue_and_log
 
 # Jobs
-from app.jobs.runner import register_handler
+from app.host_sdk.worker import HostWorkerCtx  # type for init_worker(host)
 
 # Settings + logging
 from app.settings import get_settings

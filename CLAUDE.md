@@ -533,16 +533,28 @@ startup):
 - `account_hard_delete` — tick-driven scan of users whose
   `scheduled_hard_delete_at <= now`.
 
-Host-app handlers register the same way:
+Host-app handlers register through the typed `HostWorkerCtx` atrium
+hands to `init_worker(host)`:
 
 ```python
-from app.jobs.runner import register_handler
+from app.host_sdk.worker import HostWorkerCtx
 
 async def send_welcome_email(session, job, payload):
     ...
 
-register_handler("welcome_email", send_welcome_email)
+def init_worker(host: HostWorkerCtx) -> None:
+    host.register_job_handler(
+        kind="welcome_email",
+        handler=send_welcome_email,
+        description="Send welcome email after signup",
+    )
 ```
+
+Internally `host.register_job_handler` calls
+`app.jobs.runner.register_handler` (still exported, still works) and
+adds a `host.job_handler.registered` startup log + a
+`host.job_handler.duplicate` warning when the same kind is registered
+twice.
 
 `scheduled_jobs` rows carry an opaque `entity_type` + `entity_id` so
 the host can attribute a job to a domain row without a hard FK. The

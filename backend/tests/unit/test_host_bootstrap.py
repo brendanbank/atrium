@@ -124,19 +124,23 @@ def test_create_app_unimportable_module_raises(_restore_env, monkeypatch):
 
 def test_worker_bootstrap_calls_init_worker(_restore_env, monkeypatch):
     """Mirror of the api hook: the worker reads ATRIUM_HOST_MODULE and
-    invokes ``init_worker(scheduler)`` if present.
+    invokes ``init_worker(host)`` with a :class:`HostWorkerCtx` if
+    present.
 
     We exercise the inline code shape rather than spinning up
     ``worker.main()`` — that path starts an APScheduler event loop and
     is significantly more expensive to fixture than the bootstrap
     contract warrants.
     """
+    from app.host_sdk.worker import HostWorkerCtx
+
     captured: dict[str, object] = {}
 
     fake = types.ModuleType("atrium_test_host_module_w")
 
-    def init_worker(scheduler: object) -> None:
-        captured["scheduler"] = scheduler
+    def init_worker(host: HostWorkerCtx) -> None:
+        captured["host"] = host
+        captured["scheduler"] = host.scheduler
 
     fake.init_worker = init_worker
     _install_fake_module("atrium_test_host_module_w", fake)
@@ -149,8 +153,9 @@ def test_worker_bootstrap_calls_init_worker(_restore_env, monkeypatch):
             mod = importlib.import_module(host_module)
             init = getattr(mod, "init_worker", None)
             if callable(init):
-                init(scheduler_sentinel)
+                init(HostWorkerCtx(scheduler=scheduler_sentinel))  # type: ignore[arg-type]
     finally:
         _uninstall_fake_module("atrium_test_host_module_w")
 
+    assert isinstance(captured.get("host"), HostWorkerCtx)
     assert captured.get("scheduler") is scheduler_sentinel

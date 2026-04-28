@@ -12,7 +12,7 @@ is lying.
 | `ATRIUM_HOST_MODULE` bootstrap | `atrium_hello_world.bootstrap.init_app/init_worker`  |
 | `app.include_router`           | `/hello/state` (auth) and `/hello/toggle` (perm)     |
 | `seed_permissions_sync`        | Seeds `hello.toggle` in the host alembic migration   |
-| APScheduler `add_job`          | 3 s tick (2 s in tests) increments the counter inline |
+| APScheduler `add_job`          | 3 s tick (2 s in tests) increments the counter inline (via `host.scheduler.add_job` on the `HostWorkerCtx`) |
 | Host alembic chain             | Own `hello_state` table in `alembic_version_app`     |
 | `registerHomeWidget`           | Card on the home page                                |
 | `registerRoute`                | Dedicated `/hello` page                              |
@@ -72,7 +72,8 @@ the home page, alongside a sidebar link to `/hello` and a Hello World tab in
 the admin shell. Flip the toggle and the counter ticks every 30 seconds (the
 default `HELLO_TICK_SECONDS`). The example increments the counter inline from
 the APScheduler tick — for jobs that need durability across worker restarts,
-use atrium's `scheduled_jobs` queue + `register_handler` instead.
+use atrium's `scheduled_jobs` queue + `host.register_job_handler(...)` from
+`init_worker(host)` instead.
 
 That's it for the demo path. No proxy, no `-f` chains, no separate frontend
 container — atrium serves the SPA itself from the api process via Starlette

@@ -15,7 +15,7 @@ air. Inline keeps the demo crisp at the configured interval (default
 3 s, smoke tests use 2 s). The ``scheduled_jobs`` queue is the right
 tool for jobs that need durability across worker restarts or atomic
 ordering — it's documented in the README's "when to use the queue"
-section, and ``app.jobs.runner.register_handler`` is still part of
+section, and ``HostWorkerCtx.register_job_handler`` is still part of
 atrium's surface even though the example no longer exercises it.
 """
 from __future__ import annotations

@@ -5,18 +5,21 @@ Status: accepted, 2026-04-28
 ## Context
 
 Atrium ships a host-extension contract today: a host module with
-`init_app(app)` / `init_worker(scheduler)`, a separate `HostBase`
+`init_app(app)` / `init_worker(host)`, a separate `HostBase`
 declarative base for host models, a separate alembic chain with its
 own version table, and registry hooks on the frontend. Hosts re-derive
 the same boilerplate every time — most painfully, the workaround
 needed to declare a foreign key from a host table to an atrium table
 without crashing the SQLAlchemy mapper at class-init.
 
-Issue #42 (this epic, wave 1) introduces the first piece of typed
+Issue #42 (this epic, wave 1) introduced the first piece of typed
 Python helper surface for hosts: a `HostForeignKey()` factory plus an
-alembic autogenerate hook. Issue #44 will add a typed
-`register_job_handler()` for the worker queue. There will be more —
-the host SDK is a long-running surface, not a single helper.
+alembic autogenerate hook. Issue #44 added the typed
+`HostWorkerCtx` (`app.host_sdk.worker`) so `init_worker(host)` exposes
+`host.scheduler` and `host.register_job_handler(...)` instead of
+forcing hosts to import the internal `app.jobs.runner.register_handler`.
+There will be more — the host SDK is a long-running surface, not a
+single helper.
 
 We need a stable home for these helpers that:
 

@@ -418,8 +418,11 @@ The starter ships *only* the platform layer. To add your domain:
    public=False)` from import-time. The admin UI surface picks it up
    automatically.
 6. For background work: write a handler and register it via
-   `app.jobs.runner.register_handler("your_kind", handler)` from
-   `app/main.py` or `worker.py` startup.
+   `host.register_job_handler(kind="your_kind", handler=handler,
+   description="...")` from a host bundle's `init_worker(host)`
+   callback (where `host: app.host_sdk.worker.HostWorkerCtx`). For
+   in-tree work, call `app.jobs.runner.register_handler(...)`
+   directly from worker startup.
 7. For per-user notifications: call
    `app.services.notifications.notify_user(...)` from inside the
    transaction that mutated the domain row.

@@ -26,6 +26,7 @@ from sqlalchemy import and_, exists, select
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 
 from app.db import get_engine, get_session_factory
+from app.host_sdk.worker import HostWorkerCtx
 from app.jobs.builtin_handlers import register_builtin_handlers
 from app.jobs.runner import run_one
 from app.logging import configure_logging, log
@@ -226,7 +227,7 @@ async def main() -> None:
         mod = importlib.import_module(host_module)
         init = getattr(mod, "init_worker", None)
         if callable(init):
-            init(scheduler)
+            init(HostWorkerCtx(scheduler=scheduler))
         else:
             log.info("host.init_worker.absent", module=host_module)
 

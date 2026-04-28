@@ -146,20 +146,34 @@ The module exports two optional callables:
 # host_app/bootstrap.py
 from fastapi import FastAPI
 
+from app.host_sdk.worker import HostWorkerCtx
+
 def init_app(app: FastAPI) -> None:
     """Called once during create_app(), after every atrium router is
     included and before the ASGI app starts serving."""
     from .router import router
     app.include_router(router)
 
-def init_worker(scheduler) -> None:
+def init_worker(host: HostWorkerCtx) -> None:
     """Called once during worker startup, after register_builtin_handlers()
-    and before scheduler.start()."""
-    from app.jobs.runner import register_handler
+    and before scheduler.start().
+
+    ``host`` exposes:
+      - ``host.scheduler`` — the APScheduler instance for recurring
+        ``add_job(...)`` ticks.
+      - ``host.register_job_handler(kind=..., handler=..., description=...)``
+        — the typed equivalent of importing the internal
+        ``app.jobs.runner.register_handler``. Atrium logs the
+        registration and warns on duplicate ``kind`` registrations.
+    """
     from .handler import my_handler
 
-    register_handler("my_kind", my_handler)
-    scheduler.add_job(my_tick, "interval", seconds=60)
+    host.register_job_handler(
+        kind="my_kind",
+        handler=my_handler,
+        description="Drain my_kind scheduled_jobs rows",
+    )
+    host.scheduler.add_job(my_tick, "interval", seconds=60)
 ```
 
 **Ordering guarantees**:
@@ -185,11 +199,17 @@ Through the registries atrium already exposes:
 - **App-config namespaces** — `register_namespace("my_ns", MyModel, public=False)`
   from `app.services.app_config`. Reaches the admin UI at
   `/admin/app-config` automatically.
-- **Job handlers** — `register_handler("my_kind", handler)` from
-  `app.jobs.runner`. The runner dispatches `scheduled_jobs` rows to
-  registered handlers; unknown `job_type` values are cancelled with a
-  loud `last_error` rather than retried indefinitely.
-- **APScheduler jobs** — `scheduler.add_job(...)` from `init_worker`.
+- **Job handlers** — `host.register_job_handler(kind="my_kind",
+  handler=handler, description="...")` from `init_worker(host)`. The
+  runner dispatches `scheduled_jobs` rows to registered handlers;
+  unknown `job_type` values are cancelled with a loud `last_error`
+  rather than retried indefinitely. Atrium logs every registration
+  (`host.job_handler.registered`) and warns on duplicate `kind`
+  registrations (`host.job_handler.duplicate`). Importing the
+  internal `app.jobs.runner.register_handler` directly still works
+  but is no longer the recommended path.
+- **APScheduler jobs** — `host.scheduler.add_job(...)` from
+  `init_worker(host)`.
 
 ### Permission seeding
 

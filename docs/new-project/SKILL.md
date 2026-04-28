@@ -73,9 +73,12 @@ Create these files (full contents in [`README.md`](README.md), section
   runtime deps (atrium image provides them).
 - `backend/src/<your_pkg>/__init__.py` — empty marker.
 - `backend/src/<your_pkg>/bootstrap.py` — define `init_app(app:
-  FastAPI) -> None` and optionally `init_worker(scheduler) -> None`.
-  `init_app` mounts your router. `init_worker` registers job handlers
-  and APScheduler ticks. Either may be absent (atrium logs
+  FastAPI) -> None` and optionally `init_worker(host: HostWorkerCtx)
+  -> None` (`from app.host_sdk.worker import HostWorkerCtx`).
+  `init_app` mounts your router. `init_worker` registers job
+  handlers via `host.register_job_handler(kind=..., handler=...,
+  description=...)` and APScheduler ticks via
+  `host.scheduler.add_job(...)`. Either may be absent (atrium logs
   `host.init_app.absent`); both run loud if the module fails to import.
 - `backend/src/<your_pkg>/models.py` — define `class HostBase(DeclarativeBase)`
   and your tables on it. **Never** parent host tables on `app.db.Base`.
@@ -326,7 +329,7 @@ from app.services.audit import record as record_audit    # write audit row
 from app.services.notifications import notify_user       # in-app notification + SSE
 from app.services.app_config import register_namespace   # admin-tunable namespace
 from app.email.sender import send_and_log, enqueue_and_log  # email pipeline
-from app.jobs.runner import register_handler             # scheduled_jobs handler
+from app.host_sdk.worker import HostWorkerCtx           # init_worker(host) ctx type
 from app.settings import get_settings                    # env-var settings
 from app.logging import log                              # structlog logger
 ```

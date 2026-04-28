@@ -13,15 +13,20 @@ The atrium image imports this module on startup when the operator sets
   form of ``app.auth.rbac_seed.seed_permissions_sync``. Migration-time
   seeding sidesteps the lifespan-vs-add_event_handler conflict in
   modern FastAPI and matches the schema-shaped nature of permissions.
-- ``init_worker(scheduler)`` runs on worker startup, after atrium's
-  built-in handlers register and before APScheduler starts. We add
-  the recurring counter-increment tick.
+- ``init_worker(host)`` runs on worker startup, after atrium's
+  built-in handlers register and before APScheduler starts. ``host``
+  is a :class:`~app.host_sdk.worker.HostWorkerCtx` that exposes the
+  APScheduler instance plus a typed ``register_job_handler`` for
+  ``scheduled_jobs`` dispatch. We add the recurring counter-increment
+  tick.
 """
 from __future__ import annotations
 
 import os
 
 from fastapi import FastAPI
+
+from app.host_sdk.worker import HostWorkerCtx
 
 # Default tick interval. Smoke tests and the dev compose overlay set
 # HELLO_TICK_SECONDS=2 so the spec lands in seconds; the standalone
@@ -35,11 +40,11 @@ def init_app(app: FastAPI) -> None:
     app.include_router(router)
 
 
-def init_worker(scheduler) -> None:  # noqa: ANN001 — APScheduler types are loose
+def init_worker(host: HostWorkerCtx) -> None:
     from .schedule import tick_hello_count
 
     seconds = int(os.environ.get("HELLO_TICK_SECONDS", str(DEFAULT_TICK_SECONDS)))
-    scheduler.add_job(
+    host.scheduler.add_job(
         tick_hello_count,
         "interval",
         seconds=seconds,
@@ -47,3 +52,11 @@ def init_worker(scheduler) -> None:  # noqa: ANN001 — APScheduler types are lo
         coalesce=True,
         max_instances=1,
     )
+
+    # Real hosts that need durable, queue-backed work register a handler
+    # for the relevant ``scheduled_jobs.job_type`` here, e.g.:
+    #     host.register_job_handler(
+    #         kind="hello.welcome_email",
+    #         handler=send_welcome_email,
+    #         description="Send welcome email after signup",
+    #     )
