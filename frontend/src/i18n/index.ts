@@ -39,6 +39,23 @@ i18n
     },
   });
 
+// Expose the i18next instance on window so host bundles can resolve
+// shared keys (e.g. ``__atrium_t__('common.save')`` from
+// ``@brendan-bank/atrium-host-bundle-utils``) against atrium's bundled
+// resources + admin overrides + host overlays. The host bundle reads
+// the active locale dynamically — a user's language switch reaches the
+// next ``t()`` call without re-registering. Available since atrium
+// 0.14.0; older images leave the global undefined and the helper falls
+// back to returning the key.
+declare global {
+  interface Window {
+    __atrium_i18n__?: typeof i18n;
+  }
+}
+if (typeof window !== 'undefined') {
+  window.__atrium_i18n__ = i18n;
+}
+
 interface I18nOverrides {
   enabled_locales?: string[];
   overrides?: Record<string, Record<string, string>>;

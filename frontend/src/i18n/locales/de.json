@@ -19,9 +19,18 @@
     "cancel": "Abbrechen",
     "delete": "Löschen",
     "edit": "Bearbeiten",
+    "new": "Neu",
+    "close": "Schließen",
+    "confirm": "Bestätigen",
+    "back": "Zurück",
     "language": "Sprache",
     "loading": "Wird geladen…",
-    "required": "Pflichtfeld"
+    "empty": "Hier ist noch nichts.",
+    "error": "Etwas ist schiefgelaufen.",
+    "search": "Suchen",
+    "required": "Pflichtfeld",
+    "confirmDelete": "Diesen Eintrag löschen? Das kann nicht rückgängig gemacht werden.",
+    "confirmDiscard": "Nicht gespeicherte Änderungen verwerfen?"
   },
   "password": {
     "tooShort": "Das Passwort ist zu kurz.",

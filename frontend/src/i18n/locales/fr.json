@@ -19,9 +19,18 @@
     "cancel": "Annuler",
     "delete": "Supprimer",
     "edit": "Modifier",
+    "new": "Nouveau",
+    "close": "Fermer",
+    "confirm": "Confirmer",
+    "back": "Retour",
     "language": "Langue",
     "loading": "Chargement…",
-    "required": "Obligatoire"
+    "empty": "Rien ici pour le moment.",
+    "error": "Une erreur est survenue.",
+    "search": "Rechercher",
+    "required": "Obligatoire",
+    "confirmDelete": "Supprimer cet élément ? Cette action est irréversible.",
+    "confirmDiscard": "Abandonner les modifications non enregistrées ?"
   },
   "password": {
     "tooShort": "Le mot de passe est trop court.",

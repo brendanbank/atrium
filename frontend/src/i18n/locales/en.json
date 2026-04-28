@@ -19,9 +19,18 @@
     "cancel": "Cancel",
     "delete": "Delete",
     "edit": "Edit",
+    "new": "New",
+    "close": "Close",
+    "confirm": "Confirm",
+    "back": "Back",
     "language": "Language",
     "loading": "Loading…",
-    "required": "Required"
+    "empty": "Nothing here yet.",
+    "error": "Something went wrong.",
+    "search": "Search",
+    "required": "Required",
+    "confirmDelete": "Delete this item? This cannot be undone.",
+    "confirmDiscard": "Discard unsaved changes?"
   },
   "password": {
     "tooShort": "Password is too short.",

@@ -19,9 +19,18 @@
     "cancel": "Annuleren",
     "delete": "Verwijderen",
     "edit": "Bewerken",
+    "new": "Nieuw",
+    "close": "Sluiten",
+    "confirm": "Bevestigen",
+    "back": "Terug",
     "language": "Taal",
     "loading": "Laden…",
-    "required": "Verplicht"
+    "empty": "Hier staat nog niets.",
+    "error": "Er is iets misgegaan.",
+    "search": "Zoeken",
+    "required": "Verplicht",
+    "confirmDelete": "Dit item verwijderen? Dit kan niet ongedaan worden gemaakt.",
+    "confirmDiscard": "Niet-opgeslagen wijzigingen verwerpen?"
   },
   "password": {
     "tooShort": "Wachtwoord is te kort.",

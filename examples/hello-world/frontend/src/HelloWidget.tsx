@@ -33,7 +33,11 @@ import {
   useQueryClient,
   QueryClientProvider,
 } from '@tanstack/react-query';
-import { AtriumProvider, usePerm } from '@brendan-bank/atrium-host-bundle-utils/react';
+import {
+  __atrium_t__,
+  AtriumProvider,
+  usePerm,
+} from '@brendan-bank/atrium-host-bundle-utils/react';
 
 import {
   getHelloState,
@@ -68,10 +72,17 @@ function HelloWidgetInner() {
             {data?.enabled ? 'enabled' : 'disabled'}
           </Badge>
         </Group>
-        {isLoading && <Loader size="xs" />}
+        {isLoading && (
+          <Group gap="xs">
+            <Loader size="xs" />
+            <Text size="sm" c="dimmed">
+              {__atrium_t__('common.loading')}
+            </Text>
+          </Group>
+        )}
         {error && (
           <Text c="red" size="sm">
-            Failed to load: {(error as Error).message}
+            {__atrium_t__('common.error')}: {(error as Error).message}
           </Text>
         )}
         {data && (
