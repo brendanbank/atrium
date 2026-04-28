@@ -21,7 +21,9 @@ SSE wire format changed, when something was soft-deprecated), see
 of the Mantine theme tokens host bundles inherit (which `--mantine-*`
 custom properties atrium commits to keeping stable, which are
 override-friendly through `BrandConfig`, and which are internal), see
-[`theme.md`](theme.md).
+[`theme.md`](theme.md). For the shared `common.*` i18n key set host
+bundles can read via `__atrium_t__`, see
+[`host-i18n.md`](host-i18n.md).
 
 ---
 
@@ -389,7 +391,7 @@ piggy-back on atrium's via an import map. The recommended path is the
 [`@brendan-bank/atrium-host-bundle-utils`](https://github.com/Brendan-Bank/atrium/tree/master/packages/host-bundle-utils)
 — simpler, no atrium-side changes required, ~100 KB gzipped.
 
-Two atrium-published packages remove the boilerplate:
+Three atrium-published packages remove the boilerplate:
 
 - `@brendan-bank/atrium-host-types` — TypeScript declarations for
   `AtriumRegistry`, `UserContext`, `AtriumNotification`, `AtriumEvent`,
@@ -398,11 +400,21 @@ Two atrium-published packages remove the boilerplate:
   Types-only; bundlers strip it from the production output.
 - `@brendan-bank/atrium-host-bundle-utils` — runtime helpers
   (`makeWrapperElement`, `mountInside`), a Vite preset
-  (`hostBundleConfig`), and React hooks (`useMe`, `usePerm`,
-  `useRole`, `<AtriumProvider>`) on three subpath exports (`.`,
-  `./vite`, `./react`). Re-exports the types from
-  `@brendan-bank/atrium-host-types` so a host adding only one dep
-  still gets the declarations.
+  (`hostBundleConfig`), the shared-i18n helper
+  (`__atrium_t__`, see [`host-i18n.md`](host-i18n.md)), and React
+  hooks (`useMe`, `usePerm`, `useRole`, `<AtriumProvider>`) on three
+  subpath exports (`.`, `./vite`, `./react`). Re-exports the types
+  from `@brendan-bank/atrium-host-types` so a host adding only one
+  dep still gets the declarations.
+- `@brendan-bank/atrium-test-utils` — vitest helpers for unit-testing
+  host bundles. `mockAtriumRegistry({ me })` installs a recording
+  fake on `window`, `renderWithAtrium(ui)` wraps
+  `@testing-library/react`'s `render` with a fresh QueryClient +
+  AtriumProvider, and `fireAtriumEvent(kind, payload)` dispatches
+  synthetic SSE events to handlers registered via the fake. Replaces
+  the hand-rolled `vi.fn()` mocks every host used to write — see the
+  package's [`README`](https://github.com/Brendan-Bank/atrium/tree/master/packages/test-utils)
+  for the worked example.
 
 Both packages are published on **GitHub Packages** (the same registry
 family as the atrium GHCR image) and versioned in lockstep with the
