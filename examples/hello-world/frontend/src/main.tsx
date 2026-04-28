@@ -47,7 +47,7 @@ interface AtriumRegistry {
   registerRoute: (r: {
     key: string;
     path: string;
-    element: unknown;
+    render: () => unknown;
     requireAuth?: boolean;
     layout?: 'shell' | 'bare';
   }) => void;
@@ -62,7 +62,7 @@ interface AtriumRegistry {
     label: string;
     icon?: unknown;
     perm?: string;
-    element: unknown;
+    render: () => unknown;
   }) => void;
   registerProfileItem: (p: {
     key: string;
@@ -80,6 +80,10 @@ interface AtriumRegistry {
     render: (n: HostNotification) => unknown;
     title?: (n: HostNotification) => string;
     href?: (n: HostNotification) => string;
+  }) => void;
+  registerLocale: (o: {
+    locale: string;
+    strings: Record<string, unknown>;
   }) => void;
   subscribeEvent: (
     kind: string,
@@ -136,7 +140,7 @@ if (!reg) {
   reg.registerRoute({
     key: 'hello-page',
     path: '/hello',
-    element: makeWrapperElement(<HelloPage />),
+    render: () => makeWrapperElement(<HelloPage />),
   });
   reg.registerNavItem({
     key: 'hello-nav',
@@ -151,7 +155,7 @@ if (!reg) {
     label: 'Hello World',
     icon: AtriumReact.createElement(IconHandStop, { size: 14 }),
     perm: 'hello.toggle',
-    element: makeWrapperElement(<HelloAdminTab />),
+    render: () => makeWrapperElement(<HelloAdminTab />),
   });
   reg.registerProfileItem({
     key: 'hello-profile',

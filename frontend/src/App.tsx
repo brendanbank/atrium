@@ -68,14 +68,20 @@ export default function App() {
       <Route path="/2fa" element={<TwoFactorPage />} />
 
       {publicHostRoutes.map((r) => (
-        <Route key={r.key} path={r.path} element={r.element} />
+        <Route
+          key={r.key}
+          path={r.path}
+          element={r.render ? r.render() : r.element}
+        />
       ))}
 
       {bareAuthRoutes.map((r) => (
         <Route
           key={r.key}
           path={r.path}
-          element={<RequireAuth>{r.element}</RequireAuth>}
+          element={
+            <RequireAuth>{r.render ? r.render() : r.element}</RequireAuth>
+          }
         />
       ))}
 
@@ -92,7 +98,11 @@ export default function App() {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/notifications" element={<NotificationsPage />} />
         {shellAuthRoutes.map((r) => (
-          <Route key={r.key} path={r.path} element={r.element} />
+          <Route
+            key={r.key}
+            path={r.path}
+            element={r.render ? r.render() : r.element}
+          />
         ))}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

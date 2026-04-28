@@ -164,7 +164,7 @@ export function AdminPage() {
         )}
         {visibleHostTabs.map((tab) => (
           <Tabs.Panel key={tab.key} value={tab.key} pt="md">
-            {tab.element}
+            {tab.render ? tab.render() : tab.element}
           </Tabs.Panel>
         ))}
       </Tabs>

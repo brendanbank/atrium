@@ -5,6 +5,11 @@ import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 
+import {
+  getLocaleOverlays,
+  subscribeLocaleOverlay,
+  type LocaleOverlay,
+} from '@/host/registry';
 import de from './locales/de.json';
 import en from './locales/en.json';
 import fr from './locales/fr.json';
@@ -61,6 +66,32 @@ function unflattenDotted(flat: Record<string, string>): Record<string, unknown> 
   return out;
 }
 
+function applyHostLocaleOverlay(overlay: LocaleOverlay): void {
+  // Accept either a flat dotted bundle (``{"home.welcome": "Hi"}``)
+  // or an already-nested tree. The flat form is detected by every
+  // value being a primitive — if any value is itself an object, the
+  // caller passed the nested shape directly.
+  const looksFlat = Object.values(overlay.strings).every(
+    (v) => v === null || typeof v !== 'object',
+  );
+  const bundle = looksFlat
+    ? unflattenDotted(overlay.strings as Record<string, string>)
+    : overlay.strings;
+  // ``deep=true`` merges nested objects so a host overlaying a single
+  // sub-key under ``home`` doesn't wipe atrium's other ``home.*``
+  // strings. ``overwrite=true`` is the per-key last-write-wins.
+  i18n.addResourceBundle(overlay.locale, 'translation', bundle, true, true);
+}
+
+// Drain any overlays the host bundle registered before this module
+// finished initialising (defensive — host bundle loads after this
+// module imports), then subscribe so future ``registerLocale`` calls
+// land immediately.
+for (const overlay of getLocaleOverlays()) {
+  applyHostLocaleOverlay(overlay);
+}
+subscribeLocaleOverlay(applyHostLocaleOverlay);
+
 void (async () => {
   try {
     // Resolve the API base the same way ``lib/api.ts`` does. Bare
@@ -82,6 +113,14 @@ void (async () => {
   } catch {
     // Network or parse failures fall through to the bundled defaults —
     // an admin-broken /app-config response shouldn't take down the UI.
+  } finally {
+    // Re-apply host overlays last so the precedence is deterministic
+    // (shipped < admin override < host overlay) regardless of which
+    // async path resolved first. Subsequent host registrations land
+    // via the subscription above.
+    for (const overlay of getLocaleOverlays()) {
+      applyHostLocaleOverlay(overlay);
+    }
   }
 })();
 

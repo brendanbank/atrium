@@ -26,6 +26,7 @@ import {
   __resetRegistryForTests,
   getAdminTabs,
   getHomeWidgets,
+  getLocaleOverlays,
   getNavItems,
   getNotificationRenderers,
   getProfileItems,
@@ -33,11 +34,13 @@ import {
   lookupNotificationRenderer,
   registerAdminTab,
   registerHomeWidget,
+  registerLocale,
   registerNavItem,
   registerNotificationKind,
   registerProfileItem,
   registerRoute,
   subscribeEvent,
+  subscribeLocaleOverlay,
 } from '@/host/registry';
 import {
   __eventBusSubscriberCountForTests,
@@ -108,16 +111,56 @@ describe('host registry', () => {
       registerRoute({
         key: 'first',
         path: '/x',
-        element: <span>first</span>,
+        render: () => <span>first</span>,
       });
       registerRoute({
         key: 'second',
         path: '/x',
-        element: <span>second</span>,
+        render: () => <span>second</span>,
       });
       const routes = getRoutes();
       expect(routes).toHaveLength(1);
       expect(routes[0]?.key).toBe('second');
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('registerRoute carries render() through and produces a fresh element each call', () => {
+    let calls = 0;
+    registerRoute({
+      key: 'r',
+      path: '/r',
+      render: () => {
+        calls += 1;
+        return <span>r{calls}</span>;
+      },
+    });
+    const route = getRoutes()[0]!;
+    expect(typeof route.render).toBe('function');
+    const first = route.render!();
+    const second = route.render!();
+    expect(first).not.toBe(second);
+    expect(calls).toBe(2);
+  });
+
+  it('registerRoute still accepts deprecated element shape', () => {
+    registerRoute({
+      key: 'legacy',
+      path: '/legacy',
+      element: <span>legacy</span>,
+    });
+    const route = getRoutes()[0]!;
+    expect(route.element).toBeDefined();
+    expect(route.render).toBeUndefined();
+  });
+
+  it('registerRoute drops the registration when neither render nor element is supplied', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      registerRoute({ key: 'broken', path: '/broken' } as never);
+      expect(getRoutes()).toHaveLength(0);
       expect(warn).toHaveBeenCalledOnce();
     } finally {
       warn.mockRestore();
@@ -138,10 +181,39 @@ describe('host registry', () => {
       key: 't',
       label: 'Tab',
       perm: 'thing.manage',
-      element: <span>tab</span>,
+      render: () => <span>tab</span>,
     });
     const tabs = getAdminTabs();
     expect(tabs[0]?.perm).toBe('thing.manage');
+  });
+
+  it('registerAdminTab carries render() through and accepts deprecated element', () => {
+    registerAdminTab({
+      key: 'a',
+      label: 'A',
+      render: () => <span>A</span>,
+    });
+    registerAdminTab({
+      key: 'b',
+      label: 'B',
+      element: <span>B</span>,
+    });
+    const tabs = getAdminTabs();
+    expect(tabs[0]?.render).toBeDefined();
+    expect(tabs[0]?.element).toBeUndefined();
+    expect(tabs[1]?.render).toBeUndefined();
+    expect(tabs[1]?.element).toBeDefined();
+  });
+
+  it('registerAdminTab drops the registration when neither render nor element is supplied', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      registerAdminTab({ key: 'broken', label: 'Broken' } as never);
+      expect(getAdminTabs()).toHaveLength(0);
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('registerProfileItem appends in registration order', () => {
@@ -271,6 +343,39 @@ describe('host registry', () => {
       expect(getHomeWidgets().map((w) => w.key)).toContain(
         'after-future-call',
       );
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('registerLocale records overlays and notifies subscribers', () => {
+    const heard: string[] = [];
+    const off = subscribeLocaleOverlay((o) => heard.push(o.locale));
+    try {
+      registerLocale({ locale: 'en', strings: { 'app.title': 'X' } });
+      registerLocale({ locale: 'nl', strings: { 'app.title': 'X-NL' } });
+      const overlays = getLocaleOverlays();
+      expect(overlays.map((o) => o.locale)).toEqual(['en', 'nl']);
+      expect(heard).toEqual(['en', 'nl']);
+    } finally {
+      off();
+    }
+  });
+
+  it('registerLocale stacks multiple overlays for the same locale in order', () => {
+    registerLocale({ locale: 'en', strings: { 'a': '1' } });
+    registerLocale({ locale: 'en', strings: { 'b': '2' } });
+    expect(getLocaleOverlays()).toHaveLength(2);
+  });
+
+  it('registerLocale rejects empty locale and non-object strings', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      registerLocale({ locale: '', strings: { a: '1' } });
+      registerLocale({ locale: 'en', strings: null as unknown as Record<string, unknown> });
+      registerLocale({ locale: 'en', strings: ['a'] as unknown as Record<string, unknown> });
+      expect(getLocaleOverlays()).toHaveLength(0);
+      expect(warn).toHaveBeenCalledTimes(3);
     } finally {
       warn.mockRestore();
     }

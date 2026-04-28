@@ -59,7 +59,23 @@ export type HomeWidget = {
 export type RouteEntry = {
   key: string;
   path: string;
-  element: ReactElement;
+  /** Returns a fresh element each time the route mounts. Preferred over
+   *  ``element`` because the wrapper elements registered by host
+   *  bundles are typically structurally identical ``<div ref=…>`` calls;
+   *  re-using the captured element across two registered routes lets
+   *  React reuse the same DOM node when ``<Route>`` swaps, so the
+   *  second route's ref fires on a node that already has the first
+   *  route's mounted root attached. ``render`` mirrors the shape
+   *  already used by ``registerHomeWidget`` and
+   *  ``registerNotificationKind``. Exactly one of ``render`` or
+   *  ``element`` must be supplied. */
+  render?: () => ReactElement;
+  /** @deprecated Pass ``render: () => element`` instead. Captured
+   *  elements share the same DOM node across navigations, which can
+   *  carry stale state into the next route's wrapper — see the rationale
+   *  on ``render`` above. Kept for back-compat with hosts built against
+   *  pre-0.12 atrium. */
+  element?: ReactElement;
   /** Default true. Set false for public routes (e.g. host-supplied
    *  unauthenticated landing pages). */
   requireAuth?: boolean;
@@ -86,7 +102,16 @@ export type AdminTab = {
   /** Permission code; the tab is hidden for users who don't hold it.
    *  Omit to show the tab to every admin viewer. */
   perm?: string;
-  element: ReactElement;
+  /** Returns a fresh element each time the tab is selected. Preferred
+   *  over ``element`` for the same reason as ``RouteEntry.render`` —
+   *  ``Tabs`` keeps panels mounted by default, so a captured element
+   *  can hang onto a now-orphaned host React root when the host bundle
+   *  is hot-reloaded. Exactly one of ``render`` or ``element`` must be
+   *  supplied. */
+  render?: () => ReactElement;
+  /** @deprecated Pass ``render: () => element`` instead. Kept for
+   *  back-compat with hosts built against pre-0.12 atrium. */
+  element?: ReactElement;
 };
 
 /** Slot inside ``ProfilePage``'s vertical card stack where a host
@@ -151,12 +176,41 @@ export type NotificationKindRenderer = {
   href?: (n: AppNotification) => string;
 };
 
+/** Locale overlay registered by a host bundle. ``strings`` is a flat
+ *  i18next-style bundle (either dot-paths like ``"home.welcome"`` or a
+ *  nested object — both are accepted). The overlay layers on top of
+ *  atrium's shipped locale + any ``i18n.overrides`` from
+ *  ``/app-config``, so the precedence is shipped < admin overrides <
+ *  host overlay. Per-key, last-write-wins. */
+export type LocaleOverlay = {
+  locale: string;
+  strings: Record<string, unknown>;
+};
+
 const homeWidgets: HomeWidget[] = [];
 const routes: RouteEntry[] = [];
 const navItems: NavItem[] = [];
 const adminTabs: AdminTab[] = [];
 const profileItems: ProfileItem[] = [];
 const notificationRenderers: NotificationKindRenderer[] = [];
+const localeOverlays: LocaleOverlay[] = [];
+const localeOverlayListeners: Array<(o: LocaleOverlay) => void> = [];
+
+function hasRenderOrElement(
+  entry: { render?: unknown; element?: unknown },
+  fn: string,
+  key: string,
+): boolean {
+  if (entry.render === undefined && entry.element === undefined) {
+    console.warn(
+      `[atrium-registry] ${fn}({ key: "${key}" }) requires either ` +
+        `\`render: () => ReactElement\` (preferred) or \`element\` ` +
+        `(deprecated). Registration ignored.`,
+    );
+    return false;
+  }
+  return true;
+}
 
 function registerHomeWidget(widget: HomeWidget): void {
   if (homeWidgets.some((w) => w.key === widget.key)) {
@@ -171,6 +225,7 @@ function registerHomeWidget(widget: HomeWidget): void {
 }
 
 function registerRoute(route: RouteEntry): void {
+  if (!hasRenderOrElement(route, 'registerRoute', route.key)) return;
   // Path collisions are last-write-wins so a host can deliberately
   // override an atrium route, but we surface a console warning so the
   // collision is visible during integration.
@@ -199,6 +254,7 @@ function registerNavItem(item: NavItem): void {
 }
 
 function registerAdminTab(tab: AdminTab): void {
+  if (!hasRenderOrElement(tab, 'registerAdminTab', tab.key)) return;
   if (adminTabs.some((t) => t.key === tab.key)) {
     const idx = adminTabs.findIndex((t) => t.key === tab.key);
     adminTabs.splice(idx, 1);
@@ -232,6 +288,34 @@ function registerNotificationKind(renderer: NotificationKindRenderer): void {
   notificationRenderers.push(renderer);
 }
 
+function registerLocale(overlay: LocaleOverlay): void {
+  if (typeof overlay.locale !== 'string' || overlay.locale.length === 0) {
+    console.warn(
+      `[atrium-registry] registerLocale requires a non-empty \`locale\`; ` +
+        `registration ignored`,
+    );
+    return;
+  }
+  if (
+    overlay.strings === null ||
+    typeof overlay.strings !== 'object' ||
+    Array.isArray(overlay.strings)
+  ) {
+    console.warn(
+      `[atrium-registry] registerLocale({ locale: "${overlay.locale}" }) ` +
+        `requires \`strings\` to be a plain object; registration ignored`,
+    );
+    return;
+  }
+  // Multiple overlays for the same locale stack — later registrations
+  // override earlier ones per key. We don't merge into a single entry
+  // here because the i18n module re-applies overlays in order.
+  localeOverlays.push(overlay);
+  for (const listener of localeOverlayListeners) {
+    listener(overlay);
+  }
+}
+
 const baseRegistry = {
   registerHomeWidget,
   registerRoute,
@@ -239,6 +323,7 @@ const baseRegistry = {
   registerAdminTab,
   registerProfileItem,
   registerNotificationKind,
+  registerLocale,
   /** Subscribe to a notification ``kind`` on the SSE stream. Atrium
    *  owns one connection per tab; this is how a host bundle plugs
    *  into it without standing up its own ``EventSource``. The handler
@@ -314,6 +399,26 @@ export function lookupNotificationRenderer(
   return notificationRenderers.find((r) => r.kind === kind);
 }
 
+export function getLocaleOverlays(): readonly LocaleOverlay[] {
+  return localeOverlays;
+}
+
+/** Subscribe to host-bundle ``registerLocale`` calls so the i18n
+ *  module can apply each overlay onto i18next as it lands. The host
+ *  bundle's import-time side-effects fire while ``loadHostBundle()``
+ *  is awaiting; the listener picks up each overlay synchronously so
+ *  React's first render already sees the host strings. Returns an
+ *  unsubscribe. Test-only — production code subscribes once at boot. */
+export function subscribeLocaleOverlay(
+  listener: (overlay: LocaleOverlay) => void,
+): () => void {
+  localeOverlayListeners.push(listener);
+  return () => {
+    const idx = localeOverlayListeners.indexOf(listener);
+    if (idx >= 0) localeOverlayListeners.splice(idx, 1);
+  };
+}
+
 /** Test-only: drop every registration. Production code never calls
  *  this — host bundles register once at boot and stay. */
 export function __resetRegistryForTests(): void {
@@ -323,6 +428,8 @@ export function __resetRegistryForTests(): void {
   adminTabs.length = 0;
   profileItems.length = 0;
   notificationRenderers.length = 0;
+  localeOverlays.length = 0;
+  localeOverlayListeners.length = 0;
   // Event bus is part of the same surface; the rest of the helpers
   // are imported separately from ``./events`` for tests that want to
   // exercise just the bus.
@@ -346,5 +453,6 @@ export {
   registerAdminTab,
   registerProfileItem,
   registerNotificationKind,
+  registerLocale,
   subscribeEvent,
 };
