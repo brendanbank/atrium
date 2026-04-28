@@ -80,8 +80,15 @@ While you're at it, sweep the documentation and the AI bootstrap
 skill for stale version references — both are reader-facing and
 quickly fall behind:
 
+- `docs/compat-matrix.md` — **add a row** for the release you're
+  about to cut. One row per published `vX.Y.Z`, with the alembic
+  head, any new registry hooks, deprecations, and env / config
+  changes. Cells stay terse; the release notes carry the prose. Use
+  an em-dash for axes that didn't move in this release. The link
+  in the *Atrium* column points at the release you're about to
+  publish (step 9 below).
 - `docs/published-images.md` — anywhere it cites a concrete atrium
-  version (compat matrix rows, "since 0.X" notes, example pulls).
+  version ("since 0.X" notes, example pulls).
 - `docs/new-project/README.md` and `docs/new-project/SKILL.md` —
   any pinned `ghcr.io/.../atrium:X.Y.Z` references in the bootstrap
   walkthroughs. The SKILL.md is the AI-driveable variant; missing
@@ -168,6 +175,16 @@ afterwards:
 ```bash
 gh run view <ci-run-id> --json conclusion,status -q '{conclusion,status}'
 ```
+
+**Doc-only PRs skip CI.** All three PR workflows carry a
+`paths-ignore` filter for `**.md`, `docs/**`, and `LICENCE.md`, so a
+PR whose every changed file matches one of those patterns triggers
+zero workflow runs. `gh run list --branch <branch>` will return
+nothing — that's expected, not a "CI hung" signal. Mixed PRs (any
+non-docs file alongside docs) still run the full suite; the filter
+only fires when *every* changed path is in the ignore list. The
+weekly Security cron and the on-demand `workflow_dispatch` for
+CodeQL still cover full scans regardless.
 
 ## 6. Merge
 

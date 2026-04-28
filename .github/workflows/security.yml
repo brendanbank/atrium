@@ -20,6 +20,13 @@ on:
   push:
     branches: [master]
   pull_request:
+    # Doc-only PRs skip the supply-chain scans — no lockfiles, no
+    # Dockerfile, no source touched. The master push + weekly cron
+    # still keep coverage end-to-end on whatever lands.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENCE.md"
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:

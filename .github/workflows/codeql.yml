@@ -10,6 +10,12 @@ name: CodeQL
 on:
   pull_request:
     branches: [master]
+    # Doc-only PRs skip CodeQL — no Python or TS source changed, the
+    # weekly cron and on-demand dispatch still cover full scans.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENCE.md"
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:

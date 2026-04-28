@@ -5,6 +5,14 @@ name: CI
 
 on:
   pull_request:
+    # Doc-only PRs skip CI entirely. The filter triggers when *every*
+    # changed file matches one of these patterns; mixed PRs (any code
+    # file alongside docs) still run the full suite. Mirrors codeql.yml
+    # and security.yml so a doc-only PR is genuinely free.
+    paths-ignore:
+      - "**.md"
+      - "docs/**"
+      - "LICENCE.md"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
