@@ -37,6 +37,16 @@ test('user can log in and sees the home page', async ({ page }) => {
   await expect(page).toHaveURL('/');
   await expect(page.getByRole('heading', { name: /Welcome/i })).toBeVisible();
 
+  // No host bundle is loaded in the smoke stack, so the integrator-
+  // facing "starter shell" intro renders. (When a host bundle ships a
+  // home widget the intro auto-hides — covered by the hello-world
+  // spec.)
+  await expect(
+    page.getByText(
+      'This is the Atrium starter shell. Hook your domain pages onto the routes from here.',
+    ),
+  ).toBeVisible();
+
   // Sidebar exposes the main sections — proves the shell mounted.
   await expect(page.getByRole('link', { name: 'Profile' })).toBeVisible();
 });

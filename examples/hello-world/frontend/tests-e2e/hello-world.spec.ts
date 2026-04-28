@@ -92,6 +92,23 @@ test.describe('hello-world example', () => {
     await expect(card.getByTestId('hello-toggle')).toBeVisible();
   });
 
+  test('starter intro is hidden when a host home widget is registered', async ({
+    page,
+  }) => {
+    // The integrator-onboarding line ("This is the Atrium starter
+    // shell...") is noise once a host has shipped its own home widget.
+    // The intro should not render on a page where the hello-world
+    // widget mounts.
+    await loginAsSuperAdmin(page);
+    await page.goto('/');
+    await expect(page.getByTestId('hello-card')).toBeVisible();
+    await expect(
+      page.getByText(
+        'This is the Atrium starter shell. Hook your domain pages onto the routes from here.',
+      ),
+    ).toHaveCount(0);
+  });
+
   test('nav item appears in the sidebar', async ({ page }) => {
     await loginAsSuperAdmin(page);
     await page.goto('/');

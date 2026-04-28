@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 
 import { HostHomeWidgets } from '@/components/HostHomeWidgets';
 import { useMe } from '@/hooks/useAuth';
+import { getHomeWidgets } from '@/host/registry';
 
 /** Minimal landing page. Host apps replace this with whatever
  *  dashboard makes sense for them; Atrium ships only the shell.
@@ -15,11 +16,18 @@ import { useMe } from '@/hooks/useAuth';
  *  ``HostHomeWidgets`` is rendered outside the welcome Container so
  *  widgets that opt into ``width: 'wide'`` or ``'full'`` can break
  *  out of the 680px column. The atrium-shipped welcome content stays
- *  in the narrow column. */
+ *  in the narrow column.
+ *
+ *  The ``home.intro`` line is integrator-facing copy: it tells someone
+ *  who's just spun up a fresh starter where to hook their own pages.
+ *  Once any host widget is registered the intro is noise, so we hide
+ *  it. The greeting + the action buttons stay either way — they're
+ *  useful chrome regardless of whether a host owns the page. */
 export function HomePage() {
   const { t } = useTranslation();
   const { data: me } = useMe();
   const isAdmin = me?.roles.includes('admin') ?? false;
+  const hasHostWidgets = getHomeWidgets().length > 0;
 
   return (
     <Stack gap="md">
@@ -31,7 +39,7 @@ export function HomePage() {
               ? t('home.welcomeNamed', { name: me.full_name })
               : t('home.welcome')}
           </Title>
-          <Text c="dimmed">{t('home.intro')}</Text>
+          {!hasHostWidgets && <Text c="dimmed">{t('home.intro')}</Text>}
           <Group>
             <Button
               component={Link}
