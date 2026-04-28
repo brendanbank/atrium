@@ -64,6 +64,11 @@ export interface AuthConfig {
 }
 
 export interface PublicAppConfig {
+  // Running atrium backend version (e.g. ``"0.12.0"``). Mirrored onto
+  // ``window.__ATRIUM_VERSION__`` at boot for host-bundle feature
+  // detection. Optional because hosts may run against an older atrium
+  // image that predates the field — read it defensively.
+  version?: string;
   brand: BrandConfig;
   system?: SystemConfig;
   i18n?: I18nConfig;
