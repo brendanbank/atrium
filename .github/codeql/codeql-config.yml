@@ -1,0 +1,29 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
+# Repo-local CodeQL config — referenced from .github/workflows/codeql.yml
+# via `config-file`. Keeps the rule set on `security-and-quality` (wider
+# than security-only — worth it for a small codebase) and trims two
+# sources of pure noise that drown the real findings.
+
+name: atrium
+
+queries:
+  - uses: security-and-quality
+
+paths-ignore:
+  # Alembic migrations are run-once scripts; the patterns CodeQL flags
+  # in them (unused locals, broad excepts) are idiomatic for migration
+  # code and not meaningful for runtime risk.
+  - backend/alembic/versions/**
+  # Test fixtures + scaffolding — out of scope for product security
+  # review; their findings rarely correspond to real risk.
+  - backend/tests/**
+
+query-filters:
+  - exclude:
+      # Alembic owns `revision`, `down_revision`, `branch_labels`, and
+      # `depends_on` in every migration file via reflection. The parser
+      # sees them as unused module globals; without this filter the
+      # Security tab fills with one alert per migration.
+      id: py/unused-global-variable

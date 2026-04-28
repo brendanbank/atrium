@@ -1,0 +1,167 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
+name: Security
+
+# Three supply-chain scans on a single workflow:
+#   - Trivy fs + image scan of the runtime image (SARIF -> Security tab)
+#   - pip-audit of the backend deps (informational)
+#   - pnpm audit of the SPA deps (informational)
+#
+# Triggered on PRs and pushes to master, plus a weekly cron so a fresh
+# CVE on an unchanged repo still surfaces within seven days.
+#
+# `actions: read` is non-obvious but required: codeql-action/upload-sarif
+# reads workflow-run metadata to attach SARIF to the right run, and
+# without it the upload fails silently with
+# "Resource not accessible by integration - workflow-runs".
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+  packages: read
+  actions: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trivy:
+    name: Trivy (runtime image)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd  # v4.0.0
+
+      # Required because the published runtime image is private. If
+      # the package is later flipped to public, this step becomes a
+      # no-op but still works.
+      - name: Log in to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121  # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build runtime image
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f  # v7.1.0
+        with:
+          context: .
+          file: Dockerfile
+          target: runtime
+          load: true
+          tags: atrium:scan
+          build-args: |
+            VITE_API_BASE_URL=
+            VITE_DEFAULT_LANGUAGE=en
+            VITE_CKEDITOR_LICENSE_KEY=GPL
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Filesystem scan catches dep CVEs (uv.lock, pnpm-lock.yaml),
+      # Dockerfile / IaC misconfig, and committed secrets. Skipping
+      # node_modules and the python venv keeps the scan focused on
+      # the lockfiles + sources rather than the materialised deps.
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,misconfig,secret
+          format: sarif
+          output: trivy-fs.sarif
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+          skip-dirs: frontend/node_modules,backend/.venv
+
+      - name: Upload Trivy fs SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225  # v4.35.2
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+      # OS-package CVEs in the python:3.14-slim base + the Vite-built
+      # SPA's bundled deps. api + worker share this image, so one
+      # scan covers both runtime roles.
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          scan-type: image
+          image-ref: atrium:scan
+          format: sarif
+          output: trivy-image.sarif
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Upload Trivy image SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225  # v4.35.2
+        with:
+          sarif_file: trivy-image.sarif
+          category: trivy-image
+
+  pip-audit:
+    name: pip-audit (backend deps)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
+
+      - name: Install system deps
+        run: sudo apt-get update && sudo apt-get install -y default-libmysqlclient-dev pkg-config
+
+      - name: Sync deps
+        run: uv sync
+
+      # Non-blocking: Dependabot already proposes the fix, the audit
+      # is informational. Reports surface in the job log; SARIF
+      # upload would need a separate format conversion, not worth it
+      # while pip-audit is run as a backstop to Dependabot.
+      - name: Run pip-audit
+        run: uv run --with pip-audit pip-audit --strict --progress-spinner off || true
+
+  pnpm-audit:
+    name: pnpm audit (SPA deps)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - uses: pnpm/action-setup@903f9c1a6ebcba6cf41d87230be49611ac97822e  # v6.0.3
+        with:
+          version: 10.33.1
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      # Non-blocking, see pip-audit comment above.
+      - name: Run pnpm audit
+        run: pnpm audit --audit-level high || true

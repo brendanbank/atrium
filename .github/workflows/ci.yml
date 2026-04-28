@@ -228,10 +228,24 @@ jobs:
             frontend/pnpm-lock.yaml
             examples/hello-world/frontend/pnpm-lock.yaml
 
+      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd  # v4.0.0
+
       - name: Build atrium runtime image
         # Local atrium build instead of pulling from GHCR so PRs don't
         # depend on a published artifact for the branch under test.
-        run: docker build -t atrium-local:source --target runtime .
+        # ``cache-from``/``cache-to`` reuse the same GHA cache scope as
+        # ``compose-build`` and ``publish-images``: a layer built once
+        # is reused across all three jobs (and across re-runs on the
+        # same PR).
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f  # v7.1.0
+        with:
+          context: .
+          file: Dockerfile
+          target: runtime
+          load: true
+          tags: atrium-local:source
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Prepare smoke .env
         # The example compose reads .env from examples/hello-world/.
@@ -334,40 +348,3 @@ jobs:
             examples/hello-world/frontend/playwright-report
             examples/hello-world/frontend/test-results
           if-no-files-found: ignore
-
-  compose-build:
-    # Builds the unified atrium image for trivy scanning. No dependency
-    # on backend / frontend test results — the scan is about CVEs in
-    # the resulting image, orthogonal to whether tests pass.
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-
-      - name: Build unified atrium image
-        run: docker build -t atrium:scan --target runtime .
-
-      # Trivy: filesystem scan catches dep CVEs (uv.lock, pnpm-lock.yaml),
-      # Dockerfile / IaC misconfig, and committed secrets. --ignore-unfixed
-      # avoids blocking on CVEs that have no upstream patch yet.
-      - name: Trivy filesystem scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
-        with:
-          scan-type: fs
-          scan-ref: .
-          scanners: vuln,misconfig,secret
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: '1'
-          skip-dirs: frontend/node_modules,backend/.venv
-
-      # OS-package CVEs in the python:3.14-slim base + the Vite-built
-      # SPA's bundled deps. api + worker share this image, so one scan
-      # covers both runtime roles.
-      - name: Trivy image scan
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
-        with:
-          scan-type: image
-          image-ref: atrium:scan
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: '1'

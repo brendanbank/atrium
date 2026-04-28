@@ -9,7 +9,7 @@ name: CodeQL
 
 on:
   pull_request:
-    branches: [main]
+    branches: [master]
   schedule:
     - cron: "0 6 * * 1"
   workflow_dispatch:
@@ -40,9 +40,11 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
-          # security-and-quality widens the rule set beyond
-          # security-only; worth it for a small codebase.
-          queries: security-and-quality
+          # The query set (security-and-quality), the paths-ignore for
+          # alembic + tests, and the py/unused-global-variable filter
+          # all live in the repo-local config so this workflow stays
+          # focused on driving the matrix.
+          config-file: ./.github/codeql/codeql-config.yml
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@95e58e9a2cdfd71adc6e0353d5c52f41a045d225  # v4.35.2

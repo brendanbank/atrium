@@ -11,6 +11,17 @@ name: Publish image
 #
 # `workflow_dispatch` lets a maintainer re-run an existing tag (eg.
 # registry outage recovery) without retagging.
+#
+# Per-arch parallel builds: amd64 on ubuntu-24.04, arm64 on
+# ubuntu-24.04-arm. Each matrix job pushes its image by digest only
+# (no tags); the merge job assembles the multi-arch manifest list
+# under the canonical semver tags. This replaces the previous
+# unified single-runner build that emulated arm64 via qemu — the
+# emulation was the dominant cost (8 min for a typical release).
+# Native arm64 runners are free for private repos on the Team plan;
+# if the runner ever becomes unavailable, swap matrix.runner.arm64
+# back to ubuntu-24.04 and re-add docker/setup-qemu-action to fall
+# back to emulation.
 on:
   push:
     tags:
@@ -30,15 +41,86 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/atrium
+
 jobs:
-  image:
-    runs-on: ubuntu-latest
+  build:
+    name: Build (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-24.04
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
     steps:
+      - name: Resolve platform pair
+        # buildx artifact names can't contain slashes; turn linux/amd64
+        # into linux-amd64 for the digest artifact name + cache scope.
+        run: |
+          platform=${{ matrix.platform }}
+          echo "PLATFORM_PAIR=${platform//\//-}" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
 
-      - uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a  # v4.0.0
+      - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd  # v4.0.0
+
+      - name: Log in to GHCR
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121  # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f  # v7.1.0
+        with:
+          context: .
+          file: Dockerfile
+          target: runtime
+          platforms: ${{ matrix.platform }}
+          build-args: |
+            VITE_API_BASE_URL=
+            VITE_DEFAULT_LANGUAGE=en
+            VITE_CKEDITOR_LICENSE_KEY=GPL
+          # No tags here — push-by-digest is what lets the merge job
+          # below assemble the multi-arch manifest list under the
+          # real semver tags.
+          outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=runtime-${{ env.PLATFORM_PAIR }}
+          cache-to: type=gha,scope=runtime-${{ env.PLATFORM_PAIR }},mode=max
+
+      - name: Export digest
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v4.6.2
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  merge:
+    name: Merge manifest
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
 
       - uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd  # v4.0.0
 
@@ -53,30 +135,25 @@ jobs:
         id: meta
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf  # v6.0.0
         with:
-          images: ghcr.io/${{ github.repository_owner }}/atrium
+          images: ${{ env.IMAGE_NAME }}
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=raw,value=latest
 
-      - name: Build and push
-        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f  # v7.1.0
-        with:
-          # Repo root — the unified Dockerfile needs to reach both
-          # backend/ and frontend/ in one COPY tree.
-          context: .
-          file: Dockerfile
-          target: runtime
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            VITE_API_BASE_URL=
-            VITE_DEFAULT_LANGUAGE=en
-            VITE_CKEDITOR_LICENSE_KEY=GPL
-          # GHA cache so per-arch layers (especially the arm64
-          # emulated ones) are reused across runs.
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        # `imagetools create` accepts repeated -t flags for tags and
+        # one or more @sha256:... source refs; jq pulls the tag list
+        # straight out of metadata-action's JSON output. Word
+        # splitting on the two $(...) substitutions is intentional —
+        # each tag and each digest must arrive as its own argv slot.
+        run: |
+          # shellcheck disable=SC2046
+          docker buildx imagetools create \
+            $(jq -cr '.tags | map("-t " + .) | join(" ")' <<< "$DOCKER_METADATA_OUTPUT_JSON") \
+            $(printf "${IMAGE_NAME}@sha256:%s " *)
+
+      - name: Inspect image
+        run: docker buildx imagetools inspect "${IMAGE_NAME}:${{ steps.meta.outputs.version }}"
