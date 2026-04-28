@@ -7,7 +7,7 @@ name = "atrium-backend"
 # ``app.services.app_config._atrium_version`` and surfaced on the
 # public ``GET /app-config`` bundle so the SPA can mirror it onto
 # ``window.__ATRIUM_VERSION__`` for host-bundle feature detection.
-version = "0.12.0"
+version = "0.12.1"
 description = "Atrium — auth/RBAC/notifications/audit starter (backend)"
 readme = "../README.md"
 requires-python = ">=3.12"

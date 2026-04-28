@@ -321,6 +321,33 @@ shape (no key, returns an unsubscribe handle) and follows
 register-once-then-stay semantics — a duplicate subscription with
 the same handler reference is a silent no-op.
 
+### Runtime version detection (`window.__ATRIUM_VERSION__`)
+
+Available since atrium 0.12.1. The running backend's version string
+(e.g. `"0.12.1"`) is mirrored onto `window.__ATRIUM_VERSION__` from
+the `/app-config` boot fetch — *before* the host bundle is imported,
+so import-time code can branch on it.
+
+```ts
+declare global {
+  interface Window {
+    __ATRIUM_VERSION__?: string;
+  }
+}
+
+if (window.__ATRIUM_VERSION__ && satisfies(window.__ATRIUM_VERSION__, '>= 0.13.0')) {
+  reg.subscribeEvent('booking.created', invalidate);
+} else {
+  console.warn('[host] atrium', window.__ATRIUM_VERSION__, 'lacks SSE invalidation; falling back to focus polling');
+}
+```
+
+The defensive Proxy on `window.__ATRIUM_REGISTRY__` already turns
+calls to missing methods into no-ops, so version-gating is for
+*observability* (logging the version on bundle init) and for branching
+on intended fallbacks — not for safety. The field is `undefined` on
+atrium images that predate 0.12.1; treat it as best-effort.
+
 ### Building the host bundle
 
 The host's frontend is a separate Vite project that emits a single ES
