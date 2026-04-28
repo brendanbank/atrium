@@ -152,10 +152,21 @@ jobs:
         uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf  # v6.0.0
         with:
           images: ${{ env.IMAGE_NAME }}
+          # ``type=semver`` defaults to extracting from ``github.ref``,
+          # which is correct for the ``on: push: tags`` path
+          # (``refs/tags/v1.2.3``) but wrong for ``workflow_dispatch``
+          # — that always runs against the workflow file's branch
+          # (``refs/heads/master``), and the dispatch ``ref`` input is
+          # carried separately in ``github.event.inputs.ref``. Without
+          # an explicit ``value=`` override, a manual re-publish drops
+          # every semver tag and only ``type=raw,value=latest`` lands,
+          # which is what bit the v0.11.2 re-dispatch. Plumbing the
+          # input through (with ``github.ref_name`` as the push-trigger
+          # fallback) keeps both paths emitting the full tag set.
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=semver,pattern={{version}},value=${{ github.event.inputs.ref || github.ref_name }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ github.event.inputs.ref || github.ref_name }}
+            type=semver,pattern={{major}},value=${{ github.event.inputs.ref || github.ref_name }}
             type=raw,value=latest
 
       - name: Create manifest list and push
