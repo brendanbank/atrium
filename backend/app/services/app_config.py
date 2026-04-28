@@ -18,7 +18,9 @@ audit retention, i18n overrides).
 """
 from __future__ import annotations
 
+import tomllib
 from importlib import metadata as _metadata
+from pathlib import Path
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -35,15 +37,30 @@ def _atrium_version() -> str:
     Sourced from the installed dist metadata so a single bump of
     ``backend/pyproject.toml`` at release time propagates to
     ``window.__ATRIUM_VERSION__`` on every host without code changes.
-    Falls back to ``"unknown"`` if the package isn't installed (e.g. a
-    bare-source dev tree without ``uv sync``) — host bundles already
-    treat the value as best-effort observability, not a contract.
+
+    The published runtime image installs deps via ``uv sync`` but does
+    not install ``atrium-backend`` itself as a distribution — the source
+    tree is on PYTHONPATH instead — so ``importlib.metadata`` raises
+    ``PackageNotFoundError`` there. Fall back to parsing the
+    ``pyproject.toml`` shipped alongside the source: the Dockerfile
+    copies it to ``/app/pyproject.toml`` and dev trees have it at
+    ``backend/pyproject.toml`` (same file the metadata install would
+    have read; same value). Issue #57.
     """
 
     try:
         return _metadata.version("atrium-backend")
     except _metadata.PackageNotFoundError:
-        return "unknown"
+        pass
+    try:
+        pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+        with pyproject.open("rb") as fh:
+            version = tomllib.load(fh)["project"]["version"]
+        if isinstance(version, str) and version:
+            return version
+    except (OSError, KeyError, tomllib.TOMLDecodeError):
+        pass
+    return "unknown"
 
 
 class BrandConfig(BaseModel):

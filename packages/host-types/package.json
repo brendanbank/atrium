@@ -1,6 +1,6 @@
 {
   "name": "@brendan-bank/atrium-host-types",
-  "version": "0.14.0",
+  "version": "0.14.1",
   "description": "TypeScript declarations for the atrium host-extension contract: AtriumRegistry, UserContext, AdminUserRow, AtriumNotification, AtriumEvent. Source-of-truth shapes a host bundle types against, kept in sync with atrium's published image major.minor.",
   "license": "BSD-2-Clause",
   "type": "module",

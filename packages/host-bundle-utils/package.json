@@ -1,6 +1,6 @@
 {
   "name": "@brendan-bank/atrium-host-bundle-utils",
-  "version": "0.14.0",
+  "version": "0.14.1",
   "description": "Runtime helpers, Vite preset, and React hooks for atrium host bundles. Wraps the dual-tree mount pattern, the host-bundle Vite library config, and the /users/me/context hook so a host's main.tsx is ~10 lines of registration calls.",
   "license": "BSD-2-Clause",
   "type": "module",

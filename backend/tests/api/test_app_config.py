@@ -37,13 +37,32 @@ async def _wipe_app_config(engine, *keys: str) -> None:
 @pytest.mark.asyncio
 async def test_public_endpoint_includes_version(client, engine):
     """Issue #43 — top-level ``version`` lets host bundles mirror the
-    running atrium release onto ``window.__ATRIUM_VERSION__``."""
+    running atrium release onto ``window.__ATRIUM_VERSION__``.
+
+    Issue #57 — the published runtime image doesn't install
+    ``atrium-backend`` as a distribution, so ``importlib.metadata``
+    returned ``"unknown"`` and the feature silently regressed. Pin the
+    value against ``pyproject.toml`` so any future dist-metadata
+    breakage shows up in CI instead of in production.
+    """
+    import tomllib
+    from pathlib import Path
+
+    pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    with pyproject.open("rb") as fh:
+        expected = tomllib.load(fh)["project"]["version"]
+
     r = await client.get("/app-config")
     assert r.status_code == 200, r.text
     body = r.json()
     assert "version" in body, body
     assert isinstance(body["version"], str)
-    assert body["version"]
+    assert body["version"] != "unknown", (
+        "atrium version resolution fell through to 'unknown' — "
+        "host-bundle feature detection (window.__ATRIUM_VERSION__) is "
+        "broken. See issue #57."
+    )
+    assert body["version"] == expected, (body["version"], expected)
 
 
 @pytest.mark.asyncio
