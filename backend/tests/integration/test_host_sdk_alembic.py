@@ -28,8 +28,12 @@ from sqlalchemy import create_engine, text
 
 from alembic import command
 
-HW_BACKEND = Path(
-    "/Users/brendan/conductor/workspaces/atrium/asuncion/examples/hello-world/backend"
+# tests/integration/test_host_sdk_alembic.py → repo root → example backend.
+HW_BACKEND = (
+    Path(__file__).resolve().parent.parent.parent.parent
+    / "examples"
+    / "hello-world"
+    / "backend"
 )
 
 
