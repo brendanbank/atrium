@@ -155,8 +155,14 @@ jobs:
           cache: pnpm
           cache-dependency-path: frontend/pnpm-lock.yaml
 
+      # `--ignore-workspace` because the repo-root `pnpm-workspace.yaml`
+      # covers the host SDK packages (`packages/*` +
+      # `examples/hello-world/frontend`) but deliberately excludes
+      # atrium's main SPA. Without the flag, pnpm walks up to the
+      # workspace marker and skips installing into `frontend/`. See
+      # `frontend/.npmrc` for the rationale.
       - name: Install deps
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --frozen-lockfile --ignore-workspace
 
       - name: Typecheck
         run: pnpm typecheck
@@ -244,7 +250,8 @@ jobs:
 
       - name: Install frontend deps
         working-directory: frontend
-        run: pnpm install --frozen-lockfile
+        # See the `frontend` job for why `--ignore-workspace` is needed.
+        run: pnpm install --frozen-lockfile --ignore-workspace
 
       # Cache the Chromium binary by Playwright version. ``ubuntu-latest``
       # already ships the system libs Chromium needs (libnss3, libgtk,

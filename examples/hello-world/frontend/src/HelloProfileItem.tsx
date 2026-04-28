@@ -26,23 +26,22 @@ import {
   useQueryClient,
   QueryClientProvider,
 } from '@tanstack/react-query';
+import { AtriumProvider, usePerm } from '@brendan-bank/atrium-host-bundle-utils/react';
 
 import {
   getHelloState,
-  getMeContext,
   postHelloToggle,
   type HelloState,
 } from './api';
 import { queryClient } from './queryClient';
 
 const STATE_KEY = ['hello', 'state'] as const;
-const ME_KEY = ['hello', 'me-context'] as const;
 
 function HelloProfileItemInner() {
   const qc = useQueryClient();
   const { data } = useQuery({ queryKey: STATE_KEY, queryFn: getHelloState });
-  const { data: me } = useQuery({ queryKey: ME_KEY, queryFn: getMeContext });
-  const canToggle = me?.permissions.includes('hello.toggle') ?? false;
+  const hasPerm = usePerm();
+  const canToggle = hasPerm('hello.toggle');
   const toggleMutation = useMutation({
     mutationFn: (enabled: boolean) => postHelloToggle(enabled),
     onSuccess: (next: HelloState) => qc.setQueryData(STATE_KEY, next),
@@ -73,7 +72,9 @@ export function HelloProfileItem() {
   return (
     <MantineProvider>
       <QueryClientProvider client={queryClient}>
-        <HelloProfileItemInner />
+        <AtriumProvider>
+          <HelloProfileItemInner />
+        </AtriumProvider>
       </QueryClientProvider>
     </MantineProvider>
   );

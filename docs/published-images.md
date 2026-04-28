@@ -384,72 +384,137 @@ soft-deprecated), see [`compat-matrix.md`](compat-matrix.md).
 The host's frontend is a separate Vite project that emits a single ES
 module. Browsers can't resolve bare module specifiers like `import 'react'`
 without an import map, so the bundle has to either ship its own React or
-piggy-back on atrium's via an import map. The example uses the
-**self-contained bundle** pattern — simpler, no atrium-side changes
-required, ~250 KB gzipped.
+piggy-back on atrium's via an import map. The recommended path is the
+**self-contained bundle** with the helpers from
+[`@brendan-bank/atrium-host-bundle-utils`](https://github.com/Brendan-Bank/atrium/tree/master/packages/host-bundle-utils)
+— simpler, no atrium-side changes required, ~100 KB gzipped.
 
-**Self-contained bundle** (what the example uses):
+Two atrium-published packages remove the boilerplate:
+
+- `@brendan-bank/atrium-host-types` — TypeScript declarations for
+  `AtriumRegistry`, `UserContext`, `AtriumNotification`, `AtriumEvent`,
+  the per-slot option-bag types, and the `window.React` /
+  `window.__ATRIUM_REGISTRY__` / `window.__ATRIUM_VERSION__` globals.
+  Types-only; bundlers strip it from the production output.
+- `@brendan-bank/atrium-host-bundle-utils` — runtime helpers
+  (`makeWrapperElement`, `mountInside`), a Vite preset
+  (`hostBundleConfig`), and React hooks (`useMe`, `usePerm`,
+  `useRole`, `<AtriumProvider>`) on three subpath exports (`.`,
+  `./vite`, `./react`). Re-exports the types from
+  `@brendan-bank/atrium-host-types` so a host adding only one dep
+  still gets the declarations.
+
+Both packages are published on **GitHub Packages** (the same registry
+family as the atrium GHCR image) and versioned in lockstep with the
+atrium image — pin `^0.14` for "compatible with atrium 0.14.x". The
+host project needs an `.npmrc` mapping the `@brendan-bank` scope:
+
+```
+# .npmrc — in the host's frontend project
+@brendan-bank:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
+GitHub Packages requires authentication on every install, even for
+public packages. In CI, `GITHUB_TOKEN` is provided automatically by
+Actions; locally, generate a [classic PAT](https://github.com/settings/tokens)
+with `read:packages` scope and export it as `GITHUB_TOKEN` before
+running `pnpm install`.
+
+**Vite config — one function call:**
 
 ```ts
 // vite.config.ts
-import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
+import { hostBundleConfig } from '@brendan-bank/atrium-host-bundle-utils/vite';
 
-export default defineConfig({
-  // Vite's lib build extracts every `import 'pkg/styles.css'` into a
-  // sibling `main.css`. atrium dynamic-imports `main.js` only — that
-  // sibling is never fetched and the bundle ships unstyled. The
-  // plugin inlines those imports as a runtime `<style>` tag so a
-  // single `main.js` carries everything.
-  plugins: [cssInjectedByJsPlugin()],
-  build: {
-    lib: { entry: 'src/main.tsx', formats: ['es'], fileName: () => 'main.js' },
-  },
-});
+export default hostBundleConfig({ entry: 'src/main.tsx' });
 ```
 
-Bundle React, ReactDOM, Mantine, TanStack Query, everything. The host
-bundle's exports are atrium-React elements (created via
-`window.React.createElement`) that own a single `<div>` wrapper each;
-the div's `ref` callback uses the *bundled* `createRoot` to mount the
-host's React tree inside it. **Two React trees coexist in the DOM** —
-atrium's React owns the shell + the wrapper element; the host's React
-owns the subtree.
+The factory returns a complete library-mode config: emits a single
+`dist/main.js` that atrium's loader dynamic-imports, inlines imported
+`.css` via runtime `<style>` tags (`vite-plugin-css-injected-by-js`),
+and defines `process.env.NODE_ENV` so the externalised React +
+TanStack Query references resolve. Pass `extraConfig` to layer
+plugins on top.
+
+**Bundle entry — ~10 lines of registration calls:**
 
 ```tsx
-// main.tsx (sketch — see examples/hello-world/frontend/src/main.tsx)
-import { createRoot } from 'react-dom/client';
-const AtriumReact = (window as any).React;
+// main.tsx — see examples/hello-world/frontend/src/main.tsx
+import {
+  type AtriumRegistry,
+  makeWrapperElement,
+} from '@brendan-bank/atrium-host-bundle-utils';
+import { MyWidget } from './MyWidget';
 
-function makeWrapperElement(child: React.ReactElement) {
-  return AtriumReact.createElement('div', {
-    ref: (el: HTMLElement | null) => {
-      if (!el || (el as any).__hostRoot) return;
-      (el as any).__hostRoot = createRoot(el);
-      (el as any).__hostRoot.render(child);
-    },
-  });
-}
-
+const reg = window.__ATRIUM_REGISTRY__ as AtriumRegistry;
 reg.registerHomeWidget({
-  key: 'my-widget',
+  key: 'my-card',
   render: () => makeWrapperElement(<MyWidget />),
 });
 ```
 
-This sidesteps the "two Reacts, one tree" hook-dispatcher trap: atrium's
-reconciler only ever calls our wrapper element's `ref` callback, never
-our component functions. Hooks inside the host subtree run under the
-host's React (the one rendering them), so state, context, and queries
-all behave normally.
+Bundle React, ReactDOM, Mantine, TanStack Query, everything inside
+the host's subtree. The host bundle's exports are atrium-React
+elements (created via `window.React.createElement`) that own a single
+`<div>` wrapper each; `makeWrapperElement` does the dual-tree mount
+internally. **Two React trees coexist in the DOM** — atrium's React
+owns the shell + the wrapper element; the host's React owns the
+subtree.
+
+This sidesteps the "two Reacts, one tree" hook-dispatcher trap:
+atrium's reconciler only ever calls the wrapper element's `ref`
+callback, never the host's component functions. Hooks inside the
+host subtree run under the host's React (the one rendering them), so
+state, context, and queries all behave normally.
 
 **Tabler icons (and other hooks-free components)** *can* be passed
-directly to atrium's `createElement` — they're plain SVG output with no
-hook calls, so atrium's reconciler can render them without the wrapper
-trick. The example does this for nav-item / admin-tab icons.
+directly to atrium's `window.React.createElement` — they're plain SVG
+output with no hook calls, so atrium's reconciler can render them
+without the wrapper trick. The example does this for nav-item /
+admin-tab icons.
+
+**Permission gating + user context — `@brendan-bank/atrium-host-bundle-utils/react`:**
+
+```tsx
+import { AtriumProvider, useMe, usePerm } from '@brendan-bank/atrium-host-bundle-utils/react';
+
+function CommissionsPage() {
+  const { data: me, isLoading } = useMe();
+  const hasPerm = usePerm();
+  if (isLoading) return <Loader />;
+  if (hasPerm('commission.view.all')) return <Admin />;
+  return <SelfCommissions userId={me?.id} />;
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={hostQueryClient}>
+      <AtriumProvider apiBase="/api">
+        <CommissionsPage />
+      </AtriumProvider>
+    </QueryClientProvider>
+  );
+}
+```
+
+`useMe()` returns the typed `UserContext` shape — id, email,
+full_name, roles, permissions, impersonating_from. Single TanStack
+Query subscription per host tree, shared across `usePerm` / `useRole`
+/ `useUserContext`. `<AtriumProvider>` reads from the host's
+existing `<QueryClientProvider>` by default; pass `client=` to wrap
+one inline.
+
+**Hand-rolled bundles (without the SDK packages)** are still
+supported — declare the registry interface inline and reimplement the
+wrapper-element pattern. The example used to ship that way; consult
+git history before atrium 0.14 if you need a reference. Bumping to
+the packages for new hosts is the recommended path.
 
 **Shared React via import map** (smaller bundle, more setup): a future
-B1-side change can declare an import map mapping `react` to a URL atrium
-serves. Until then, self-contained is the path of least resistance.
+atrium-side change can declare an import map mapping `react` to a URL
+atrium serves. Until then, self-contained is the path of least
+resistance.
 
 ### Worked example: Hello World
 

@@ -67,13 +67,26 @@ it on `GET /app-config`, which the SPA mirrors onto
 don't bump it here, every host running the new image will report the
 old version.
 
-Land the bump on the feature branch *before* tagging so master and the
-git tag agree:
+The frontend SDK packages (`packages/host-types`,
+`packages/host-bundle-utils`) version in **lockstep with the image**
+— a host pinning `^0.14` of either package implies "compatible with
+atrium 0.14.x runtime image". Bump all three together. The example
+under `examples/hello-world/frontend` consumes the packages via
+`workspace:*` so it picks up the new version automatically; no edit
+needed there.
+
+Land the bumps on the feature branch *before* tagging so master and
+the git tag agree:
 
 ```bash
 # backend/pyproject.toml — set ``version = "X.Y.Z"`` to match the tag
 # you're about to push. Refresh the lockfile so uv.lock stays in sync:
 ( cd backend && uv lock --quiet )
+
+# packages/host-types/package.json + packages/host-bundle-utils/package.json
+# — set ``"version": "X.Y.Z"`` (same number as the backend bump).
+# Refresh the workspace lockfile so it captures the new versions:
+pnpm install --lockfile-only
 ```
 
 While you're at it, sweep the documentation and the AI bootstrap
@@ -95,6 +108,11 @@ quickly fall behind:
   it leaves agents emitting stale tags.
 - `examples/hello-world/` — same sweep for any pinned base-image
   reference.
+- `packages/host-types/README.md` and
+  `packages/host-bundle-utils/README.md` — `^0.14` style pin
+  examples should match the image's `X.Y` once you cross a minor.
+  The version sweep is otherwise driven by the `package.json`
+  bumps above; the README values are illustrative.
 
 If a doc references an atrium version, it needs updating with each
 release. If it doesn't, it stays untouched.
@@ -217,28 +235,43 @@ git tag -s v<X.Y.Z> <merge-sha> -m "v<X.Y.Z> — <terse summary>
 
 <one-bullet-per-issue body>"
 git tag -v v<X.Y.Z>           # confirm "Good signature"
-git push origin v<X.Y.Z>      # triggers publish-images.yml
+git push origin v<X.Y.Z>      # triggers publish-images.yml + publish-npm.yml
 ```
 
 Use **signed annotated tags** (`-s`), not lightweight. Older tags in
 the repo are mixed but signed-annotated is the established direction
 and aligns with the global commit-signing default.
 
-## 8. Watch publish-images
+## 8. Watch publish-images + publish-npm
 
-The tag push fires `.github/workflows/publish-images.yml`. It builds
-`linux/amd64` + `linux/arm64` and pushes to `ghcr.io/brendan-bank/atrium`
-with the full semver fan-out (`0.11.3`, `0.11`, `0`, `latest`).
-Typical run time: ~3-5 minutes.
+The tag push fires two workflows in parallel:
+
+- `.github/workflows/publish-images.yml` — builds `linux/amd64` +
+  `linux/arm64` and pushes to `ghcr.io/brendan-bank/atrium` with the
+  full semver fan-out (`0.11.3`, `0.11`, `0`, `latest`). Typical run
+  time: ~3-5 minutes.
+- `.github/workflows/publish-npm.yml` — builds the host SDK
+  packages and publishes
+  `@brendan-bank/atrium-host-types@<X.Y.Z>` and
+  `@brendan-bank/atrium-host-bundle-utils@<X.Y.Z>` to GitHub
+  Packages (`https://npm.pkg.github.com`). Typical run time: ~1
+  minute. Uses the workflow-supplied `GITHUB_TOKEN` (`packages:
+  write` scope), so no extra secret to manage.
 
 ```bash
 gh run list --workflow=publish-images.yml --limit 3
+gh run list --workflow=publish-npm.yml --limit 3
 gh run watch <publish-run-id> --exit-status
 ```
 
-A non-zero exit here means the image isn't published — don't create
-the GitHub release until this is green, otherwise users following
-the release notes will pull a tag that doesn't exist.
+A non-zero exit on either means the corresponding artifact isn't
+published — don't create the GitHub release until both are green,
+otherwise users following the release notes will pull a tag (or a
+package version) that doesn't exist. The npm publish is idempotent
+on identical version+content; if the workflow is dispatched against
+an already-published version, pnpm reports "version already exists"
+and exits non-zero — re-tag with a bumped version rather than
+forcing.
 
 ## 9. Hand-write the release notes
 

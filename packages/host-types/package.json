@@ -1,0 +1,41 @@
+{
+  "name": "@brendan-bank/atrium-host-types",
+  "version": "0.14.0",
+  "description": "TypeScript declarations for the atrium host-extension contract: AtriumRegistry, UserContext, AdminUserRow, AtriumNotification, AtriumEvent. Source-of-truth shapes a host bundle types against, kept in sync with atrium's published image major.minor.",
+  "license": "BSD-2-Clause",
+  "type": "module",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.14",
+    "react": "^19.2.5",
+    "typescript": "^6.0.3"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://npm.pkg.github.com"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Brendan-Bank/atrium.git",
+    "directory": "packages/host-types"
+  }
+}

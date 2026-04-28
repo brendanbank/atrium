@@ -235,8 +235,17 @@ test-backend:
 
 # Vitest only. Playwright lives in `make smoke` because it needs the
 # whole stack booted + a seeded admin + a fixed TOTP secret.
+#
+# `--ignore-workspace` is required because the repo root carries a
+# `pnpm-workspace.yaml` for the host SDK packages (`packages/*`,
+# `examples/hello-world/frontend`). Atrium's main SPA under
+# `frontend/` is intentionally NOT a workspace member — it ships as a
+# standalone package with its own `pnpm-lock.yaml` so the Dockerfile's
+# `COPY frontend/package.json frontend/pnpm-lock.yaml*` continues to
+# work. Without the flag, `cd frontend && pnpm install` walks up to
+# the workspace root and skips `frontend/` entirely.
 test-frontend:
-	cd frontend && pnpm install --silent && pnpm test
+	cd frontend && pnpm install --ignore-workspace --silent && pnpm test
 
 # --- Lint / format ---
 lint:
@@ -356,7 +365,7 @@ smoke-dev:
 	# Playwright runs on the host, not in the web container — the dev
 	# container is on node:22-alpine (musl libc) and Playwright's
 	# chromium binary is glibc-only. Idempotent no-op when already done.
-	cd frontend && pnpm install --silent
+	cd frontend && pnpm install --ignore-workspace --silent
 	cd frontend && pnpm exec playwright install chromium --with-deps 2>/dev/null \
 		|| pnpm exec playwright install chromium
 	cd frontend && E2E_ADMIN_EMAIL=$(SMOKE_EMAIL) E2E_ADMIN_PASSWORD=$(SMOKE_PASSWORD) \
@@ -397,8 +406,17 @@ HELLO_BUNDLE_URL_E2E := /host/main.js
 # source). The host-bundle URL must point at that sidecar so the SPA's
 # dynamic import resolves.
 smoke-hello-build-bundle-dev:
-	cd examples/hello-world/frontend && pnpm install --frozen-lockfile=false --silent && \
-		VITE_API_BASE_URL=http://localhost:8000 pnpm build
+	# `pnpm install` runs from the example dir but the workspace marker
+	# at the repo root causes it to install the whole workspace
+	# (`packages/*` + this example). The SDK packages must be built
+	# *before* the example's vite runs — the example imports from
+	# `@brendan-bank/atrium-host-bundle-utils/vite`, which resolves
+	# through the workspace symlink to `packages/host-bundle-utils/dist/`.
+	# Without the build step, that dist directory is empty and vite
+	# errors out at config load.
+	cd examples/hello-world/frontend && pnpm install --frozen-lockfile=false --silent
+	pnpm -r --filter './packages/*' build
+	cd examples/hello-world/frontend && VITE_API_BASE_URL=http://localhost:8000 pnpm build
 
 smoke-hello-dev: smoke-hello-build-bundle-dev
 	$(COMPOSE_HELLO_DEV) up -d --build api worker web mysql proxy hello-bundle
