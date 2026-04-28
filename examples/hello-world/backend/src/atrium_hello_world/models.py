@@ -16,6 +16,8 @@ from sqlalchemy import BigInteger, Boolean, Integer, String, text
 from sqlalchemy.dialects.mysql import DATETIME as MysqlDATETIME
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
+from app.host_sdk.db import HostForeignKey
+
 
 class HostBase(DeclarativeBase):
     """Host metadata, separate from atrium's ``app.db.Base``."""
@@ -43,4 +45,29 @@ class HelloState(HostBase):
         nullable=False,
         server_default=text("CURRENT_TIMESTAMP(6)"),
         server_onupdate=text("CURRENT_TIMESTAMP(6)"),
+    )
+
+
+class HelloMessage(HostBase):
+    """Append-only log of messages, attributed to the user that wrote them.
+
+    Demonstrates ``HostForeignKey`` for cross-base foreign keys. The
+    column references ``users.id`` (an atrium table on a different
+    metadata) — a plain ``ForeignKey`` would fail at mapper-init.
+    """
+
+    __tablename__ = "hello_messages"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    body: Mapped[str] = mapped_column(String(500), nullable=False)
+    created_by_user_id: Mapped[int] = mapped_column(
+        Integer,
+        HostForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        MysqlDATETIME(fsp=6),
+        nullable=False,
+        server_default=text("CURRENT_TIMESTAMP(6)"),
     )

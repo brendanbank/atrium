@@ -471,6 +471,13 @@ The host's `HostBase = DeclarativeBase()` is **separate** from atrium's
 tables from a host migration — atrium's chain owns them, and the next
 atrium upgrade may collide.
 
+For host tables that need a foreign key into an atrium table (e.g. a
+host `bookings.created_by_user_id` referencing `users.id`), use
+`HostForeignKey` from `app.host_sdk.db` and wire
+`emit_host_foreign_keys` into the env.py shown above. See
+[`docs/host-models.md`](host-models.md) for the rationale and the
+worked example.
+
 Run both chains in order:
 
 ```bash

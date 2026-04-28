@@ -208,44 +208,50 @@ an atrium table (`users`, `roles`, `user_invites`, ...) cannot resolve
 and will fail at mapper configuration. Sharing `Base` to "fix" it would
 break alembic autogenerate isolation — don't.
 
-The pattern: declare the column with the right type but **no**
-`ForeignKey(...)`, then add the constraint at the DB layer in the host's
-alembic migration.
+Use `HostForeignKey` from `app.host_sdk.db` and wire
+`emit_host_foreign_keys` into the host's `alembic/env.py`:
 
 ```python
-from sqlalchemy import BigInteger
+from sqlalchemy import BigInteger, Integer
 from sqlalchemy.orm import Mapped, mapped_column
+
+from app.host_sdk.db import HostForeignKey
+
 
 class Booking(HostBase):
     __tablename__ = "bookings"
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    # No ForeignKey() here - cross-metadata reference.
-    # The DB constraint is declared in the alembic migration below.
     user_id: Mapped[int] = mapped_column(
-        BigInteger, nullable=False, index=True
+        Integer,
+        HostForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 ```
 
 ```python
-# backend/alembic/versions/0001_bookings.py
-import sqlalchemy as sa
-from alembic import op
+# backend/alembic/env.py — additions only
+from app.host_sdk.alembic import emit_host_foreign_keys
 
-def upgrade() -> None:
-    op.create_table(
-        "bookings",
-        sa.Column("id", sa.BigInteger, primary_key=True),
-        sa.Column("user_id", sa.BigInteger, nullable=False),
-        sa.ForeignKeyConstraint(
-            ["user_id"], ["users.id"], ondelete="CASCADE"
-        ),
+def do_run_migrations(connection):
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        version_table=VERSION_TABLE,
+        process_revision_directives=emit_host_foreign_keys,
     )
-    op.create_index("ix_bookings_user_id", "bookings", ["user_id"])
+    ...
 ```
 
-The database enforces referential integrity; the ORM just doesn't model
-the relationship. Same goes for `relationship()` — you can't declare one
-to `app.models.auth.User` from a `HostBase` model. When you need the
+`alembic revision --autogenerate` will then emit a migration whose
+`create_table` op contains an `sa.ForeignKeyConstraint(["user_id"],
+["users.id"], ondelete="CASCADE")`. The mapper still doesn't see a
+column-level FK — the helper is a no-op as far as ORM mapping is
+concerned, it just stamps a marker the alembic hook reads at
+autogenerate time.
+
+`relationship()` from a `HostBase` model toward an atrium model still
+doesn't work — there's no ORM-level FK to follow. When you need the
 atrium row, load it explicitly:
 
 ```python
@@ -254,10 +260,10 @@ from app.models.auth import User
 user = await session.get(User, booking.user_id)
 ```
 
-This is the same "soft FK" pattern atrium uses internally for
-`reminder_rules.template_key` -> `email_templates.key` after the
-per-locale PK reshape in migration `0005_email_template_per_locale` (see
-CLAUDE.md, *Email pipeline*).
+See [`../host-models.md`](../host-models.md) for the full rationale,
+the `include_object` filter every host env.py needs to keep
+autogenerate from proposing `drop_table` ops on atrium's tables, and
+`HostForeignKey` corner cases.
 
 ### `backend/src/<your_pkg>/router.py`
 

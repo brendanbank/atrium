@@ -11,7 +11,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  backend:
+  # Backend pytest is sharded across two jobs to roughly halve wall-clock
+  # time. ``backend-api`` carries the bulk (~154 tests, mostly HTTP /
+  # fastapi-users flows) and ``backend-core`` runs unit + integration +
+  # the healthz smoke (~41 tests, plus ruff because lint is fast and
+  # belongs on the lower-traffic shard). Both jobs use the same MySQL
+  # service and the same conftest — the session-scoped
+  # ``run_migrations`` autouse fixture means even unit tests need a
+  # live database, so we don't skip the service on either shard.
+  backend-core:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -51,12 +59,56 @@ jobs:
       - name: Ruff lint
         run: uv run ruff check .
 
-      - name: Pytest
+      - name: Pytest (unit + integration + healthz)
         env:
           DATABASE_URL: mysql+aiomysql://casa:casa@127.0.0.1:3306/casa_test
           APP_SECRET_KEY: test-secret
           JWT_SECRET: test-secret
-        run: uv run pytest --cov=app --cov-report=term-missing
+        run: uv run pytest tests/unit tests/integration tests/test_healthz.py --cov=app --cov-report=term-missing
+
+  backend-api:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: rootpw
+          MYSQL_DATABASE: casa_test
+          MYSQL_USER: casa
+          MYSQL_PASSWORD: casa
+        ports: ["3306:3306"]
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -u root -prootpw"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b  # v8.1.0
+
+      - name: Install system deps
+        run: sudo apt-get update && sudo apt-get install -y default-libmysqlclient-dev pkg-config
+
+      - name: Sync deps
+        run: uv sync
+
+      - name: Pytest (api)
+        env:
+          DATABASE_URL: mysql+aiomysql://casa:casa@127.0.0.1:3306/casa_test
+          APP_SECRET_KEY: test-secret
+          JWT_SECRET: test-secret
+        run: uv run pytest tests/api --cov=app --cov-report=term-missing
 
   frontend:
     runs-on: ubuntu-latest
