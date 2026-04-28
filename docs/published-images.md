@@ -17,7 +17,11 @@ host integrations converge on, see
 [`host-dev-recipe.md`](host-dev-recipe.md). For the per-release
 extension surface (which versions added which registry hooks, when the
 SSE wire format changed, when something was soft-deprecated), see
-[`compat-matrix.md`](compat-matrix.md).
+[`compat-matrix.md`](compat-matrix.md). For the stability classification
+of the Mantine theme tokens host bundles inherit (which `--mantine-*`
+custom properties atrium commits to keeping stable, which are
+override-friendly through `BrandConfig`, and which are internal), see
+[`theme.md`](theme.md).
 
 ---
 

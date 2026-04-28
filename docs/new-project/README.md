@@ -1069,7 +1069,10 @@ Mapping an existing FastAPI/SQLAlchemy/React app onto these slots:
     `BrandConfig` via the admin UI (or a seed migration that PUTs
     `app_settings[brand]`). Stop writing custom Mantine theme code in
     your bundle — atrium composes the theme from `brand.preset` +
-    `brand.overrides`.
+    `brand.overrides`. See [`../theme.md`](../theme.md) for the
+    stability classification of the `--mantine-*` CSS custom
+    properties your bundle inherits, and which subset of them
+    `BrandConfig.overrides` exposes for runtime branding.
 
 11. **i18n**. Move existing translation JSON keys into the relevant
     locale file(s) under your bundle. The atrium SPA's i18next
