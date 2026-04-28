@@ -390,17 +390,27 @@ toggles) take effect without a restart.
 
 ## Building on top
 
-> **Starting a new project from scratch?** See
-> [`docs/new-project/`](docs/new-project/) — a step-by-step bootstrap
-> guide ([`README.md`](docs/new-project/README.md)) and an AI-driveable
-> [`SKILL.md`](docs/new-project/SKILL.md). Atrium is consumed as a base
-> Docker image; your project lives in its own repo and extends atrium
-> through declared extension points without editing atrium files. The
-> guide covers the full skeleton (host package + frontend bundle +
-> Dockerfile + compose), the first-boot ritual, and a retrofit playbook
-> for moving an existing app onto atrium. Once the skeleton is up, see
-> [`docs/host-dev-recipe.md`](docs/host-dev-recipe.md) for the
-> live-reload / GHCR access / security-CI configuration the
+> **Starting a new project from scratch?** Scaffold one in a single
+> command:
+>
+> ```sh
+> npx @brendan-bank/create-atrium-host <name>
+> ```
+>
+> The `@brendan-bank/create-atrium-host` scaffolder emits a
+> git-initialised host repo (backend Python package + frontend Vite
+> bundle + Dockerfile + compose stack + CI) wired against atrium's
+> published image and host SDK packages, ready to `make dev-bootstrap`.
+> See [`packages/create-atrium-host/README.md`](packages/create-atrium-host/README.md)
+> for flags (`--yes-defaults`, `--out`, `--atrium <version>`, …).
+>
+> For the longer walkthrough — what each emitted file does, the
+> first-boot ritual, and a retrofit playbook for moving an existing app
+> onto atrium — see [`docs/new-project/`](docs/new-project/)
+> ([`README.md`](docs/new-project/README.md) for humans,
+> [`SKILL.md`](docs/new-project/SKILL.md) for AI agents). Once the
+> skeleton is up, [`docs/host-dev-recipe.md`](docs/host-dev-recipe.md)
+> covers the live-reload / GHCR access / security-CI configuration the
 > walkthroughs leave to the integrator.
 
 The starter ships *only* the platform layer. To add your domain:
