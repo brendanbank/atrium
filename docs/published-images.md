@@ -11,7 +11,10 @@ For a worked example that exercises every extension point, see
 walkthrough of standing up a fresh host project from nothing — including
 the retrofit playbook for moving an existing app onto atrium — see
 [`new-project/`](new-project/) ([`README.md`](new-project/README.md) for
-humans, [`SKILL.md`](new-project/SKILL.md) for AI agents).
+humans, [`SKILL.md`](new-project/SKILL.md) for AI agents). For the
+live-reload, GHCR pull access, and security-CI configuration that
+host integrations converge on, see
+[`host-dev-recipe.md`](host-dev-recipe.md).
 
 ---
 

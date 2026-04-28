@@ -398,7 +398,10 @@ toggles) take effect without a restart.
 > through declared extension points without editing atrium files. The
 > guide covers the full skeleton (host package + frontend bundle +
 > Dockerfile + compose), the first-boot ritual, and a retrofit playbook
-> for moving an existing app onto atrium.
+> for moving an existing app onto atrium. Once the skeleton is up, see
+> [`docs/host-dev-recipe.md`](docs/host-dev-recipe.md) for the
+> live-reload / GHCR access / security-CI configuration the
+> walkthroughs leave to the integrator.
 
 The starter ships *only* the platform layer. To add your domain:
 
