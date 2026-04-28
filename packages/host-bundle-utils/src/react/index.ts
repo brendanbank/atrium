@@ -36,6 +36,7 @@ import {
 import type { UserContext } from '@brendan-bank/atrium-host-types';
 
 export type { UserContext } from '@brendan-bank/atrium-host-types';
+export { __atrium_t__ } from '../i18n';
 
 interface AtriumContextValue {
   apiBase: string;
