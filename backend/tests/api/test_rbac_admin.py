@@ -157,7 +157,32 @@ async def test_super_admin_can_grant_super_admin(client, engine):
         json={"role_ids": [owner_role_id, super_admin_role_id]},
     )
     assert r.status_code == 200, r.text
-    assert set(r.json()["role_ids"]) == {owner_role_id, super_admin_role_id}
+    body = r.json()
+    assert set(body["role_ids"]) == {owner_role_id, super_admin_role_id}
+    # The companion ``roles`` field carries the stable string codes so
+    # hosts can filter by membership without a second roles lookup.
+    assert set(body["roles"]) == {"admin", "super_admin"}
+
+
+@pytest.mark.asyncio
+async def test_admin_users_list_includes_role_codes(client, engine):
+    """``GET /admin/users`` exposes ``roles: list[str]`` alongside
+    ``role_ids`` so hosts can filter user lists by role membership in
+    one round-trip."""
+    owner = await seed_admin(engine)
+    target = await seed_admin(engine, email="target@example.com")
+    await login(client, owner.email, "admin-pw-123", engine=engine)
+
+    r = await client.get("/admin/users")
+    assert r.status_code == 200, r.text
+    rows = {row["id"]: row for row in r.json()}
+    assert target.id in rows
+    assert rows[target.id]["roles"] == ["admin"]
+    assert rows[owner.id]["roles"] == ["admin"]
+    # Both shapes are populated; old clients reading role_ids keep
+    # working.
+    assert isinstance(rows[target.id]["role_ids"], list)
+    assert all(isinstance(rid, int) for rid in rows[target.id]["role_ids"])
 
 
 @pytest.mark.asyncio

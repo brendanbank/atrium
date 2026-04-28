@@ -43,23 +43,51 @@ class UserAdminUpdate(BaseModel):
 
 
 class UserAdminRead(UserRead):
-    """Admin list/detail view: standard UserRead + RBAC role ids."""
+    """Admin list/detail view: standard UserRead + RBAC role ids and codes.
+
+    ``roles`` carries the stable string codes (``"admin"``, ``"super_admin"``,
+    host-defined codes etc.); ``role_ids`` carries the per-environment
+    integer ids. Hosts that filter users by role membership ("show me
+    everyone without the agent role") read ``roles`` and avoid a
+    second ``/admin/roles`` lookup; the patch endpoint still expects
+    ``role_ids`` since ids are what the MultiSelect in the admin UI
+    binds to.
+    """
 
     role_ids: list[int] = Field(default_factory=list)
+    roles: list[str] = Field(default_factory=list)
+
+
+async def _roles_for(
+    session: AsyncSession, user_id: int
+) -> tuple[list[int], list[str]]:
+    """Return ``(role_ids, role_codes)`` for ``user_id`` from a single
+    join query. Both lists are sorted: ids ascending numerically, codes
+    ascending lexicographically. Codes are sorted independently so the
+    two lists are not positionally aligned — the consumer treats each
+    as a set, not an array of pairs."""
+    rows = (
+        await session.execute(
+            select(Role.id, Role.code)
+            .join(user_roles, user_roles.c.role_id == Role.id)
+            .where(user_roles.c.user_id == user_id)
+        )
+    ).all()
+    ids = sorted(int(r[0]) for r in rows)
+    codes = sorted(str(r[1]) for r in rows)
+    return ids, codes
 
 
 async def _role_ids_for(session: AsyncSession, user_id: int) -> list[int]:
-    rows = (
-        await session.execute(
-            select(user_roles.c.role_id).where(user_roles.c.user_id == user_id)
-        )
-    ).scalars().all()
-    return sorted(rows)
+    ids, _ = await _roles_for(session, user_id)
+    return ids
 
 
 async def _to_admin_read(session: AsyncSession, user: User) -> UserAdminRead:
     data = UserRead.model_validate(user, from_attributes=True).model_dump()
-    data["role_ids"] = await _role_ids_for(session, user.id)
+    role_ids, role_codes = await _roles_for(session, user.id)
+    data["role_ids"] = role_ids
+    data["roles"] = role_codes
     return UserAdminRead.model_validate(data)
 
 
