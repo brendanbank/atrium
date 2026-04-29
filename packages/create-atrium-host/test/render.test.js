@@ -73,7 +73,7 @@ describe('renderTemplate', () => {
 
       // Composer + Dockerfile carry the atrium image pin.
       const compose = await ren('compose.yaml');
-      assert.ok(compose.includes('atrium:0.15'));
+      assert.ok(compose.includes('atrium:0.16'));
       assert.ok(compose.includes('test-host'));
       assert.ok(!compose.includes('__ATRIUM_VERSION__'));
 
