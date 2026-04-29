@@ -25,6 +25,44 @@ permissions:
   contents: read
 
 jobs:
+  # Detects whether the PR touches the published-image extension
+  # surface that ``hello-world-e2e`` exercises. Conservative scope:
+  # anything baked into the runtime image (``Dockerfile`` lines
+  # 86-111 — backend source, uv venv, the SPA bundle) plus the
+  # example itself. Excludes test directories, the scaffolder, infra
+  # configs not in the image, and sibling workflow files. The
+  # workflow-level ``paths-ignore`` already handles doc-only PRs at
+  # trigger time; this filter is the per-job complement.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      hello-world: ${{ steps.filter.outputs.hello-world }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
+      - uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d  # v4.0.1
+        id: filter
+        with:
+          filters: |
+            hello-world:
+              - 'backend/app/**'
+              - 'backend/alembic/**'
+              - 'backend/pyproject.toml'
+              - 'backend/uv.lock'
+              - 'frontend/src/**'
+              - 'frontend/package.json'
+              - 'frontend/pnpm-lock.yaml'
+              - 'frontend/vite.config.ts'
+              - 'frontend/tsconfig*.json'
+              - 'frontend/index.html'
+              - 'examples/hello-world/**'
+              - 'Dockerfile'
+              - 'docker-compose.yml'
+              - '.github/workflows/ci.yml'
+
   # Backend pytest is sharded for parallel CI. ``backend-core`` runs
   # unit + integration + healthz (~41 tests) and ruff. ``backend-api``
   # runs the HTTP / fastapi-users flows (~154 tests) split across an
@@ -358,6 +396,15 @@ jobs:
     #
     # Uses the example's self-contained compose.yaml (atrium image +
     # host extension built locally on top, plain HTTP on :8000).
+    #
+    # Skipped via the ``changes`` job's path filter when the PR
+    # doesn't touch the runtime image or the example. master is not
+    # a protected branch with required checks today, so a skipped
+    # job is a clean "neutral" — no aggregator-job dance needed. If
+    # branch protection is added later, gate ``hello-world-e2e`` via
+    # an always-runs aggregator instead of marking this job required.
+    needs: changes
+    if: needs.changes.outputs.hello-world == 'true'
     runs-on: ubuntu-latest
     env:
       E2E_BASE_URL: http://localhost:8000
