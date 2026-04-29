@@ -104,8 +104,8 @@ fetcher (useful for tests or hosts that want axios-shaped retry).
 
 ## Versioning
 
-The package version tracks atrium's image version. Pin `^0.14` for
-"compatible with atrium 0.14.x"; bump together with the atrium image
+The package version tracks atrium's image version. Pin `^0.15` for
+"compatible with atrium 0.15.x"; bump together with the atrium image
 to pick up new registry slots and SDK helpers.
 
 ## See also

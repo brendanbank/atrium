@@ -431,7 +431,7 @@ Three atrium-published packages remove the boilerplate:
 
 Both packages are published on **GitHub Packages** (the same registry
 family as the atrium GHCR image) and versioned in lockstep with the
-atrium image — pin `^0.14` for "compatible with atrium 0.14.x". The
+atrium image — pin `^0.15` for "compatible with atrium 0.15.x". The
 host project needs an `.npmrc` mapping the `@brendanbank` scope:
 
 ```
