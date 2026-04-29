@@ -1,0 +1,108 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
+name: uv-lock-commit
+
+# Privileged half of the uv-lock-refresh split (see that file for
+# context). Triggered by the unprivileged workflow finishing
+# successfully on a Dependabot PR; this one runs in the base-repo
+# context (default branch's YAML), holds ``contents: write``, and
+# does only git plumbing — it never executes a script from the PR.
+#
+# The flow:
+#   1. Validate the originating workflow_run was a successful
+#      Dependabot ``pull_request`` event.
+#   2. Download the uv-lock + pr-meta artifacts from that run.
+#   3. Sanity-check the metadata before it touches git plumbing.
+#   4. Check out the PR head ref (no code execution from PR — just
+#      ``git fetch`` + ``git checkout``).
+#   5. Verify the head SHA still matches what the artifact was built
+#      against — abort if the branch moved.
+#   6. Copy uv.lock from artifact, commit, push.
+
+on:
+  workflow_run:
+    workflows: ["uv-lock-refresh"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  push-uv-lock:
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download uv.lock artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: uv-lock
+          path: artifact-uv-lock
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download PR metadata
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093  # v4.3.0
+        with:
+          name: pr-meta
+          path: artifact-pr-meta
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate PR metadata
+        id: pr
+        # Refs from the PR are attacker-influenced (Dependabot is the
+        # actor but the branch name on a Dependabot PR is well-formed
+        # by convention; we still pin the shape before letting it
+        # near git). Each value goes through a regex; an invalid
+        # value fails the workflow loudly.
+        run: |
+          set -e
+          NUMBER=$(cat artifact-pr-meta/number)
+          HEAD_REF=$(cat artifact-pr-meta/head_ref)
+          HEAD_SHA=$(cat artifact-pr-meta/head_sha)
+          [[ "$NUMBER"  =~ ^[0-9]+$ ]]              || { echo "bad PR number: $NUMBER" >&2; exit 1; }
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]       || { echo "bad SHA: $HEAD_SHA"     >&2; exit 1; }
+          [[ "$HEAD_REF" =~ ^[A-Za-z0-9._/-]+$ ]]   || { echo "bad ref: $HEAD_REF"     >&2; exit 1; }
+          {
+            echo "number=$NUMBER"
+            echo "head_ref=$HEAD_REF"
+            echo "head_sha=$HEAD_SHA"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Checkout PR branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+        with:
+          ref: ${{ steps.pr.outputs.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Apply uv.lock and commit
+        env:
+          EXPECTED_SHA: ${{ steps.pr.outputs.head_sha }}
+        run: |
+          set -e
+          ACTUAL_SHA=$(git rev-parse HEAD)
+          if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+            echo "Branch moved since uv.lock was regenerated"
+            echo "  expected: $EXPECTED_SHA"
+            echo "  actual:   $ACTUAL_SHA"
+            echo "Skipping push; Dependabot will re-trigger if needed."
+            exit 0
+          fi
+
+          cp artifact-uv-lock/uv.lock backend/uv.lock
+          if [ -z "$(git status --porcelain backend/uv.lock)" ]; then
+            echo "uv.lock unchanged — nothing to commit"
+            exit 0
+          fi
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/uv.lock
+          git commit -m "chore(deps): refresh uv.lock after Dependabot bump"
+          git push
