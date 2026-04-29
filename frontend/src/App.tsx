@@ -8,6 +8,7 @@ import { MaintenancePage } from './components/MaintenancePage';
 import { RequireAuth } from './components/RequireAuth';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useMe } from './hooks/useAuth';
+import { NavigationBridge } from './host/navigation';
 import { getRoutes } from './host/registry';
 import { AcceptInvitePage } from './routes/AcceptInvitePage';
 import { AdminPage } from './routes/AdminPage';
@@ -33,11 +34,14 @@ export default function App() {
   const isSuperAdmin = me?.roles.includes('super_admin') ?? false;
   if (maintenanceOn && !isSuperAdmin) {
     return (
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/2fa" element={<TwoFactorPage />} />
-        <Route path="*" element={<MaintenancePage />} />
-      </Routes>
+      <>
+        <NavigationBridge />
+        <Routes>
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/2fa" element={<TwoFactorPage />} />
+          <Route path="*" element={<MaintenancePage />} />
+        </Routes>
+      </>
     );
   }
   // Host bundles register additional routes via getRoutes(); split
@@ -55,57 +59,60 @@ export default function App() {
     (r) => (r.requireAuth ?? true) === false,
   );
   return (
-    <Routes>
-      {/* Public auth routes (no layout) */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route path="/accept-invite" element={<AcceptInvitePage />} />
-      <Route path="/register" element={<RegisterPage />} />
-      <Route path="/verify-email" element={<VerifyEmailPage />} />
-      {/* 2FA gate — needs a partial session, so it lives outside
-          RequireAuth (which only understands full sessions). */}
-      <Route path="/2fa" element={<TwoFactorPage />} />
+    <>
+      <NavigationBridge />
+      <Routes>
+        {/* Public auth routes (no layout) */}
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/accept-invite" element={<AcceptInvitePage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
+        {/* 2FA gate — needs a partial session, so it lives outside
+            RequireAuth (which only understands full sessions). */}
+        <Route path="/2fa" element={<TwoFactorPage />} />
 
-      {publicHostRoutes.map((r) => (
-        <Route
-          key={r.key}
-          path={r.path}
-          element={r.render ? r.render() : r.element}
-        />
-      ))}
-
-      {bareAuthRoutes.map((r) => (
-        <Route
-          key={r.key}
-          path={r.path}
-          element={
-            <RequireAuth>{r.render ? r.render() : r.element}</RequireAuth>
-          }
-        />
-      ))}
-
-      {/* Authenticated routes (inside app shell) */}
-      <Route
-        element={
-          <RequireAuth>
-            <AppLayout />
-          </RequireAuth>
-        }
-      >
-        <Route index element={<HomePage />} />
-        <Route path="/admin" element={<AdminPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-        <Route path="/notifications" element={<NotificationsPage />} />
-        {shellAuthRoutes.map((r) => (
+        {publicHostRoutes.map((r) => (
           <Route
             key={r.key}
             path={r.path}
             element={r.render ? r.render() : r.element}
           />
         ))}
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Route>
-    </Routes>
+
+        {bareAuthRoutes.map((r) => (
+          <Route
+            key={r.key}
+            path={r.path}
+            element={
+              <RequireAuth>{r.render ? r.render() : r.element}</RequireAuth>
+            }
+          />
+        ))}
+
+        {/* Authenticated routes (inside app shell) */}
+        <Route
+          element={
+            <RequireAuth>
+              <AppLayout />
+            </RequireAuth>
+          }
+        >
+          <Route index element={<HomePage />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/notifications" element={<NotificationsPage />} />
+          {shellAuthRoutes.map((r) => (
+            <Route
+              key={r.key}
+              path={r.path}
+              element={r.render ? r.render() : r.element}
+            />
+          ))}
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
+      </Routes>
+    </>
   );
 }

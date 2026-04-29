@@ -92,11 +92,23 @@ the git tag agree:
 # you're about to push. Refresh the lockfile so uv.lock stays in sync:
 ( cd backend && uv lock --quiet )
 
-# packages/host-types/package.json + packages/host-bundle-utils/package.json
-# — set ``"version": "X.Y.Z"`` (same number as the backend bump).
-# Refresh the workspace lockfile so it captures the new versions:
+# All four host SDK packages must be bumped together — publish-npm.yml
+# fans out to every one on tag push, so a stale version in any of them
+# blocks the release:
+#   packages/host-types/package.json
+#   packages/host-bundle-utils/package.json
+#   packages/test-utils/package.json
+#   packages/create-atrium-host/package.json
+# Set ``"version": "X.Y.Z"`` on each (same number as the backend bump).
+# Refresh the workspace lockfile so its `importers` blocks capture the
+# new versions:
 pnpm install --lockfile-only
 ```
+
+The intra-workspace deps use `workspace:*`, so the lockfile diff shows
+up only in the `importers:` section — the package versions further
+down don't move. A near-empty `pnpm-lock.yaml` diff is expected, not a
+sign that the bump didn't take.
 
 While you're at it, sweep the documentation and the AI bootstrap
 skill for stale version references — both are reader-facing and

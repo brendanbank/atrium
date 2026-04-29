@@ -415,7 +415,8 @@ Three atrium-published packages remove the boilerplate:
   (`makeWrapperElement`, `mountInside`), a Vite preset
   (`hostBundleConfig`), the shared-i18n helper
   (`__atrium_t__`, see [`host-i18n.md`](host-i18n.md)), and React
-  hooks (`useMe`, `usePerm`, `useRole`, `<AtriumProvider>`) on three
+  hooks (`useMe`, `usePerm`, `useRole`, `useAtriumLocation`,
+  `<AtriumProvider>`) on three
   subpath exports (`.`, `./vite`, `./react`). Re-exports the types
   from `@brendanbank/atrium-host-types` so a host adding only one
   dep still gets the declarations.
@@ -526,6 +527,45 @@ Query subscription per host tree, shared across `usePerm` / `useRole`
 / `useUserContext`. `<AtriumProvider>` reads from the host's
 existing `<QueryClientProvider>` by default; pass `client=` to wrap
 one inline.
+
+**Observing in-app navigation — `useAtriumLocation()`:**
+
+Available since atrium **0.15.3**. Host bundles share atrium's URL but
+not its react-router context — the two React trees only meet at the
+wrapper `<div>` produced by `makeWrapperElement`. Atrium dispatches an
+`atrium:locationchange` CustomEvent on `window` whenever its router
+commits a new location, carrying `{ pathname, search, hash }` on
+`event.detail`. The `useAtriumLocation()` hook wraps that event in
+`useSyncExternalStore` so a host component re-renders on every commit
+— including the in-place case where atrium navigates from `/` to
+`/?focus=booking:42` while the host's wrapper element doesn't remount.
+
+```tsx
+import { useAtriumLocation } from '@brendanbank/atrium-host-bundle-utils/react';
+
+function FocusDrawer() {
+  const { search } = useAtriumLocation();
+  const focus = new URLSearchParams(search).get('focus');
+  return focus ? <BookingDetail id={focus} /> : null;
+}
+```
+
+Hosts that don't use React (or want to handle navigation outside a
+component) can subscribe directly:
+
+```ts
+window.addEventListener('atrium:locationchange', (e) => {
+  const { pathname, search, hash } = (e as CustomEvent).detail;
+  // …
+});
+```
+
+The bridge fires once on mount with the initial location too, so a
+host that subscribes lazily doesn't need a separate `window.location`
+read for first paint. On atrium images older than 0.15.3 the SPA
+doesn't dispatch the event — the hook still works but only reflects
+the initial `window.location`. Hosts that need to support older atrium
+can branch on `window.__ATRIUM_VERSION__`.
 
 **Hand-rolled bundles (without the SDK packages)** are still
 supported — declare the registry interface inline and reimplement the
