@@ -192,14 +192,16 @@ async def test_symbol_required(client, engine):
 
 @pytest.mark.asyncio
 async def test_hibp_breached_password_rejected(client, engine, monkeypatch):
-    """Monkeypatch the HIBP range fetch to claim our SHA-1 suffix
+    """Monkeypatch the HIBP range fetch to claim our SHA-256 suffix
     appears in the breach list — registration must 400."""
     import hashlib
 
     from app.services import password_policy as pp
 
     password = "needs-to-be-long-enough"
-    digest = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()
+    # SHA-256 mirrors the HIBP range-API mode the breach check uses
+    # (``?mode=sha256``). See _password_is_breached() docstring.
+    digest = hashlib.sha256(password.encode("utf-8")).hexdigest().upper()
     suffix = digest[5:]
 
     async def _fake_fetch(prefix: str) -> set[str]:

@@ -62,7 +62,9 @@ async def _check_mysql(session: AsyncSession) -> str | None:
     try:
         await session.execute(text("SELECT 1"))
     except Exception as exc:
-        return f"{exc.__class__.__name__}: {exc}"
+        # Class name only — exception payloads can echo connection
+        # strings, host:port pairs or stack frames into a public probe.
+        return exc.__class__.__name__
     return None
 
 
@@ -80,7 +82,7 @@ async def _check_worker(session: AsyncSession) -> str | None:
     try:
         ts = datetime.fromisoformat(ts_raw)
     except ValueError:
-        return f"unparseable heartbeat ts: {ts_raw!r}"
+        return "unparseable heartbeat ts"
     if ts.tzinfo is None:
         ts = ts.replace(tzinfo=UTC)
     age = (datetime.now(UTC) - ts).total_seconds()

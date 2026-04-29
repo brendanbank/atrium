@@ -10,17 +10,21 @@ violated rule. Re-using the fastapi-users exception keeps the failure
 surface consistent with the existing register / accept-invite flows
 (both already render the exception's ``reason`` verbatim).
 
-The HIBP check uses the k-anonymity range API: we send the first 5
-chars of the SHA-1 hash and look for the suffix in the response. The
-suffix is what marks a password as breached, never the full hash.
+The HIBP check uses the k-anonymity range API in SHA-256 mode
+(``?mode=sha256``): we send the first 5 hex chars of the SHA-256
+digest and look for the suffix in the response. The suffix is what
+marks a password as breached, never the full hash. SHA-256 over the
+default SHA-1 mode keeps the algorithm aligned with current
+guidance — HIBP supports both, the prefix length and response
+shape are identical.
 
 Network outages on HIBP are treated as fail-open — the alternative
 would mean an upstream incident at HIBP locks every user out of
 registration, which is worse than a transient policy gap.
 
 Caching is in-memory and per-prefix with a 5-minute TTL. A burst of
-registrations sharing the same SHA-1 prefix (rare, 1 / 16^5 chance)
-won't hammer HIBP. Process restarts wipe it, which is fine — HIBP is
+registrations sharing the same prefix (rare, 1 / 16^5 chance) won't
+hammer HIBP. Process restarts wipe it, which is fine — HIBP is
 itself rate-limited and a fresh cache is correct on cold start.
 """
 from __future__ import annotations
@@ -36,7 +40,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.logging import log
 from app.services.app_config import AuthConfig, get_namespace
 
-_HIBP_RANGE_URL = "https://api.pwnedpasswords.com/range/{prefix}"
+_HIBP_RANGE_URL = "https://api.pwnedpasswords.com/range/{prefix}?mode=sha256"
 _HIBP_TIMEOUT_SECONDS = 3.0
 _HIBP_CACHE_TTL_SECONDS = 300
 
@@ -92,7 +96,10 @@ async def _hibp_suffixes_for_prefix(prefix: str) -> set[str] | None:
 
 
 async def _password_is_breached(password: str) -> bool:
-    digest = hashlib.sha1(password.encode("utf-8"), usedforsecurity=False).hexdigest().upper()
+    # SHA-256 mode of HIBP's k-anonymity range API. The full digest
+    # never leaves this process; only the 5-hex-char prefix goes over
+    # the wire, and only the suffix is compared against the response.
+    digest = hashlib.sha256(password.encode("utf-8")).hexdigest().upper()
     prefix, suffix = digest[:5], digest[5:]
     suffixes = await _hibp_suffixes_for_prefix(prefix)
     if suffixes is None:

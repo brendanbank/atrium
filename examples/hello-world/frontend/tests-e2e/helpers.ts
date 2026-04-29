@@ -10,10 +10,19 @@
  *  Source of truth: ``frontend/tests-e2e/helpers.ts``. Keep these in
  *  rough parity if atrium's helpers grow new logic the example
  *  benefits from. */
+import { randomBytes } from 'crypto';
+
 import type { Page } from '@playwright/test';
 import { generate as generateTOTP } from 'otplib';
 
 export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000';
+
+// crypto-backed uniqueness for fixture data — keeps the email
+// local-part unique across parallel runs without reaching for
+// Math.random (flagged by js/insecure-randomness even in tests).
+function uniqueSuffix(): string {
+  return `${Date.now()}-${randomBytes(4).readUInt32BE(0)}`;
+}
 
 /** Log in via API as the smoke-seeded super_admin and pass the TOTP
  *  challenge. Mirrors the auth + verify shape atrium's smoke uses. */
@@ -81,7 +90,7 @@ export async function loginAsUser(page: Page): Promise<void> {
     throw new Error(`admin totp verify failed: ${adminVerify.status()}`);
   }
 
-  const email = `e2e-user-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
+  const email = `e2e-user-${uniqueSuffix()}@example.com`;
   const password = 'User-Pw-12345!';
   const inviteResp = await reqCtx.post(`${API_URL}/invites`, {
     data: { email, full_name: 'E2E User', role_codes: ['user'] },

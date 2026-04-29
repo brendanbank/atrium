@@ -14,8 +14,11 @@
 # The compose file does this for you.
 
 # Global ARG — must be declared before the first FROM to be usable as
-# the base image of a later stage.
-ARG ATRIUM_IMAGE=ghcr.io/brendan-bank/atrium:latest
+# the base image of a later stage. Pinned to a concrete minor line
+# rather than ``:latest`` so a passive image scan reports the actual
+# build base; CI / compose typically override this via build args
+# (``ATRIUM_IMAGE=atrium-local:source`` for PR tests).
+ARG ATRIUM_IMAGE=ghcr.io/brendan-bank/atrium:0.14
 
 # ---- frontend-builder ----
 #
@@ -76,3 +79,9 @@ RUN /opt/venv/bin/python -m ensurepip --upgrade \
 COPY --from=frontend-builder /app/examples/hello-world/frontend/dist /opt/atrium/static/host
 
 USER app
+
+# Re-declare HEALTHCHECK on the derived image. The base atrium image
+# already ships one (curl /healthz), but image scanners flag absence
+# at the leaf Dockerfile because they don't trace inheritance.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -fsS http://localhost:8000/healthz || exit 1

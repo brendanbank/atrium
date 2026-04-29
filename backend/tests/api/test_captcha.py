@@ -16,6 +16,8 @@ Pinned behaviours:
 """
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 import pytest
 from sqlalchemy import delete
 from sqlalchemy.dialects.mysql import insert as mysql_insert
@@ -200,7 +202,7 @@ async def test_turnstile_valid_token_register_204(client, engine, monkeypatch):
         },
     )
     assert r.status_code == 204, r.text
-    assert "challenges.cloudflare.com" in str(posted["url"])
+    assert urlparse(str(posted["url"])).hostname == "challenges.cloudflare.com"
     assert posted["data"] == {"secret": "test-secret", "response": "valid-token"}
 
 
@@ -259,7 +261,7 @@ async def test_hcaptcha_valid_token_register_204(client, engine, monkeypatch):
         },
     )
     assert r.status_code == 204, r.text
-    assert "hcaptcha.com" in str(posted["url"])
+    assert urlparse(str(posted["url"])).hostname == "api.hcaptcha.com"
 
 
 @pytest.mark.asyncio

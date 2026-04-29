@@ -1,11 +1,19 @@
 // Copyright (c) 2026 Brendan Bank
 // SPDX-License-Identifier: BSD-2-Clause
 
+import { randomBytes } from 'crypto';
+
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 import { generate as generateTOTP } from 'otplib';
 
 import { API_URL, loginAsAdmin } from './helpers';
+
+// crypto-backed uniqueness — sidesteps js/insecure-randomness for
+// fixture data (emails, suffixes) that doesn't need to be a secret.
+function uniqueSuffix(): string {
+  return `${Date.now()}-${randomBytes(4).readUInt32BE(0)}`;
+}
 
 /**
  * Phase 3 coverage — password-policy + 2FA enforcement.
@@ -128,7 +136,7 @@ async function createUserNoEnrolViaApi(
   inviteeRequest: APIRequestContext,
   opts: { roleCodes?: string[] } = {},
 ): Promise<{ email: string; password: string }> {
-  const email = `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
+  const email = `e2e-${uniqueSuffix()}@example.com`;
   const password = 'Invitee-Pw-12345!';
 
   const createResp = await adminRequest.post(`${API_URL}/invites`, {
@@ -158,7 +166,7 @@ async function createUserNoEnrolViaApi(
 }
 
 function uniqueEmail(prefix: string): string {
-  const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  const stamp = uniqueSuffix();
   return `${prefix}-${stamp}@example.com`;
 }
 

@@ -1,10 +1,17 @@
 // Copyright (c) 2026 Brendan Bank
 // SPDX-License-Identifier: BSD-2-Clause
 
+import { randomBytes } from 'crypto';
+
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { API_URL, loginAsAdmin, loginAsUser } from './helpers';
+
+// crypto-backed uniqueness for fixture data — no security boundary.
+function uniqueSuffix(): string {
+  return `${Date.now()}-${randomBytes(4).readUInt32BE(0)}`;
+}
 
 /**
  * Phase 4 coverage — CAPTCHA (Turnstile + hCaptcha).
@@ -380,7 +387,7 @@ test.describe('captcha (Turnstile + hCaptcha)', () => {
         .first()
         .click();
 
-      const typedKey = `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+      const typedKey = `e2e-${uniqueSuffix()}`;
       const siteKeyInput = adminPage.getByLabel(/^Site key$/i).first();
       await siteKeyInput.fill(typedKey);
 

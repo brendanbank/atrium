@@ -2,9 +2,18 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import { execSync } from 'child_process';
+import { randomBytes } from 'crypto';
 
 import type { APIRequestContext, Page } from '@playwright/test';
 import { generate as generateTOTP } from 'otplib';
+
+// Test-fixture entropy. Not used to authenticate or sign anything —
+// it just keeps the email local-part unique across parallel runs.
+// crypto.randomBytes (instead of Math.random) sidesteps the
+// js/insecure-randomness scanner without changing semantics.
+function uniqueSuffix(): string {
+  return `${Date.now()}-${randomBytes(4).readUInt32BE(0)}`;
+}
 
 export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000';
 
@@ -86,7 +95,7 @@ export async function loginAsUser(page: Page): Promise<ProvisionedUser> {
     throw new Error(`admin totp verify failed: ${adminVerify.status()}`);
   }
 
-  const email = `e2e-user-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
+  const email = `e2e-user-${uniqueSuffix()}@example.com`;
   const password = 'User-Pw-12345!';
   const inviteResp = await reqCtx.post(`${API_URL}/invites`, {
     data: { email, full_name: 'E2E User', role_codes: ['user'] },
@@ -405,7 +414,7 @@ export async function createAndEnrolUserViaApi(
   inviteeRequest: APIRequestContext,
   opts: { roleCodes?: string[] } = {},
 ): Promise<SeededUser> {
-  const email = `e2e-${Date.now()}-${Math.floor(Math.random() * 1e6)}@example.com`;
+  const email = `e2e-${uniqueSuffix()}@example.com`;
   const password = 'Invitee-Pw-12345!';
 
   const createResp = await adminRequest.post(`${API_URL}/invites`, {

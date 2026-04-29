@@ -2,9 +2,15 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import { execSync } from 'child_process';
+import { randomBytes } from 'crypto';
 
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
+
+// crypto-backed uniqueness for fixture data — no security boundary.
+function uniqueSuffix(): string {
+  return `${Date.now()}-${randomBytes(4).readUInt32BE(0)}`;
+}
 
 import {
   API_URL,
@@ -115,7 +121,7 @@ function setPreferredLanguageRaw(email: string, locale: string): void {
 }
 
 function uniqueEmail(prefix: string): string {
-  const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  const stamp = uniqueSuffix();
   return `${prefix}-${stamp}@example.com`;
 }
 

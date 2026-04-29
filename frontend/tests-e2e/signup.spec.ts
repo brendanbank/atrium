@@ -2,11 +2,17 @@
 // SPDX-License-Identifier: BSD-2-Clause
 
 import { execSync } from 'child_process';
+import { randomBytes } from 'crypto';
 
 import { expect, test } from '@playwright/test';
 import type { APIRequestContext } from '@playwright/test';
 
 import { API_URL, loginAsAdmin } from './helpers';
+
+// crypto-backed uniqueness for fixture data — no security boundary.
+function uniqueSuffix(): string {
+  return `${Date.now()}-${randomBytes(4).readUInt32BE(0)}`;
+}
 
 /**
  * Phase 2 coverage — self-serve signup + email verification.
@@ -122,7 +128,7 @@ function readLatestVerifyUrlForEmail(recipientEmail: string): string {
 }
 
 function uniqueEmail(prefix: string): string {
-  const stamp = `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+  const stamp = uniqueSuffix();
   return `${prefix}-${stamp}@example.com`;
 }
 

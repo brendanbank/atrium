@@ -18,6 +18,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Default-minimal token. Each job only reads the checkout; nothing
+# writes back to the repo. Locks down GITHUB_TOKEN at the workflow
+# scope so a future job inherits the safe default.
+permissions:
+  contents: read
+
 jobs:
   # Backend pytest is sharded for parallel CI. ``backend-core`` runs
   # unit + integration + healthz (~41 tests) and ruff. ``backend-api``
