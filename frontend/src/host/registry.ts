@@ -93,6 +93,13 @@ export type NavItem = {
    *  predicate is called with the current ``me`` context (or null when
    *  the SPA hasn't resolved auth yet). */
   condition?: (ctx: { me: CurrentUser | null }) => boolean;
+  /** Optional sort key. Lower values render higher in the sidebar.
+   *  Items without ``order`` keep insertion order, sorted **after**
+   *  every item that has one. Atrium's built-in items use 100, 200,
+   *  300 (Home, Notifications, Admin) so a host can pick a number to
+   *  interleave with them — e.g. ``order: 250`` to land between
+   *  Notifications and Admin. */
+  order?: number;
 };
 
 export type AdminTab = {
@@ -112,6 +119,12 @@ export type AdminTab = {
   /** @deprecated Pass ``render: () => element`` instead. Kept for
    *  back-compat with hosts built against pre-0.12 atrium. */
   element?: ReactElement;
+  /** Optional sort key. Lower values render further left. Items
+   *  without ``order`` keep insertion order, sorted **after** every
+   *  item that has one. Atrium's built-in tabs use 100..900 so hosts
+   *  can interleave (e.g. ``order: 750`` to slot between Reminders
+   *  and Audit). */
+  order?: number;
 };
 
 /** Slot inside ``ProfilePage``'s vertical card stack where a host
@@ -134,6 +147,12 @@ export type ProfileItem = {
    *  when this fires. */
   condition?: (ctx: { me: CurrentUser }) => boolean;
   render: () => ReactElement;
+  /** Optional sort key within the chosen slot. Lower values render
+   *  earlier. Items without ``order`` keep insertion order, sorted
+   *  **after** every item that has one. Slots are independent — an
+   *  ``order: 100`` item in ``after-roles`` doesn't affect anything
+   *  in ``after-2fa``. */
+  order?: number;
 };
 
 /** Per-kind renderer for a notification row. Atrium emits
@@ -374,16 +393,32 @@ export function getRoutes(): readonly RouteEntry[] {
   return routes;
 }
 
+/** Stable sort by optional ``order`` field. Items with an ``order``
+ *  come first in ascending value; items without keep their original
+ *  relative order and land at the end. ``Array.prototype.sort`` is
+ *  guaranteed stable (ES2019+), so equal-keyed items retain
+ *  insertion order. */
+function sortByOrder<T extends { order?: number }>(items: readonly T[]): T[] {
+  return [...items].sort((a, b) => {
+    const ao = a.order;
+    const bo = b.order;
+    if (ao === undefined && bo === undefined) return 0;
+    if (ao === undefined) return 1;
+    if (bo === undefined) return -1;
+    return ao - bo;
+  });
+}
+
 export function getNavItems(): readonly NavItem[] {
-  return navItems;
+  return sortByOrder(navItems);
 }
 
 export function getAdminTabs(): readonly AdminTab[] {
-  return adminTabs;
+  return sortByOrder(adminTabs);
 }
 
 export function getProfileItems(): readonly ProfileItem[] {
-  return profileItems;
+  return sortByOrder(profileItems);
 }
 
 export function getNotificationRenderers(): readonly NotificationKindRenderer[] {

@@ -1,6 +1,8 @@
 // Copyright (c) 2026 Brendan Bank
 // SPDX-License-Identifier: BSD-2-Clause
 
+import type { ReactElement, ReactNode } from 'react';
+
 import { Stack, Tabs, Title } from '@mantine/core';
 import {
   IconBrush,
@@ -28,17 +30,30 @@ import { UsersAdmin } from '@/components/admin/UsersAdmin';
 import { useMe, usePerm } from '@/hooks/useAuth';
 import { getAdminTabs } from '@/host/registry';
 
-const TABS = [
-  'system',
-  'auth',
-  'users',
-  'branding',
-  'roles',
-  'translations',
-  'emails',
-  'reminders',
-  'audit',
-] as const;
+/** Built-in admin tabs use 100..900 in steps of 100 so a host tab can
+ *  interleave with ``order: 250`` (between Auth and Users), ``650``
+ *  (between Email templates and Reminders), etc. Host tabs without
+ *  ``order`` keep registration order and land **after** every built-in.
+ */
+const TAB_ORDER = {
+  system: 100,
+  auth: 200,
+  users: 300,
+  branding: 400,
+  roles: 500,
+  translations: 600,
+  emails: 700,
+  reminders: 800,
+  audit: 900,
+} as const;
+
+type AdminTabRow = {
+  key: string;
+  label: ReactNode;
+  icon?: ReactElement;
+  panel: ReactNode;
+  order?: number;
+};
 
 export function AdminPage() {
   const { t } = useTranslation();
@@ -56,22 +71,111 @@ export function AdminPage() {
     (tab) => !tab.perm || userPerms.includes(tab.perm),
   );
 
+  const tabs: AdminTabRow[] = [];
+  if (canManageAppConfig) {
+    tabs.push({
+      key: 'system',
+      label: t('system.tab'),
+      icon: <IconServer size={14} />,
+      panel: <SystemAdmin />,
+      order: TAB_ORDER.system,
+    });
+    tabs.push({
+      key: 'auth',
+      label: t('authAdmin.tab'),
+      icon: <IconLock size={14} />,
+      panel: <AuthAdmin />,
+      order: TAB_ORDER.auth,
+    });
+  }
+  tabs.push({
+    key: 'users',
+    label: t('users.tab'),
+    icon: <IconUserPlus size={14} />,
+    panel: <UsersAdmin />,
+    order: TAB_ORDER.users,
+  });
+  if (canManageAppConfig) {
+    tabs.push({
+      key: 'branding',
+      label: t('branding.tab'),
+      icon: <IconBrush size={14} />,
+      panel: <BrandingAdmin />,
+      order: TAB_ORDER.branding,
+    });
+  }
+  if (canManageRoles) {
+    tabs.push({
+      key: 'roles',
+      label: t('roles.tab'),
+      icon: <IconKey size={14} />,
+      panel: <RolesAdmin />,
+      order: TAB_ORDER.roles,
+    });
+  }
+  if (canManageAppConfig) {
+    tabs.push({
+      key: 'translations',
+      label: t('translations.tab'),
+      icon: <IconLanguage size={14} />,
+      panel: <TranslationsAdmin />,
+      order: TAB_ORDER.translations,
+    });
+  }
+  if (canManageEmailTemplates) {
+    tabs.push({
+      key: 'emails',
+      label: t('emailTemplates.tab'),
+      icon: <IconMail size={14} />,
+      panel: <EmailTemplatesAdmin />,
+      order: TAB_ORDER.emails,
+    });
+  }
+  tabs.push({
+    key: 'reminders',
+    label: t('reminders.tab'),
+    icon: <IconSend size={14} />,
+    panel: <RemindersAdmin />,
+    order: TAB_ORDER.reminders,
+  });
+  if (canViewAudit) {
+    tabs.push({
+      key: 'audit',
+      label: t('audit.tab'),
+      icon: <IconHistory size={14} />,
+      panel: <AuditAdmin />,
+      order: TAB_ORDER.audit,
+    });
+  }
+  for (const hostTab of visibleHostTabs) {
+    tabs.push({
+      key: hostTab.key,
+      label: hostTab.label,
+      icon: hostTab.icon,
+      panel: hostTab.render ? hostTab.render() : hostTab.element,
+      order: hostTab.order,
+    });
+  }
+
+  // Stable sort by ``order``; items without ``order`` keep insertion
+  // order and land after every item that has one.
+  tabs.sort((a, b) => {
+    const ao = a.order;
+    const bo = b.order;
+    if (ao === undefined && bo === undefined) return 0;
+    if (ao === undefined) return 1;
+    if (bo === undefined) return -1;
+    return ao - bo;
+  });
+
+  const visibleKeys = new Set(tabs.map((tab) => tab.key));
+
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get('tab');
-  const isBuiltinValid =
-    requested !== null &&
-    (TABS as readonly string[]).includes(requested) &&
-    (requested !== 'audit' || canViewAudit) &&
-    (requested !== 'roles' || canManageRoles) &&
-    (requested !== 'branding' || canManageAppConfig) &&
-    (requested !== 'system' || canManageAppConfig) &&
-    (requested !== 'auth' || canManageAppConfig) &&
-    (requested !== 'translations' || canManageAppConfig) &&
-    (requested !== 'emails' || canManageEmailTemplates);
-  const isHostValid =
-    requested !== null && visibleHostTabs.some((t) => t.key === requested);
-  const fallback: string = canManageAppConfig ? 'system' : 'users';
-  const active: string = isBuiltinValid || isHostValid ? requested! : fallback;
+  const fallback: string =
+    canManageAppConfig && visibleKeys.has('system') ? 'system' : 'users';
+  const active: string =
+    requested !== null && visibleKeys.has(requested) ? requested : fallback;
 
   const onTabChange = (v: string | null) => {
     if (!v) return;
@@ -83,88 +187,15 @@ export function AdminPage() {
       <Title order={2}>{t('nav.admin')}</Title>
       <Tabs value={active} onChange={onTabChange} keepMounted={false}>
         <Tabs.List>
-          {canManageAppConfig && (
-            <Tabs.Tab value="system" leftSection={<IconServer size={14} />}>
-              {t('system.tab')}
-            </Tabs.Tab>
-          )}
-          {canManageAppConfig && (
-            <Tabs.Tab value="auth" leftSection={<IconLock size={14} />}>
-              {t('authAdmin.tab')}
-            </Tabs.Tab>
-          )}
-          <Tabs.Tab value="users" leftSection={<IconUserPlus size={14} />}>
-            {t('users.tab')}
-          </Tabs.Tab>
-          {canManageAppConfig && (
-            <Tabs.Tab value="branding" leftSection={<IconBrush size={14} />}>
-              {t('branding.tab')}
-            </Tabs.Tab>
-          )}
-          {canManageRoles && (
-            <Tabs.Tab value="roles" leftSection={<IconKey size={14} />}>
-              {t('roles.tab')}
-            </Tabs.Tab>
-          )}
-          {canManageAppConfig && (
-            <Tabs.Tab
-              value="translations"
-              leftSection={<IconLanguage size={14} />}
-            >
-              {t('translations.tab')}
-            </Tabs.Tab>
-          )}
-          {canManageEmailTemplates && (
-            <Tabs.Tab value="emails" leftSection={<IconMail size={14} />}>
-              {t('emailTemplates.tab')}
-            </Tabs.Tab>
-          )}
-          <Tabs.Tab value="reminders" leftSection={<IconSend size={14} />}>
-            {t('reminders.tab')}
-          </Tabs.Tab>
-          {canViewAudit && (
-            <Tabs.Tab value="audit" leftSection={<IconHistory size={14} />}>
-              {t('audit.tab')}
-            </Tabs.Tab>
-          )}
-          {visibleHostTabs.map((tab) => (
-            <Tabs.Tab
-              key={tab.key}
-              value={tab.key}
-              leftSection={tab.icon}
-            >
+          {tabs.map((tab) => (
+            <Tabs.Tab key={tab.key} value={tab.key} leftSection={tab.icon}>
               {tab.label}
             </Tabs.Tab>
           ))}
         </Tabs.List>
-        {canManageAppConfig && (
-          <Tabs.Panel value="system" pt="md"><SystemAdmin /></Tabs.Panel>
-        )}
-        {canManageAppConfig && (
-          <Tabs.Panel value="auth" pt="md"><AuthAdmin /></Tabs.Panel>
-        )}
-        <Tabs.Panel value="users" pt="md"><UsersAdmin /></Tabs.Panel>
-        {canManageAppConfig && (
-          <Tabs.Panel value="branding" pt="md"><BrandingAdmin /></Tabs.Panel>
-        )}
-        {canManageRoles && (
-          <Tabs.Panel value="roles" pt="md"><RolesAdmin /></Tabs.Panel>
-        )}
-        {canManageAppConfig && (
-          <Tabs.Panel value="translations" pt="md">
-            <TranslationsAdmin />
-          </Tabs.Panel>
-        )}
-        {canManageEmailTemplates && (
-          <Tabs.Panel value="emails" pt="md"><EmailTemplatesAdmin /></Tabs.Panel>
-        )}
-        <Tabs.Panel value="reminders" pt="md"><RemindersAdmin /></Tabs.Panel>
-        {canViewAudit && (
-          <Tabs.Panel value="audit" pt="md"><AuditAdmin /></Tabs.Panel>
-        )}
-        {visibleHostTabs.map((tab) => (
+        {tabs.map((tab) => (
           <Tabs.Panel key={tab.key} value={tab.key} pt="md">
-            {tab.render ? tab.render() : tab.element}
+            {tab.panel}
           </Tabs.Panel>
         ))}
       </Tabs>

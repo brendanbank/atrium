@@ -118,6 +118,13 @@ export interface NavItem {
   /** Optional visibility predicate. Default: always visible. `me` is
    *  null until the SPA's auth probe resolves. */
   condition?: (ctx: { me: UserContext | null }) => boolean;
+  /** Optional sort key. Lower values render higher in the sidebar.
+   *  Items without `order` keep insertion order, sorted **after** every
+   *  item that has one. Atrium's built-in nav items use 100/200/300
+   *  (Home, Notifications, Admin) so a host can pick a number to
+   *  interleave with them — e.g. `order: 250` to land between
+   *  Notifications and Admin. Available since atrium 0.16. */
+  order?: number;
 }
 
 export interface AdminTab {
@@ -133,6 +140,12 @@ export interface AdminTab {
   render?: () => ReactElement;
   /** @deprecated Pass `render: () => element` instead. */
   element?: ReactElement;
+  /** Optional sort key. Lower values render further left. Items
+   *  without `order` keep registration order, sorted **after** every
+   *  item that has one. Atrium's built-in tabs use 100..900 in steps
+   *  of 100; a host tab with `order: 750` would slot between Email
+   *  templates (700) and Reminders (800). Available since atrium 0.16. */
+  order?: number;
 }
 
 /** Insertion slot inside `ProfilePage`'s vertical card stack. Default
@@ -153,6 +166,11 @@ export interface ProfileItem {
    *  missing user, so `me` is never null when this fires. */
   condition?: (ctx: { me: UserContext }) => boolean;
   render: () => ReactElement;
+  /** Optional sort key within the chosen slot. Lower values render
+   *  earlier; items without `order` keep registration order and land
+   *  after items that have one. Slots are independent — the sort runs
+   *  per-slot. Available since atrium 0.16. */
+  order?: number;
 }
 
 /** Per-kind renderer for a notification row. Atrium emits `{kind,

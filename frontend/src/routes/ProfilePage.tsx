@@ -163,6 +163,8 @@ export function ProfilePage() {
   // resolve them once per render and bucket by slot so each slot
   // marker below is just an array lookup. ``condition`` is evaluated
   // here so a host can hide an item based on roles / permissions.
+  // ``getProfileItems`` already sorts the flat list by ``order``;
+  // bucketing it preserves that order within each slot.
   const slottedItems: Record<ProfileSlot, ReturnType<typeof getProfileItems>[number][]> = {
     'after-profile': [],
     'after-password': [],
