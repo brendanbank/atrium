@@ -36,6 +36,11 @@ jobs:
             build-mode: none
           - language: javascript-typescript
             build-mode: none
+          # ``actions`` re-uses the CodeQL pipeline to lint workflow
+          # files (missing GITHUB_TOKEN permissions, untrusted inputs
+          # in run blocks, etc.). Cheap, no build step.
+          - language: actions
+            build-mode: none
 
     steps:
       - name: Checkout
