@@ -47,8 +47,8 @@ pnpm add -D @brendanbank/atrium-host-types
 
 ## Versioning
 
-The package version tracks atrium's image version. Pin `^0.14` for
-"compatible with atrium 0.14.x"; bump together with the atrium image
+The package version tracks atrium's image version. Pin `^0.15` for
+"compatible with atrium 0.15.x"; bump together with the atrium image
 to pick up new registry slots. New slots land as **optional** members
 on `AtriumRegistry` first so a host that hasn't bumped yet still
 type-checks.
