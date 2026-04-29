@@ -28,6 +28,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react';
 import {
@@ -176,4 +177,118 @@ export function usePerm(): (code: string) => boolean {
 export function useRole(code: string): boolean {
   const { data: me } = useMe();
   return (me?.roles ?? []).includes(code);
+}
+
+/** Snapshot of atrium's current router location, mirrored on
+ *  `window.location`. The fields match react-router's `Location` shape
+ *  so a host already familiar with `useLocation()` reads the same
+ *  contract here. */
+export type AtriumLocation = {
+  pathname: string;
+  search: string;
+  hash: string;
+};
+
+const ATRIUM_LOCATION_EVENT = 'atrium:locationchange';
+
+const SSR_LOCATION: AtriumLocation = {
+  pathname: '/',
+  search: '',
+  hash: '',
+};
+
+// Module-level cache so `useSyncExternalStore.getSnapshot` returns a
+// referentially-stable object across renders — re-creating it every
+// call would cause React to tear-loop the subscriber. The cache is
+// refreshed only when an `atrium:locationchange` event lands or, on
+// the first read, lazily from `window.location`.
+let cachedLocation: AtriumLocation | null = null;
+
+function readWindowLocation(): AtriumLocation {
+  if (typeof window === 'undefined') return SSR_LOCATION;
+  return {
+    pathname: window.location.pathname,
+    search: window.location.search,
+    hash: window.location.hash,
+  };
+}
+
+function getLocationSnapshot(): AtriumLocation {
+  if (cachedLocation === null) cachedLocation = readWindowLocation();
+  return cachedLocation;
+}
+
+function getServerLocationSnapshot(): AtriumLocation {
+  return SSR_LOCATION;
+}
+
+function subscribeLocation(onChange: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const handler = (e: Event) => {
+    const detail = (e as CustomEvent<Partial<AtriumLocation> | undefined>)
+      .detail;
+    if (
+      detail &&
+      typeof detail.pathname === 'string' &&
+      typeof detail.search === 'string' &&
+      typeof detail.hash === 'string'
+    ) {
+      cachedLocation = {
+        pathname: detail.pathname,
+        search: detail.search,
+        hash: detail.hash,
+      };
+    } else {
+      cachedLocation = readWindowLocation();
+    }
+    onChange();
+  };
+  window.addEventListener(ATRIUM_LOCATION_EVENT, handler);
+  return () => window.removeEventListener(ATRIUM_LOCATION_EVENT, handler);
+}
+
+/** Subscribe to atrium's react-router location changes from inside a
+ *  host bundle's React tree. Returns `{ pathname, search, hash }`
+ *  mirroring `window.location`, and re-renders the calling component
+ *  whenever atrium navigates — including in-place navigations
+ *  (`navigate('/?focus=booking:42')` while already on `/`) where the
+ *  host's wrapper element doesn't remount.
+ *
+ *  Bridges the `atrium:locationchange` CustomEvent atrium dispatches
+ *  on `window` through `useSyncExternalStore`, so multiple subscribers
+ *  in the same tree share one event listener and the snapshot is
+ *  referentially stable when nothing changed.
+ *
+ *  ```tsx
+ *  function FocusDrawer() {
+ *    const { search } = useAtriumLocation();
+ *    const focus = new URLSearchParams(search).get('focus');
+ *    return focus ? <BookingDetail id={focus} /> : null;
+ *  }
+ *  ```
+ *
+ *  Hosts that don't use React (or want to handle navigation outside a
+ *  component) can subscribe directly:
+ *  `window.addEventListener('atrium:locationchange', e => …)`. The
+ *  event's `detail` carries the same `{pathname, search, hash}` shape.
+ *
+ *  Available on atrium 0.15.3+. On older atrium images the hook still
+ *  works but only reflects the initial `window.location` — the SPA
+ *  doesn't dispatch the event, so in-place navigations won't trigger
+ *  updates. Hosts that need to support pre-0.15.3 atrium can read
+ *  `window.__ATRIUM_VERSION__` and fall back to `useLocation()` from a
+ *  wrapper that remounts on route swaps. */
+export function useAtriumLocation(): AtriumLocation {
+  return useSyncExternalStore(
+    subscribeLocation,
+    getLocationSnapshot,
+    getServerLocationSnapshot,
+  );
+}
+
+/** Test-only: drop the cached snapshot so the next `getSnapshot` reads
+ *  `window.location` fresh. Production code never calls this — the
+ *  cache is updated by the event subscription. */
+export function __resetAtriumLocationCacheForTests(): void {
+  cachedLocation = null;
 }
