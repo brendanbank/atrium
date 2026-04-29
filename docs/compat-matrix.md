@@ -29,6 +29,7 @@ then read forward to plan the upgrade path.
 | [0.15.1](https://github.com/brendanbank/atrium/releases/tag/v0.15.1) | unchanged | — | — | **Host SDK packages moved to npmjs.org** (closes #70). `@brendanbank/atrium-host-types`, `…-host-bundle-utils`, `…-test-utils`, and `create-atrium-host` are now anonymous-readable on the public npm registry — no `.npmrc` scope mapping, no `read:packages` PAT, no token in CI / Dockerfile / compose. Hosts adopting 0.15.1+ should drop the `@brendanbank:registry=https://npm.pkg.github.com` line from their `.npmrc`. v0.15.0 packages remain on GitHub Packages (no impact on existing pinned consumers). |
 | [0.15.2](https://github.com/brendanbank/atrium/releases/tag/v0.15.2) | unchanged | — | — | **Fixes silent RBAC breakage in 0.15.1** (closes #72). `useMe()` from `@brendanbank/atrium-host-bundle-utils/react` defaulted to fetching `/api/users/me/context`, which 404s on the merged-image atrium (the SPA + API share an origin with no `/api` strip). `usePerm()` then default-denied every code, silently disabling RBAC in hosts that adopted the package default. The fetcher now hard-codes the same-origin `/users/me/context` path (it's atrium-fixed, not host-configurable). **Breaking prop removal**: `<AtriumProvider>`'s `apiBase` prop is gone — hosts pinning `^0.15` will get a TypeScript error on `<AtriumProvider apiBase="…">` after the upgrade and should drop the prop. |
 | [0.15.3](https://github.com/brendanbank/atrium/releases/tag/v0.15.3) | unchanged | `atrium:locationchange` CustomEvent on `window` whenever atrium's react-router commits a new location; `useAtriumLocation()` hook in `@brendanbank/atrium-host-bundle-utils/react` wraps it in `useSyncExternalStore` so host components observe in-place navigations (closes #77) | — | — |
+| [0.16.0](https://github.com/brendanbank/atrium/releases/tag/v0.16.0) | `0006_email_outbox_perm` (seeds the `email_outbox.manage` permission, grants to `super_admin` + `admin`) | optional `order?: number` field on `NavItem` / `AdminTab` / `ProfileItem` for menu ordering across host + built-in items (closes #79); admin Email outbox tab + `GET /admin/email-outbox` + `POST /admin/email-outbox/{id}/drain` endpoints; `app.host_sdk.email.drain_outbox_row()` for host-side "send now" buttons (closes #80); `atrium:locationchange` event detail gains a monotonic `nonce` field, notification href clicks force-fire even when react-router would no-op, and `useAtriumNavigate()` exported from `@brendanbank/atrium-host-bundle-utils/react` for host-side URL cleanup that keeps atrium's router synced (closes #81) | — | — |
 
 A blank cell means "no change in this release on that axis". Schema rows
 list the alembic head a host can rely on coexisting with — atrium owns
@@ -37,16 +38,16 @@ advance independently (see [`published-images.md`](published-images.md#migration
 
 ## Schema changes since the first published image
 
-There have been **no atrium-side schema changes** since the first published
-image (0.9.1). The chain has stayed at `0005_email_template_per_locale`
-across the entire 0.9.x → 0.12.x line. A host's alembic chain that was
-written against any of these images can upgrade to the latest without
-coordinating an atrium migration.
+The atrium chain stayed at `0005_email_template_per_locale` from the first
+published image (0.9.1) through the entire 0.9.x → 0.15.x line. **0.16.0
+is the first to advance the chain**: revision `0006_email_outbox_perm`
+seeds a new permission (`email_outbox.manage`) and grants it to
+`super_admin` + `admin`. No table shape changes — adopting it is a single
+`alembic upgrade head` with no app-level coordination.
 
 This is the column that changes most rarely; when it does (a new revision
-on `backend/alembic/versions/`), the cell will name the revision id and
-link to the migration file so a host author can read what tables / columns
-are involved before pinning past it.
+on `backend/alembic/versions/`), the cell names the revision id so a host
+author can read what tables / columns are involved before pinning past it.
 
 ## SSE wire format
 
