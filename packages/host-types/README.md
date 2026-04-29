@@ -21,29 +21,14 @@ Bundlers strip it from the production output.
 
 ## Installation
 
-The package is published on **GitHub Packages**, not the public npm
-registry. Add an `.npmrc` to your host project that points the
-`@brendanbank` scope at GitHub Packages:
-
-```
-# .npmrc
-@brendanbank:registry=https://npm.pkg.github.com
-```
-
-GitHub Packages requires an authenticated install even for public
-packages — give npm a token with at least the `read:packages` scope:
-
-```
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
-
-In CI, `GITHUB_TOKEN` is provided automatically by Actions; locally,
-generate a [classic PAT](https://github.com/settings/tokens) with
-`read:packages` and export it. Then:
-
 ```bash
 pnpm add -D @brendanbank/atrium-host-types
 ```
+
+The package is published on the public npm registry. No `.npmrc`,
+no auth token, no PAT. If you adopted atrium before v0.15.1 and
+have an `@brendanbank:registry=https://npm.pkg.github.com` line in
+your `.npmrc`, delete it — npmjs.org is the default registry.
 
 ## Versioning
 

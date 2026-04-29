@@ -5,10 +5,12 @@ name: Publish npm packages
 
 # Tag-driven publish for the host SDK packages alongside the GHCR
 # image (see `publish-images.yml`). Both fire on the same `v*` tag so
-# the npm versions and the image version are always cut together. The
-# packages are published to GitHub Packages
-# (https://npm.pkg.github.com) under the `@brendanbank` scope —
-# scope-must-match-owner is GitHub Packages' rule.
+# the npm versions and the image version are always cut together.
+# Packages are published to npmjs.org via Trusted Publishing (OIDC) —
+# the trust relationship is configured per-package on npmjs.com and
+# requires `id-token: write` on this workflow. No NPM_TOKEN secret is
+# stored in this repo; the OIDC handshake mints a one-shot publish
+# credential per run.
 #
 # `workflow_dispatch` lets a maintainer re-run an existing tag (e.g.
 # registry outage recovery) without retagging.
@@ -25,7 +27,7 @@ on:
 
 permissions:
   contents: read
-  packages: write
+  id-token: write
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -40,22 +42,22 @@ jobs:
         with:
           ref: ${{ github.event.inputs.ref || github.ref }}
 
-      # `setup-node` with `registry-url` writes an `.npmrc` into
-      # $RUNNER_TEMP that points the scope at GitHub Packages and
-      # injects `${NODE_AUTH_TOKEN}` for the publish — exactly the
-      # convention pnpm respects via the `npm_config_userconfig` env
-      # var setup-node sets. The committed `.npmrc` at the repo root
-      # already declares the registry mapping; the runner-supplied one
-      # adds the auth token without committing a secret.
       - uses: pnpm/action-setup@903f9c1a6ebcba6cf41d87230be49611ac97822e  # v6.0.3
         with:
           version: "10.33.1"
 
+      # `setup-node` with `registry-url` writes an `.npmrc` into
+      # $RUNNER_TEMP pointing at npmjs.org — exactly what `pnpm publish`
+      # honours via the `npm_config_userconfig` env var setup-node
+      # sets. No `scope:` is needed (npmjs.org doesn't gate on scope),
+      # and no `NODE_AUTH_TOKEN` is needed: the npm CLI auto-detects
+      # the GitHub OIDC token from $ACTIONS_ID_TOKEN_REQUEST_URL and
+      # exchanges it for a publish credential. Requires npm 11.5.1+
+      # (Node 25 ships well past that).
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
         with:
           node-version: "25"
-          registry-url: "https://npm.pkg.github.com"
-          scope: "@brendanbank"
+          registry-url: "https://registry.npmjs.org"
 
       # Workspace install resolves `@brendanbank/atrium-*` via
       # `workspace:*` references; no token needed for this step.
@@ -66,9 +68,8 @@ jobs:
       # `--no-git-checks` skips pnpm's "branch is not main" /
       # "uncommitted changes" guard — we're publishing from a tag, so
       # the working tree is fine but git HEAD is detached. `--access
-      # public` mirrors what each package.json's `publishConfig`
-      # already declares, but kept explicit so a future packageJson
-      # tweak doesn't silently flip visibility.
+      # public` mirrors each package.json's `publishConfig`, kept
+      # explicit so a future packageJson tweak doesn't silently flip
+      # visibility. Provenance attestations are emitted automatically
+      # under OIDC; no `--provenance` flag needed.
       - run: pnpm -r --filter './packages/*' publish --no-git-checks --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

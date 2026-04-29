@@ -429,22 +429,19 @@ Three atrium-published packages remove the boilerplate:
   package's [`README`](https://github.com/brendanbank/atrium/tree/master/packages/test-utils)
   for the worked example.
 
-Both packages are published on **GitHub Packages** (the same registry
-family as the atrium GHCR image) and versioned in lockstep with the
-atrium image — pin `^0.15` for "compatible with atrium 0.15.x". The
-host project needs an `.npmrc` mapping the `@brendanbank` scope:
+All three packages are published on **the public npm registry**
+(npmjs.org) and versioned in lockstep with the atrium image — pin
+`^0.15` for "compatible with atrium 0.15.x". No `.npmrc`, no auth
+token, no PAT; `pnpm add @brendanbank/atrium-host-bundle-utils` Just
+Works. (Versions before 0.15.1 lived on GitHub Packages and required
+a token — see [issue #70](https://github.com/brendanbank/atrium/issues/70).
+If you adopted atrium pre-0.15.1, drop any `@brendanbank:registry=…`
+line from your `.npmrc` when bumping.)
 
-```
-# .npmrc — in the host's frontend project
-@brendanbank:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
-
-GitHub Packages requires authentication on every install, even for
-public packages. In CI, `GITHUB_TOKEN` is provided automatically by
-Actions; locally, generate a [classic PAT](https://github.com/settings/tokens)
-with `read:packages` scope and export it as `GITHUB_TOKEN` before
-running `pnpm install`.
+Publishes from CI are authenticated via npm Trusted Publishing
+(OIDC) — no long-lived `NPM_TOKEN` is stored in the atrium repo.
+Each tarball carries a signed provenance attestation tying it to
+the exact commit + workflow run.
 
 **Vite config — one function call:**
 

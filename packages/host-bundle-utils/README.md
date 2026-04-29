@@ -20,25 +20,15 @@ reg.registerHomeWidget({
 
 ## Installation
 
-The package is published on **GitHub Packages**, not the public npm
-registry. Add an `.npmrc` to your host project that points the
-`@brendanbank` scope at GitHub Packages and supplies a token with
-`read:packages` scope:
-
-```
-# .npmrc
-@brendanbank:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
-```
-
-In CI, `GITHUB_TOKEN` is provided automatically by Actions; locally,
-generate a [classic PAT](https://github.com/settings/tokens) with
-`read:packages` and export it. Then:
-
 ```bash
 pnpm add @brendanbank/atrium-host-bundle-utils \
         @brendanbank/atrium-host-types
 ```
+
+The package is published on the public npm registry. No `.npmrc`,
+no auth token, no PAT. If you adopted atrium before v0.15.1 and
+have an `@brendanbank:registry=https://npm.pkg.github.com` line in
+your `.npmrc`, delete it — npmjs.org is the default registry.
 
 ## Three subpath entry-points
 

@@ -1,6 +1,6 @@
 # ADR 0002 — Host frontend SDK packaging (`@brendanbank/atrium-host-types`, `@brendanbank/atrium-host-bundle-utils`)
 
-Status: accepted, 2026-04-28
+Status: accepted, 2026-04-28 (publish target amended 2026-04-29 — see addendum)
 
 ## Context
 
@@ -65,6 +65,10 @@ We considered:
   room to land the operational changes alongside.
 
 ### Publish target — GitHub Packages, `@brendanbank` scope
+
+> **Amended 2026-04-29** — superseded by the addendum at the bottom
+> of this ADR. The packages now publish to **npmjs.org** via Trusted
+> Publishing. Original reasoning kept verbatim below for context.
 
 Same registry family as `ghcr.io/brendanbank/atrium` for the runtime
 image. One account/PAT covers both. Publishing happens from the same
@@ -149,3 +153,39 @@ under `dist/`, no JS, no runtime cost. `react` is a peer dep so
   The shrink is the load-bearing acceptance signal — if a future
   registry change blows that surface back out, the package is
   carrying less weight than it should.
+
+## Addendum 2026-04-29 — switch publish target to npmjs.org
+
+Issue #70 surfaced the limitation that prompted this amendment:
+GitHub Packages' npm endpoint requires authentication on every
+install, regardless of the package's stated visibility. A consumer
+of `@brendanbank/atrium-host-types` therefore needs a `read:packages`
+PAT in `.npmrc`, plumbed through CI, plumbed through the
+`compose up --build` build context — which contradicted the
+"public package" framing in the package READMEs and the scaffolder's
+`.npmrc` template, and turned out to be enough adoption tax that
+casa-bookings bailed out of consuming the package directly.
+
+The switch:
+
+- All four packages (`@brendanbank/atrium-host-types`,
+  `atrium-host-bundle-utils`, `atrium-test-utils`, `create-atrium-host`)
+  now publish to **npmjs.org**. Truly anonymous `pnpm add` works.
+- Bootstrap-publish was done from a maintainer laptop with
+  interactive 2FA at v0.15.0; future releases run via npm
+  **Trusted Publishing** (OIDC) configured per package on npmjs.com.
+  The publish workflow gains `permissions: id-token: write` and
+  drops the `NODE_AUTH_TOKEN` env. No long-lived `NPM_TOKEN` is
+  stored in the repo, and each tarball carries a signed provenance
+  attestation tying it to the exact commit + workflow run.
+- The original `@atrium`-scope-collision concern from the rejected
+  alternatives still holds; we did not attempt to claim `@atrium` on
+  npmjs.org. The published name pattern (`@brendanbank/atrium-<area>`)
+  is unchanged.
+- The v0.15.0 packages on GitHub Packages stay where they are
+  (deletion isn't possible without contacting support, and there are
+  no known external consumers). The READMEs, scaffolder template,
+  `docs/published-images.md`, and `RELEASING.md` are updated to
+  reflect npmjs.org as the canonical home; existing consumers who
+  bumped to 0.15.1+ pick up the registry change by removing the
+  `@brendanbank:registry=…` line from their `.npmrc`.

@@ -265,12 +265,16 @@ The tag push fires two workflows in parallel:
   full semver fan-out (`0.11.3`, `0.11`, `0`, `latest`). Typical run
   time: ~3-5 minutes.
 - `.github/workflows/publish-npm.yml` — builds the host SDK
-  packages and publishes
-  `@brendanbank/atrium-host-types@<X.Y.Z>` and
-  `@brendanbank/atrium-host-bundle-utils@<X.Y.Z>` to GitHub
-  Packages (`https://npm.pkg.github.com`). Typical run time: ~1
-  minute. Uses the workflow-supplied `GITHUB_TOKEN` (`packages:
-  write` scope), so no extra secret to manage.
+  packages and publishes `@brendanbank/atrium-host-types`,
+  `@brendanbank/atrium-host-bundle-utils`,
+  `@brendanbank/atrium-test-utils`, and
+  `@brendanbank/create-atrium-host` (each at `<X.Y.Z>`) to npmjs.org.
+  Typical run time: ~1 minute. Authentication is via npm **Trusted
+  Publishing** (OIDC) — the trust relationship is configured per-
+  package on npmjs.com and matched against the workflow's signed
+  GitHub OIDC token, so no `NPM_TOKEN` secret is stored in this repo.
+  Each tarball carries a signed provenance attestation tying it to
+  the exact commit + workflow run.
 
 ```bash
 gh run list --workflow=publish-images.yml --limit 3

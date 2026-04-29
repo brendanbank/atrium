@@ -26,13 +26,12 @@ Playwright. This package gives them back.
 
 ## Installation
 
-```
+```bash
 pnpm add -D @brendanbank/atrium-test-utils
 ```
 
-The package is published on **GitHub Packages**, same scope as the
-other atrium SDK packages — see the host-bundle-utils
-[`README`](../host-bundle-utils/README.md) for the `.npmrc` setup.
+The package is published on the public npm registry — no `.npmrc`
+or auth token needed.
 
 `vitest`, `@testing-library/react`, `react`, `react-dom`, and
 `@tanstack/react-query` are peer deps — install them once in your

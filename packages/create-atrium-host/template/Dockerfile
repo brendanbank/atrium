@@ -14,7 +14,7 @@ FROM node:25-alpine AS frontend-builder
 WORKDIR /app
 RUN npm install -g pnpm@10.33.1
 
-COPY frontend/package.json frontend/pnpm-lock.yaml* frontend/.npmrc ./
+COPY frontend/package.json frontend/pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 COPY frontend/ ./
 
