@@ -51,6 +51,9 @@ def _atrium_version() -> str:
     try:
         return _metadata.version("atrium-backend")
     except _metadata.PackageNotFoundError:
+        # The package isn't installed in editable mode (typical for
+        # the dev container) — fall through to reading pyproject.toml
+        # directly so we still surface a real version string.
         pass
     try:
         pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
@@ -59,6 +62,9 @@ def _atrium_version() -> str:
         if isinstance(version, str) and version:
             return version
     except (OSError, KeyError, tomllib.TOMLDecodeError):
+        # pyproject.toml may not exist in the runtime image (it's
+        # only in source checkouts). Both branches failing is fine —
+        # ``unknown`` is the documented sentinel.
         pass
     return "unknown"
 

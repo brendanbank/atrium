@@ -12,7 +12,7 @@
 // the baseline).
 
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve, isAbsolute } from 'node:path';
+import { dirname, resolve, isAbsolute } from 'node:path';
 import { stat } from 'node:fs/promises';
 
 import kleur from 'kleur';

@@ -22,12 +22,14 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-# Import the model module so HostBase.metadata is populated before
-# autogenerate runs.
-import __HOST_PKG__.models  # noqa: F401
 from alembic import context
 from app.host_sdk.alembic import emit_host_foreign_keys
 from app.settings import get_settings
+
+# ``HostBase`` is the metadata target; importing it from
+# ``__HOST_PKG__.models`` also runs the package's ``__init__``, which
+# registers every model class on ``HostBase.metadata`` before
+# autogenerate inspects it.
 from __HOST_PKG__.models import HostBase
 
 VERSION_TABLE = "alembic_version_app"
