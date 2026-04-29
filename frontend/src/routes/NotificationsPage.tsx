@@ -20,6 +20,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
 import { NotificationPayloadModal } from '@/components/NotificationsBell';
+import { announceCurrentLocation } from '@/host/navigation';
 import { lookupNotificationRenderer } from '@/host/registry';
 import { renderNotificationBody } from '@/lib/notifications';
 import {
@@ -67,7 +68,26 @@ export function NotificationsPage() {
       }
     }
     if (href) {
+      // ``navigate(href)`` is a no-op when ``href`` matches the current
+      // location, which means the bridge's effect doesn't fire and a
+      // host listening on ``atrium:locationchange`` never re-runs.
+      // Snapshot before, force-fire if unchanged. (#81)
+      const before =
+        typeof window !== 'undefined'
+          ? window.location.pathname +
+            window.location.search +
+            window.location.hash
+          : '';
       navigate(href);
+      const after =
+        typeof window !== 'undefined'
+          ? window.location.pathname +
+            window.location.search +
+            window.location.hash
+          : '';
+      if (after === before) {
+        announceCurrentLocation();
+      }
     } else {
       setPayloadOpen(n);
     }

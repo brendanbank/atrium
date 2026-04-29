@@ -27,7 +27,8 @@ import { useTranslation } from 'react-i18next';
 
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useMe, useLogout } from '@/hooks/useAuth';
-import { getNavItems } from '@/host/registry';
+import { getNavItems, type NavItem } from '@/host/registry';
+import type { CurrentUser } from '@/lib/auth';
 
 import { AnnouncementBanner } from './AnnouncementBanner';
 import { ImpersonationBanner } from './ImpersonationBanner';
@@ -174,50 +175,13 @@ export function AppLayout() {
       </AppShell.Header>
 
       <AppShell.Navbar p="xs">
-        <NavLink
-          component={Link}
-          to="/"
-          label={t('nav.home')}
-          leftSection={<IconHome size={16} />}
-          active={location.pathname === '/'}
-          onClick={close}
-        />
-        <NavLink
-          component={Link}
-          to="/notifications"
-          label={t('nav.notifications')}
-          leftSection={<IconBell size={16} />}
-          active={location.pathname.startsWith('/notifications')}
-          onClick={close}
-        />
-        {isAdmin && (
-          <NavLink
-            component={Link}
-            to="/admin"
-            label={t('nav.admin')}
-            leftSection={<IconSettings size={16} />}
-            active={location.pathname.startsWith('/admin')}
-            onClick={close}
-          />
-        )}
-        {getNavItems()
-          .filter((item) =>
-            item.condition ? item.condition({ me: me ?? null }) : true,
-          )
-          .map((item) => (
-            <NavLink
-              key={item.key}
-              component={Link}
-              to={item.to}
-              label={item.label}
-              leftSection={item.icon}
-              active={
-                location.pathname === item.to ||
-                location.pathname.startsWith(`${item.to}/`)
-              }
-              onClick={close}
-            />
-          ))}
+        {buildNavLinks({
+          me: me ?? null,
+          isAdmin,
+          pathname: location.pathname,
+          onNavigate: close,
+          t,
+        })}
       </AppShell.Navbar>
 
       <AppShell.Main>
@@ -227,4 +191,89 @@ export function AppLayout() {
       </AppShell.Main>
     </AppShell>
   );
+}
+
+/** Built-in nav slots use 100/200/300 so a host can interleave with
+ *  ``order: 150`` (between Home and Notifications), ``250`` (between
+ *  Notifications and Admin), or any value > 300 to land below them. A
+ *  host item with no ``order`` keeps insertion order and lands after
+ *  everything that does have one — including the built-ins. */
+const NAV_ORDER = {
+  home: 100,
+  notifications: 200,
+  admin: 300,
+} as const;
+
+function buildNavLinks(args: {
+  me: CurrentUser | null;
+  isAdmin: boolean;
+  pathname: string;
+  onNavigate: () => void;
+  t: ReturnType<typeof useTranslation>['t'];
+}) {
+  const { me, isAdmin, pathname, onNavigate, t } = args;
+
+  const builtins: (NavItem & { active: boolean })[] = [
+    {
+      key: '__atrium_home',
+      label: t('nav.home'),
+      to: '/',
+      icon: <IconHome size={16} />,
+      order: NAV_ORDER.home,
+      active: pathname === '/',
+    },
+    {
+      key: '__atrium_notifications',
+      label: t('nav.notifications'),
+      to: '/notifications',
+      icon: <IconBell size={16} />,
+      order: NAV_ORDER.notifications,
+      active: pathname.startsWith('/notifications'),
+    },
+  ];
+  if (isAdmin) {
+    builtins.push({
+      key: '__atrium_admin',
+      label: t('nav.admin'),
+      to: '/admin',
+      icon: <IconSettings size={16} />,
+      order: NAV_ORDER.admin,
+      active: pathname.startsWith('/admin'),
+    });
+  }
+
+  const hostItems = getNavItems().filter((item) =>
+    item.condition ? item.condition({ me }) : true,
+  );
+
+  // Merge then re-sort. ``getNavItems`` already sorts host items by
+  // ``order``; re-sorting the merged list with the same comparator
+  // splices the built-ins in at the right place.
+  const merged: (NavItem & { active?: boolean })[] = [
+    ...builtins,
+    ...hostItems,
+  ];
+  merged.sort((a, b) => {
+    const ao = a.order;
+    const bo = b.order;
+    if (ao === undefined && bo === undefined) return 0;
+    if (ao === undefined) return 1;
+    if (bo === undefined) return -1;
+    return ao - bo;
+  });
+
+  return merged.map((item) => (
+    <NavLink
+      key={item.key}
+      component={Link}
+      to={item.to}
+      label={item.label}
+      leftSection={item.icon}
+      active={
+        item.active ??
+        (pathname === item.to || pathname.startsWith(`${item.to}/`))
+      }
+      onClick={onNavigate}
+    />
+  ));
 }

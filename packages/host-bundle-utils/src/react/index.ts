@@ -187,6 +187,16 @@ export type AtriumLocation = {
   pathname: string;
   search: string;
   hash: string;
+  /** Monotonic per-event counter atrium increments on every
+   *  `atrium:locationchange` dispatch. Use this in effect deps when
+   *  the effect should re-run on every navigation event, including a
+   *  re-click of the same href that react-router would otherwise
+   *  no-op (e.g. clicking the same notification bell item twice — see
+   *  atrium #81). Without it, `useEffect(…, [search])` stays put
+   *  because `search` is structurally identical between the two
+   *  events. Always present from atrium 0.16+; `0` on older images
+   *  that don't dispatch a nonce. */
+  nonce: number;
 };
 
 const ATRIUM_LOCATION_EVENT = 'atrium:locationchange';
@@ -195,6 +205,7 @@ const SSR_LOCATION: AtriumLocation = {
   pathname: '/',
   search: '',
   hash: '',
+  nonce: 0,
 };
 
 // Module-level cache so `useSyncExternalStore.getSnapshot` returns a
@@ -210,6 +221,9 @@ function readWindowLocation(): AtriumLocation {
     pathname: window.location.pathname,
     search: window.location.search,
     hash: window.location.hash,
+    // No event has been observed yet, so we have no atrium-supplied
+    // nonce. Zero is the documented "no nonce yet" value.
+    nonce: 0,
   };
 }
 
@@ -237,6 +251,10 @@ function subscribeLocation(onChange: () => void): () => void {
         pathname: detail.pathname,
         search: detail.search,
         hash: detail.hash,
+        // ``nonce`` was added to the event detail in atrium 0.16
+        // (#81). Older images dispatch the event without it; default
+        // to 0 so the field is always a number.
+        nonce: typeof detail.nonce === 'number' ? detail.nonce : 0,
       };
     } else {
       cachedLocation = readWindowLocation();
@@ -248,11 +266,9 @@ function subscribeLocation(onChange: () => void): () => void {
 }
 
 /** Subscribe to atrium's react-router location changes from inside a
- *  host bundle's React tree. Returns `{ pathname, search, hash }`
- *  mirroring `window.location`, and re-renders the calling component
- *  whenever atrium navigates — including in-place navigations
- *  (`navigate('/?focus=booking:42')` while already on `/`) where the
- *  host's wrapper element doesn't remount.
+ *  host bundle's React tree. Returns `{ pathname, search, hash, nonce }`
+ *  — the first three mirror `window.location`; `nonce` is a monotonic
+ *  counter atrium increments on every dispatch.
  *
  *  Bridges the `atrium:locationchange` CustomEvent atrium dispatches
  *  on `window` through `useSyncExternalStore`, so multiple subscribers
@@ -267,23 +283,102 @@ function subscribeLocation(onChange: () => void): () => void {
  *  }
  *  ```
  *
+ *  When you want the effect to re-run on **every** navigation event —
+ *  including the same-URL re-click case (clicking the same notification
+ *  bell item twice — atrium #81) — include `nonce` in the deps:
+ *
+ *  ```tsx
+ *  function FocusDrawer() {
+ *    const { search, nonce } = useAtriumLocation();
+ *    useEffect(() => {
+ *      const focus = new URLSearchParams(search).get('focus');
+ *      if (focus) openDrawer(focus);
+ *      // Without `nonce` here, React dedupes on `[search]` so a second
+ *      // click of the same href doesn't re-open the drawer.
+ *    }, [search, nonce]);
+ *  }
+ *  ```
+ *
  *  Hosts that don't use React (or want to handle navigation outside a
  *  component) can subscribe directly:
  *  `window.addEventListener('atrium:locationchange', e => …)`. The
- *  event's `detail` carries the same `{pathname, search, hash}` shape.
+ *  event's `detail` carries the same `{pathname, search, hash, nonce}`
+ *  shape.
  *
- *  Available on atrium 0.15.3+. On older atrium images the hook still
- *  works but only reflects the initial `window.location` — the SPA
- *  doesn't dispatch the event, so in-place navigations won't trigger
- *  updates. Hosts that need to support pre-0.15.3 atrium can read
- *  `window.__ATRIUM_VERSION__` and fall back to `useLocation()` from a
- *  wrapper that remounts on route swaps. */
+ *  Available on atrium 0.15.3+; `nonce` lands in 0.16+. On older atrium
+ *  images the hook still works but only reflects the initial
+ *  `window.location` (and `nonce` stays at 0). Hosts that need to
+ *  support pre-0.15.3 atrium can read `window.__ATRIUM_VERSION__` and
+ *  fall back to `useLocation()` from a wrapper that remounts on route
+ *  swaps. */
 export function useAtriumLocation(): AtriumLocation {
   return useSyncExternalStore(
     subscribeLocation,
     getLocationSnapshot,
     getServerLocationSnapshot,
   );
+}
+
+/** Programmatic navigate that works from inside a host bundle's React
+ *  tree, where `useNavigate()` from react-router isn't available
+ *  (atrium owns the router context; the host tree only meets atrium's
+ *  at the wrapper element produced by `makeWrapperElement`).
+ *
+ *  Returns a stable `navigate(href, opts?)` function that updates the
+ *  URL via `pushState` / `replaceState` and re-syncs atrium's
+ *  react-router by dispatching a synthesized `popstate`. Atrium then
+ *  fires its own `atrium:locationchange` so other host listeners
+ *  observe the change.
+ *
+ *  The primary use case is **cleaning up a deep-link query param after
+ *  the host has consumed it** — a flow that previously had no host-
+ *  observable solution (a raw `history.replaceState` desyncs atrium's
+ *  router from the browser URL). See atrium #81.
+ *
+ *  ```tsx
+ *  function FocusDrawer() {
+ *    const { search } = useAtriumLocation();
+ *    const navigate = useAtriumNavigate();
+ *    const focus = new URLSearchParams(search).get('focus');
+ *    return focus ? (
+ *      <Drawer
+ *        opened
+ *        onClose={() => {
+ *          // Strip the param so a second click of the same bell item
+ *          // (which navigates to the same href) is a real change from
+ *          // atrium's perspective and re-fires the locationchange.
+ *          const next = new URLSearchParams(search);
+ *          next.delete('focus');
+ *          navigate(`/?${next.toString()}`, { replace: true });
+ *        }}
+ *      >
+ *        <BookingDetail id={focus} />
+ *      </Drawer>
+ *    ) : null;
+ *  }
+ *  ```
+ *
+ *  Available since atrium 0.16. The hook works on older images too —
+ *  it doesn't depend on any atrium-side surface — but on pre-0.16 the
+ *  resulting `atrium:locationchange` event won't carry a `nonce`. */
+export function useAtriumNavigate(): (
+  href: string,
+  opts?: { replace?: boolean },
+) => void {
+  return useCallback((href: string, opts?: { replace?: boolean }) => {
+    if (typeof window === 'undefined') return;
+    if (opts?.replace) {
+      window.history.replaceState(window.history.state, '', href);
+    } else {
+      window.history.pushState(window.history.state, '', href);
+    }
+    // React-router's BrowserHistory subscribes to ``popstate`` for
+    // back/forward navigation. Synthesizing one here makes it re-read
+    // ``window.location`` and update its internal state, which in turn
+    // re-renders atrium's NavigationBridge and dispatches a fresh
+    // ``atrium:locationchange`` with a new monotonic nonce.
+    window.dispatchEvent(new PopStateEvent('popstate'));
+  }, []);
 }
 
 /** Test-only: drop the cached snapshot so the next `getSnapshot` reads

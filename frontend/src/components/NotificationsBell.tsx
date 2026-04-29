@@ -21,6 +21,7 @@ import { IconBell, IconCheck, IconX } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 
+import { announceCurrentLocation } from '@/host/navigation';
 import { lookupNotificationRenderer } from '@/host/registry';
 import { useMe } from '@/hooks/useAuth';
 import {
@@ -33,6 +34,15 @@ import {
 } from '@/hooks/useNotifications';
 import { useNotificationStream } from '@/hooks/useNotificationStream';
 import { renderNotificationBody } from '@/lib/notifications';
+
+/** Stringified ``window.location`` for the same-URL detection in
+ *  ``handleNotifClick``. Cheap enough to compute twice per click. */
+function locationKey(): string {
+  if (typeof window === 'undefined') return '';
+  return (
+    window.location.pathname + window.location.search + window.location.hash
+  );
+}
 
 function formatRelative(iso: string): string {
   const then = new Date(iso + (iso.endsWith('Z') ? '' : 'Z'));
@@ -79,7 +89,18 @@ export function NotificationsBell() {
       }
     }
     if (href) {
+      // ``navigate(href)`` is a no-op in react-router when ``href``
+      // matches the current location. The bridge's effect doesn't fire,
+      // so a host that opens a deep-link drawer on
+      // ``atrium:locationchange`` never re-runs — clicking the same
+      // bell item twice silently fails (#81). Snapshot the URL before
+      // navigate; if it's unchanged afterwards we force-fire so the
+      // host's listener still observes the click.
+      const before = locationKey();
       navigate(href);
+      if (locationKey() === before) {
+        announceCurrentLocation();
+      }
     } else {
       setPayloadOpen(n);
     }

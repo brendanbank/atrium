@@ -11,11 +11,15 @@
  * — and ``popstate`` doesn't fire for ``history.pushState``, which is
  * what ``navigate(href)`` uses under the hood.
  *
- * To close the gap atrium dispatches a single ``atrium:locationchange``
+ * To close the gap atrium dispatches an ``atrium:locationchange``
  * CustomEvent on ``window`` whenever its router commits a new location.
  * The detail payload mirrors ``window.location``: ``{pathname, search,
- * hash}``. Hosts subscribe with a plain ``addEventListener`` (no React
- * coupling) or via the ``useAtriumLocation()`` hook in
+ * hash, nonce}``. ``nonce`` is a monotonic counter atrium increments on
+ * every dispatch — hosts that want to re-run an effect on every
+ * navigation event (including same-URL re-clicks like clicking the same
+ * notification bell item twice — see #81) include ``nonce`` in their
+ * effect deps. Hosts subscribe with a plain ``addEventListener`` (no
+ * React coupling) or via the ``useAtriumLocation()`` hook in
  * ``@brendanbank/atrium-host-bundle-utils/react`` (which wraps the
  * event in ``useSyncExternalStore``).
  *
@@ -30,19 +34,57 @@ export type AtriumLocationDetail = {
   pathname: string;
   search: string;
   hash: string;
+  /** Monotonic counter, incremented atomically by atrium on every
+   *  ``atrium:locationchange`` dispatch. Always present on events
+   *  from atrium 0.16+. The value has no semantic meaning — only that
+   *  it's strictly greater than the previous event's nonce. Use it in
+   *  effect deps when you want to re-run on every navigation event,
+   *  including a re-click of the same href that react-router would
+   *  otherwise no-op. */
+  nonce: number;
 };
 
 export const ATRIUM_LOCATION_EVENT = 'atrium:locationchange';
 
-/** Fire a single ``atrium:locationchange`` event on ``window``. Exported
- *  for tests and for the rare host that wants to replay a synthesised
- *  location to its own subscribers; production code only sees the
- *  events fired by ``NavigationBridge`` below. */
-export function dispatchLocationChange(detail: AtriumLocationDetail): void {
+let nextNonce = 0;
+
+/** Fire a single ``atrium:locationchange`` event on ``window``.
+ *
+ *  Callers pass ``{pathname, search, hash}``; the helper adds a fresh
+ *  monotonic nonce. Exported so the few atrium-side call sites that
+ *  need to force a dispatch (notification href clicks where the target
+ *  matches the current URL — see #81) can do so without depending on
+ *  the bridge's effect firing.
+ */
+export function dispatchLocationChange(
+  detail: Omit<AtriumLocationDetail, 'nonce'>,
+): void {
   if (typeof window === 'undefined') return;
+  const nonce = ++nextNonce;
   window.dispatchEvent(
-    new CustomEvent<AtriumLocationDetail>(ATRIUM_LOCATION_EVENT, { detail }),
+    new CustomEvent<AtriumLocationDetail>(ATRIUM_LOCATION_EVENT, {
+      detail: { ...detail, nonce },
+    }),
   );
+}
+
+/** Force-fire ``atrium:locationchange`` from a known same-URL navigate.
+ *
+ *  ``navigate(href)`` in react-router is a no-op when ``href`` matches
+ *  the current location, so the bridge's ``useEffect`` doesn't run and
+ *  no event is dispatched. Atrium-side handlers that drive deep-link
+ *  UI from a notification href need a re-fire even on the same URL —
+ *  the user clicking the same bell item twice should still notify the
+ *  host's listener (#81). Call this **after** ``navigate(href)`` and
+ *  the dispatch reads ``window.location`` directly so the event always
+ *  reflects the URL the user is now on. */
+export function announceCurrentLocation(): void {
+  if (typeof window === 'undefined') return;
+  dispatchLocationChange({
+    pathname: window.location.pathname,
+    search: window.location.search,
+    hash: window.location.hash,
+  });
 }
 
 /** Mounts inside atrium's ``<BrowserRouter>`` and re-dispatches every
@@ -67,4 +109,10 @@ export function NavigationBridge(): null {
     });
   }, [location.pathname, location.search, location.hash]);
   return null;
+}
+
+/** Test-only: reset the module-level nonce counter so each test starts
+ *  from a known baseline. Production code never calls this. */
+export function __resetNavigationNonceForTests(): void {
+  nextNonce = 0;
 }

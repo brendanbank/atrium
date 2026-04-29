@@ -17,12 +17,20 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import {
   __resetAtriumLocationCacheForTests,
   useAtriumLocation,
+  useAtriumNavigate,
   type AtriumLocation,
 } from '../src/react/index';
 
-function dispatchAtriumLocation(detail: AtriumLocation): void {
+let _testNonce = 0;
+
+function dispatchAtriumLocation(
+  detail: Omit<AtriumLocation, 'nonce'> & { nonce?: number },
+): void {
+  const nonce = detail.nonce ?? ++_testNonce;
   window.dispatchEvent(
-    new CustomEvent<AtriumLocation>('atrium:locationchange', { detail }),
+    new CustomEvent<AtriumLocation>('atrium:locationchange', {
+      detail: { ...detail, nonce },
+    }),
   );
 }
 
@@ -38,6 +46,7 @@ function LocationProbe({ id }: { id: string }) {
 describe('useAtriumLocation', () => {
   beforeEach(() => {
     __resetAtriumLocationCacheForTests();
+    _testNonce = 0;
   });
 
   afterEach(() => {
@@ -155,6 +164,104 @@ describe('useAtriumLocation', () => {
     // loop. (Without referential stability React would throw "Maximum
     // update depth exceeded".)
     expect(observed - before).toBe(3);
+  });
+
+  test('snapshot carries the dispatched nonce so identical-URL events still re-render (#81)', () => {
+    let observedNonces: number[] = [];
+    function NonceProbe() {
+      const loc = useAtriumLocation();
+      observedNonces.push(loc.nonce);
+      return null;
+    }
+    render(<NonceProbe />);
+    observedNonces = [];
+
+    // Two events with the same {pathname, search, hash} but different
+    // nonces must each produce a distinct snapshot, so a host effect
+    // depending on nonce re-runs both times.
+    act(() => {
+      dispatchAtriumLocation({
+        pathname: '/',
+        search: '?focus=booking:42',
+        hash: '',
+        nonce: 7,
+      });
+    });
+    act(() => {
+      dispatchAtriumLocation({
+        pathname: '/',
+        search: '?focus=booking:42',
+        hash: '',
+        nonce: 8,
+      });
+    });
+
+    expect(observedNonces).toContain(7);
+    expect(observedNonces).toContain(8);
+  });
+
+  test('defaults nonce to 0 when the event detail lacks one (older atrium image)', () => {
+    let observed: number | undefined;
+    function NonceProbe() {
+      const loc = useAtriumLocation();
+      observed = loc.nonce;
+      return null;
+    }
+    render(<NonceProbe />);
+
+    // Pre-0.16 atrium dispatched the event without a `nonce` field.
+    // Cast through `unknown` so we can simulate that wire shape.
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent('atrium:locationchange', {
+          detail: { pathname: '/legacy', search: '', hash: '' } as unknown,
+        }),
+      );
+    });
+
+    expect(observed).toBe(0);
+  });
+
+  test('useAtriumNavigate pushState + popstate updates window.location and fires atrium:locationchange via the host listener', () => {
+    let navigate: ReturnType<typeof useAtriumNavigate> | null = null;
+    function NavProbe() {
+      navigate = useAtriumNavigate();
+      return null;
+    }
+    render(<NavProbe />);
+
+    // Capture popstate dispatched by the navigate helper. We don't
+    // assert atrium:locationchange firing here because that's atrium's
+    // NavigationBridge job (covered in frontend/src/test/host-navigation.test);
+    // we only need to confirm the helper updates window.location and
+    // dispatches the popstate that wires react-router back into sync.
+    const pops: PopStateEvent[] = [];
+    const onPop = (e: Event) => {
+      pops.push(e as PopStateEvent);
+    };
+    window.addEventListener('popstate', onPop);
+
+    const origin = window.location.origin;
+    act(() => {
+      navigate!('/booked?focus=42');
+    });
+
+    expect(window.location.pathname).toBe('/booked');
+    expect(window.location.search).toBe('?focus=42');
+    expect(pops.length).toBeGreaterThanOrEqual(1);
+
+    // replace mode preserves the same history depth but still rewrites
+    // the URL and re-fires popstate.
+    act(() => {
+      navigate!('/booked', { replace: true });
+    });
+    expect(window.location.pathname).toBe('/booked');
+    expect(window.location.search).toBe('');
+
+    window.removeEventListener('popstate', onPop);
+    // jsdom doesn't reset window.location between tests; restore so
+    // later tests in this file see a clean slate.
+    window.history.replaceState({}, '', origin + '/');
   });
 
   test('unsubscribes on unmount', () => {

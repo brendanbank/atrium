@@ -18,6 +18,9 @@ import { MemoryRouter, useNavigate } from 'react-router-dom';
 import {
   ATRIUM_LOCATION_EVENT,
   NavigationBridge,
+  __resetNavigationNonceForTests,
+  announceCurrentLocation,
+  dispatchLocationChange,
   type AtriumLocationDetail,
 } from '@/host/navigation';
 
@@ -47,6 +50,7 @@ function Navigator({ to }: { to: string }) {
 describe('NavigationBridge', () => {
   beforeEach(() => {
     cleanup();
+    __resetNavigationNonceForTests();
   });
 
   it('fires atrium:locationchange on initial mount', () => {
@@ -62,6 +66,7 @@ describe('NavigationBridge', () => {
         pathname: '/calendar',
         search: '',
         hash: '',
+        nonce: 1,
       });
     } finally {
       cap.off();
@@ -127,11 +132,31 @@ describe('NavigationBridge', () => {
       });
 
       expect(cap.events).toHaveLength(1);
-      expect(cap.events[0]).toEqual({
-        pathname: '/',
-        search: '?focus=booking:42',
-        hash: '',
-      });
+      expect(cap.events[0].pathname).toBe('/');
+      expect(cap.events[0].search).toBe('?focus=booking:42');
+      expect(cap.events[0].hash).toBe('');
+      expect(typeof cap.events[0].nonce).toBe('number');
+    } finally {
+      cap.off();
+    }
+  });
+
+  it('attaches a monotonically-increasing nonce to every event (#81)', () => {
+    const cap = captureEvents();
+    try {
+      // The bridge fires once on mount; each subsequent dispatch
+      // (whether via the bridge effect or via announceCurrentLocation)
+      // must increment the nonce so a host that depends on it in
+      // effect deps re-runs even when pathname/search/hash are
+      // structurally identical between consecutive events.
+      dispatchLocationChange({ pathname: '/', search: '', hash: '' });
+      dispatchLocationChange({ pathname: '/', search: '', hash: '' });
+      announceCurrentLocation();
+
+      const nonces = cap.events.map((e) => e.nonce);
+      expect(nonces.length).toBe(3);
+      expect(nonces[1]).toBeGreaterThan(nonces[0]);
+      expect(nonces[2]).toBeGreaterThan(nonces[1]);
     } finally {
       cap.off();
     }
