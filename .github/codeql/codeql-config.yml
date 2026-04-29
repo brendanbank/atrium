@@ -17,8 +17,14 @@ paths-ignore:
   # code and not meaningful for runtime risk.
   - backend/alembic/versions/**
   # Test fixtures + scaffolding — out of scope for product security
-  # review; their findings rarely correspond to real risk.
+  # review; their findings rarely correspond to real risk. The threat
+  # model for e2e fixtures (developer- / CI-controlled env vars
+  # feeding ``execSync``, fixture data flowing into HTTP calls) is
+  # the same as for backend tests: there is no attacker, the inputs
+  # come from the test runner.
   - backend/tests/**
+  - frontend/tests-e2e/**
+  - examples/hello-world/frontend/tests-e2e/**
 
 query-filters:
   - exclude:
