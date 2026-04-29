@@ -512,7 +512,7 @@ function CommissionsPage() {
 function App() {
   return (
     <QueryClientProvider client={hostQueryClient}>
-      <AtriumProvider apiBase="/api">
+      <AtriumProvider>
         <CommissionsPage />
       </AtriumProvider>
     </QueryClientProvider>

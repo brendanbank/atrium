@@ -7,9 +7,13 @@
  * One TanStack Query subscription serves the whole host tree:
  * `useMe()` fetches `/users/me/context` once and shares the result
  * with every `usePerm()`, `useRole()`, and `useUserContext()` caller.
- * The hooks read the API base URL from `<AtriumProvider>` (default
- * `'/api'`) so a host serving its bundle on a different prefix can
- * point them at the right origin without forking the package.
+ *
+ * The endpoint path is fixed by atrium — it's mounted at the SPA root
+ * by `app.include_router(me_context_router)` and served from the same
+ * origin as the bundle. There's no `apiBase` prop because there's
+ * nothing for the host to configure: a host bundle that loads inside
+ * atrium's SPA fetches a same-origin relative path. Hosts that want
+ * to layer their own retry / headers / mock can pass `fetchUserContext`.
  *
  * The hooks reuse the host's enclosing `<QueryClientProvider>` if one
  * is already mounted; pass `client={hostQueryClient}` to
@@ -39,23 +43,20 @@ export type { UserContext } from '@brendanbank/atrium-host-types';
 export { __atrium_t__ } from '../i18n';
 
 interface AtriumContextValue {
-  apiBase: string;
   fetchUserContext: () => Promise<UserContext | null>;
 }
 
-const DEFAULT_API_BASE = '/api';
+const ME_CONTEXT_PATH = '/users/me/context';
 
-async function defaultFetchUserContext(
-  apiBase: string,
-): Promise<UserContext | null> {
-  const res = await fetch(`${apiBase}/users/me/context`, {
+async function defaultFetchUserContext(): Promise<UserContext | null> {
+  const res = await fetch(ME_CONTEXT_PATH, {
     credentials: 'include',
     headers: { Accept: 'application/json' },
   });
   if (res.status === 401 || res.status === 403) return null;
   if (!res.ok) {
     const body = await res.text().catch(() => '');
-    throw new Error(`/users/me/context: ${res.status} ${body}`.trim());
+    throw new Error(`${ME_CONTEXT_PATH}: ${res.status} ${body}`.trim());
   }
   return (await res.json()) as UserContext;
 }
@@ -63,10 +64,6 @@ async function defaultFetchUserContext(
 const AtriumContext = createContext<AtriumContextValue | null>(null);
 
 export interface AtriumProviderProps {
-  /** API base URL the hooks prefix on every fetch. Default `'/api'` —
-   *  matches atrium's convention of mounting the API behind `/api/*`
-   *  on the same origin as the SPA. */
-  apiBase?: string;
   /** Optional TanStack QueryClient. When supplied the provider wraps
    *  children in a `<QueryClientProvider>`; otherwise the hooks
    *  inherit the caller's enclosing one. Use this only when the host
@@ -80,20 +77,19 @@ export interface AtriumProviderProps {
   children: ReactNode;
 }
 
-/** Provider that supplies `apiBase` and (optionally) a QueryClient
- *  to the atrium hooks below. Hosts that already wrap their tree in
- *  `<QueryClientProvider>` can omit `client` — the hooks use the
+/** Provider that supplies the atrium hooks below with their fetcher
+ *  and (optionally) a QueryClient. Hosts that already wrap their tree
+ *  in `<QueryClientProvider>` can omit `client` — the hooks use the
  *  caller's existing QueryClient. */
 export function AtriumProvider({
-  apiBase = DEFAULT_API_BASE,
   client,
   fetchUserContext,
   children,
 }: AtriumProviderProps) {
-  const value = useMemo<AtriumContextValue>(() => {
-    const fetcher = fetchUserContext ?? (() => defaultFetchUserContext(apiBase));
-    return { apiBase, fetchUserContext: fetcher };
-  }, [apiBase, fetchUserContext]);
+  const value = useMemo<AtriumContextValue>(
+    () => ({ fetchUserContext: fetchUserContext ?? defaultFetchUserContext }),
+    [fetchUserContext],
+  );
 
   const inner = createElement(AtriumContext.Provider, { value }, children);
 
@@ -110,15 +106,12 @@ export const ME_QUERY_KEY = ['atrium', 'me'] as const;
 
 // Module-level fallback so hooks work without an explicit
 // `<AtriumProvider>` — convenient for hosts that don't need to
-// override the API base or the fetcher. Lazily-allocated so the
-// import has no side effects.
+// override the fetcher. Lazily-allocated so the import has no side
+// effects.
 let DEFAULT_CTX: AtriumContextValue | null = null;
 function defaultCtx(): AtriumContextValue {
   if (!DEFAULT_CTX) {
-    DEFAULT_CTX = {
-      apiBase: DEFAULT_API_BASE,
-      fetchUserContext: () => defaultFetchUserContext(DEFAULT_API_BASE),
-    };
+    DEFAULT_CTX = { fetchUserContext: defaultFetchUserContext };
   }
   return DEFAULT_CTX;
 }

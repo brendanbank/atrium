@@ -79,7 +79,7 @@ function CommissionsPage() {
 function App() {
   return (
     <QueryClientProvider client={hostQueryClient}>
-      <AtriumProvider apiBase="/api">
+      <AtriumProvider>
         <CommissionsPage />
       </AtriumProvider>
     </QueryClientProvider>
@@ -87,10 +87,13 @@ function App() {
 }
 ```
 
-`<AtriumProvider>` reads from your existing `<QueryClientProvider>`
-by default — no second QueryClient. Pass `client={hostQueryClient}`
-to wrap one inline; pass `fetchUserContext={...}` to inject a custom
-fetcher (useful for tests or hosts that want axios-shaped retry).
+The hooks fetch atrium's fixed same-origin `/users/me/context`
+endpoint — no path is configurable, since a host bundle loads inside
+atrium's SPA and hits the same origin. `<AtriumProvider>` reads from
+your existing `<QueryClientProvider>` by default — no second
+QueryClient. Pass `client={hostQueryClient}` to wrap one inline; pass
+`fetchUserContext={...}` to inject a custom fetcher (useful for tests
+or hosts that want axios-shaped retry).
 
 ## Versioning
 

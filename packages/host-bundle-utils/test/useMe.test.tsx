@@ -29,7 +29,7 @@ const ALICE: UserContext = {
 };
 
 const server = setupServer(
-  http.get('/api/users/me/context', () => HttpResponse.json(ALICE)),
+  http.get('/users/me/context', () => HttpResponse.json(ALICE)),
 );
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -102,7 +102,7 @@ describe('useMe', () => {
 
   test('returns null when atrium responds 401', async () => {
     server.use(
-      http.get('/api/users/me/context', () => new HttpResponse(null, { status: 401 })),
+      http.get('/users/me/context', () => new HttpResponse(null, { status: 401 })),
     );
     render(withProviders(<MeProbe />));
     await waitFor(() =>
@@ -113,7 +113,7 @@ describe('useMe', () => {
   test('shares one query subscription across hooks', async () => {
     let calls = 0;
     server.use(
-      http.get('/api/users/me/context', () => {
+      http.get('/users/me/context', () => {
         calls += 1;
         return HttpResponse.json(ALICE);
       }),
@@ -183,24 +183,26 @@ describe('useRole', () => {
 });
 
 describe('AtriumProvider', () => {
-  test('apiBase override changes the fetch URL', async () => {
+  test('fetches the same-origin /users/me/context (no /api prefix)', async () => {
+    // Atrium mounts /users/me/context at the SPA root — hosts loaded
+    // inside atrium's SPA fetch a same-origin relative path. The
+    // package must not prefix it (issue #72).
     let hit = false;
     server.use(
-      http.get('/v2/users/me/context', () => {
+      http.get('/users/me/context', () => {
         hit = true;
-        return HttpResponse.json({ ...ALICE, email: 'v2@example.com' });
+        return HttpResponse.json(ALICE);
       }),
+      http.get('/api/users/me/context', () =>
+        HttpResponse.json(
+          { detail: 'wrong path — apiBase prefix should not be applied' },
+          { status: 404 },
+        ),
+      ),
     );
-    const client = makeClient();
-    render(
-      <QueryClientProvider client={client}>
-        <AtriumProvider apiBase="/v2">
-          <MeProbe />
-        </AtriumProvider>
-      </QueryClientProvider>,
-    );
+    render(withProviders(<MeProbe />));
     await waitFor(() =>
-      expect(screen.getByTestId('email').textContent).toBe('v2@example.com'),
+      expect(screen.getByTestId('email').textContent).toBe('alice@example.com'),
     );
     expect(hit).toBe(true);
   });
