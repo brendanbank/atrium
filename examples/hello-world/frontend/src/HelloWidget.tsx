@@ -11,7 +11,7 @@
  * changes (acceptable for a demo).
  *
  * Permission gating uses `usePerm()` from
- * `@brendan-bank/atrium-host-bundle-utils/react`
+ * `@brendanbank/atrium-host-bundle-utils/react`
  * — a single TanStack Query subscription against atrium's
  * `/users/me/context`, shared across this widget, the dedicated
  * page, and the admin tab.
@@ -37,7 +37,7 @@ import {
   __atrium_t__,
   AtriumProvider,
   usePerm,
-} from '@brendan-bank/atrium-host-bundle-utils/react';
+} from '@brendanbank/atrium-host-bundle-utils/react';
 
 import {
   getHelloState,

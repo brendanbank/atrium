@@ -36,7 +36,7 @@ services:
       context: ../..
       dockerfile: examples/hello-world/Dockerfile
       args:
-        ATRIUM_IMAGE: ${ATRIUM_IMAGE:-ghcr.io/brendan-bank/atrium:latest}
+        ATRIUM_IMAGE: ${ATRIUM_IMAGE:-ghcr.io/brendanbank/atrium:latest}
     image: atrium-hello-world:latest
     pull_policy: never
     restart: unless-stopped

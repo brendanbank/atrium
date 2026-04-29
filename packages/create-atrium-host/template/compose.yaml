@@ -20,7 +20,7 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        ATRIUM_IMAGE: ${ATRIUM_IMAGE:-ghcr.io/brendan-bank/atrium:__ATRIUM_VERSION__}
+        ATRIUM_IMAGE: ${ATRIUM_IMAGE:-ghcr.io/brendanbank/atrium:__ATRIUM_VERSION__}
     image: __HOST_NAME__:latest
     pull_policy: never
     restart: unless-stopped

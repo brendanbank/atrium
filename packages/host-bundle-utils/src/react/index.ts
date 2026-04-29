@@ -33,9 +33,9 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 
-import type { UserContext } from '@brendan-bank/atrium-host-types';
+import type { UserContext } from '@brendanbank/atrium-host-types';
 
-export type { UserContext } from '@brendan-bank/atrium-host-types';
+export type { UserContext } from '@brendanbank/atrium-host-types';
 export { __atrium_t__ } from '../i18n';
 
 interface AtriumContextValue {

@@ -23,7 +23,7 @@ import type { ReactElement } from 'react';
 // ---------------------------------------------------------------------------
 
 /** Shape of `GET /users/me/context` — the atrium-owned RBAC view of the
- *  signed-in user. The bundled hook in `@brendan-bank/atrium-host-bundle-utils/react`
+ *  signed-in user. The bundled hook in `@brendanbank/atrium-host-bundle-utils/react`
  *  returns this exact shape. */
 export interface UserContext {
   id: number;

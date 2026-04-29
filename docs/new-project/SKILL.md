@@ -24,11 +24,11 @@ standard extension shape), **run the scaffolder rather than emitting
 files by hand**:
 
 ```sh
-npx @brendan-bank/create-atrium-host <project-name> --yes-defaults --no-git
+npx @brendanbank/create-atrium-host <project-name> --yes-defaults --no-git
 ```
 
 The emitted repo wires every registry slot, ships CI, and uses the
-published `@brendan-bank/atrium-host-*` packages — its `frontend/src/main.tsx`
+published `@brendanbank/atrium-host-*` packages — its `frontend/src/main.tsx`
 is the post-foundation shape (~10 lines, no wrapper-element code). Skim
 the emitted README and the demo `Welcome*` components, delete what
 you don't need, and start adding your domain code.

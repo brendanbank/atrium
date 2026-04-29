@@ -1,6 +1,6 @@
-# `@brendan-bank/atrium-host-types`
+# `@brendanbank/atrium-host-types`
 
-TypeScript declarations for the [atrium](https://github.com/Brendan-Bank/atrium)
+TypeScript declarations for the [atrium](https://github.com/brendanbank/atrium)
 host-extension contract.
 
 ```ts
@@ -10,7 +10,7 @@ import type {
   AtriumEvent,
   UserContext,
   AdminUserRow,
-} from '@brendan-bank/atrium-host-types';
+} from '@brendanbank/atrium-host-types';
 
 const reg = window.__ATRIUM_REGISTRY__ as AtriumRegistry;
 reg.registerHomeWidget({ key: 'my-card', render: () => /* ... */ });
@@ -23,11 +23,11 @@ Bundlers strip it from the production output.
 
 The package is published on **GitHub Packages**, not the public npm
 registry. Add an `.npmrc` to your host project that points the
-`@brendan-bank` scope at GitHub Packages:
+`@brendanbank` scope at GitHub Packages:
 
 ```
 # .npmrc
-@brendan-bank:registry=https://npm.pkg.github.com
+@brendanbank:registry=https://npm.pkg.github.com
 ```
 
 GitHub Packages requires an authenticated install even for public
@@ -42,7 +42,7 @@ generate a [classic PAT](https://github.com/settings/tokens) with
 `read:packages` and export it. Then:
 
 ```bash
-pnpm add -D @brendan-bank/atrium-host-types
+pnpm add -D @brendanbank/atrium-host-types
 ```
 
 ## Versioning
@@ -70,7 +70,7 @@ type-checks.
 
 ## See also
 
-- [`@brendan-bank/atrium-host-bundle-utils`](../host-bundle-utils/) —
+- [`@brendanbank/atrium-host-bundle-utils`](../host-bundle-utils/) —
   runtime helpers, Vite preset, and React hooks. Re-exports the types
   from this package, so a host adding only one dep still gets the
   declarations.

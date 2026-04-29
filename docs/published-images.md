@@ -9,7 +9,7 @@ app implements.
 **Fast on-ramp for new hosts**:
 
 ```sh
-npx @brendan-bank/create-atrium-host casa-del-leone
+npx @brendanbank/create-atrium-host casa-del-leone
 cd casa-del-leone && cp .env.example .env && make dev-bootstrap
 ```
 
@@ -401,42 +401,42 @@ module. Browsers can't resolve bare module specifiers like `import 'react'`
 without an import map, so the bundle has to either ship its own React or
 piggy-back on atrium's via an import map. The recommended path is the
 **self-contained bundle** with the helpers from
-[`@brendan-bank/atrium-host-bundle-utils`](https://github.com/Brendan-Bank/atrium/tree/master/packages/host-bundle-utils)
+[`@brendanbank/atrium-host-bundle-utils`](https://github.com/brendanbank/atrium/tree/master/packages/host-bundle-utils)
 — simpler, no atrium-side changes required, ~100 KB gzipped.
 
 Three atrium-published packages remove the boilerplate:
 
-- `@brendan-bank/atrium-host-types` — TypeScript declarations for
+- `@brendanbank/atrium-host-types` — TypeScript declarations for
   `AtriumRegistry`, `UserContext`, `AtriumNotification`, `AtriumEvent`,
   the per-slot option-bag types, and the `window.React` /
   `window.__ATRIUM_REGISTRY__` / `window.__ATRIUM_VERSION__` globals.
   Types-only; bundlers strip it from the production output.
-- `@brendan-bank/atrium-host-bundle-utils` — runtime helpers
+- `@brendanbank/atrium-host-bundle-utils` — runtime helpers
   (`makeWrapperElement`, `mountInside`), a Vite preset
   (`hostBundleConfig`), the shared-i18n helper
   (`__atrium_t__`, see [`host-i18n.md`](host-i18n.md)), and React
   hooks (`useMe`, `usePerm`, `useRole`, `<AtriumProvider>`) on three
   subpath exports (`.`, `./vite`, `./react`). Re-exports the types
-  from `@brendan-bank/atrium-host-types` so a host adding only one
+  from `@brendanbank/atrium-host-types` so a host adding only one
   dep still gets the declarations.
-- `@brendan-bank/atrium-test-utils` — vitest helpers for unit-testing
+- `@brendanbank/atrium-test-utils` — vitest helpers for unit-testing
   host bundles. `mockAtriumRegistry({ me })` installs a recording
   fake on `window`, `renderWithAtrium(ui)` wraps
   `@testing-library/react`'s `render` with a fresh QueryClient +
   AtriumProvider, and `fireAtriumEvent(kind, payload)` dispatches
   synthetic SSE events to handlers registered via the fake. Replaces
   the hand-rolled `vi.fn()` mocks every host used to write — see the
-  package's [`README`](https://github.com/Brendan-Bank/atrium/tree/master/packages/test-utils)
+  package's [`README`](https://github.com/brendanbank/atrium/tree/master/packages/test-utils)
   for the worked example.
 
 Both packages are published on **GitHub Packages** (the same registry
 family as the atrium GHCR image) and versioned in lockstep with the
 atrium image — pin `^0.14` for "compatible with atrium 0.14.x". The
-host project needs an `.npmrc` mapping the `@brendan-bank` scope:
+host project needs an `.npmrc` mapping the `@brendanbank` scope:
 
 ```
 # .npmrc — in the host's frontend project
-@brendan-bank:registry=https://npm.pkg.github.com
+@brendanbank:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
 ```
 
@@ -450,7 +450,7 @@ running `pnpm install`.
 
 ```ts
 // vite.config.ts
-import { hostBundleConfig } from '@brendan-bank/atrium-host-bundle-utils/vite';
+import { hostBundleConfig } from '@brendanbank/atrium-host-bundle-utils/vite';
 
 export default hostBundleConfig({ entry: 'src/main.tsx' });
 ```
@@ -469,7 +469,7 @@ plugins on top.
 import {
   type AtriumRegistry,
   makeWrapperElement,
-} from '@brendan-bank/atrium-host-bundle-utils';
+} from '@brendanbank/atrium-host-bundle-utils';
 import { MyWidget } from './MyWidget';
 
 const reg = window.__ATRIUM_REGISTRY__ as AtriumRegistry;
@@ -499,10 +499,10 @@ output with no hook calls, so atrium's reconciler can render them
 without the wrapper trick. The example does this for nav-item /
 admin-tab icons.
 
-**Permission gating + user context — `@brendan-bank/atrium-host-bundle-utils/react`:**
+**Permission gating + user context — `@brendanbank/atrium-host-bundle-utils/react`:**
 
 ```tsx
-import { AtriumProvider, useMe, usePerm } from '@brendan-bank/atrium-host-bundle-utils/react';
+import { AtriumProvider, useMe, usePerm } from '@brendanbank/atrium-host-bundle-utils/react';
 
 function CommissionsPage() {
   const { data: me, isLoading } = useMe();

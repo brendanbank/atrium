@@ -1,6 +1,6 @@
 import { Card, MantineProvider, Stack, Text, Title } from '@mantine/core';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { AtriumProvider, useMe } from '@brendan-bank/atrium-host-bundle-utils/react';
+import { AtriumProvider, useMe } from '@brendanbank/atrium-host-bundle-utils/react';
 
 import { queryClient } from './queryClient';
 

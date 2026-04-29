@@ -1,6 +1,6 @@
-# `@brendan-bank/atrium-test-utils`
+# `@brendanbank/atrium-test-utils`
 
-Vitest helpers for unit-testing [atrium](https://github.com/Brendan-Bank/atrium)
+Vitest helpers for unit-testing [atrium](https://github.com/brendanbank/atrium)
 host bundles. Replaces hand-rolled mocks of `window.__ATRIUM_REGISTRY__`
 + `window.React` + `useMe()` so a host can render permission-gated
 components and fire synthetic SSE events without spinning up the SPA.
@@ -27,7 +27,7 @@ Playwright. This package gives them back.
 ## Installation
 
 ```
-pnpm add -D @brendan-bank/atrium-test-utils
+pnpm add -D @brendanbank/atrium-test-utils
 ```
 
 The package is published on **GitHub Packages**, same scope as the
@@ -48,7 +48,7 @@ import {
   renderWithAtrium,
   type MockAtriumHandles,
   type UserContext,
-} from '@brendan-bank/atrium-test-utils';
+} from '@brendanbank/atrium-test-utils';
 
 const ALICE: UserContext = {
   id: 1, email: 'alice@example.com', full_name: 'Alice',
@@ -139,15 +139,15 @@ shows as an empty assertion rather than a crash.
 
 ## Versioning
 
-Tracks `@brendan-bank/atrium-host-bundle-utils`'s public API. When a
+Tracks `@brendanbank/atrium-host-bundle-utils`'s public API. When a
 new registry slot lands in host-bundle-utils, the matching mock
 shows up here in the next minor.
 
 ## See also
 
-- [`@brendan-bank/atrium-host-bundle-utils`](../host-bundle-utils/) — the
+- [`@brendanbank/atrium-host-bundle-utils`](../host-bundle-utils/) — the
   runtime helpers + hooks this package mocks.
-- [`@brendan-bank/atrium-host-types`](../host-types/) — typed registry
+- [`@brendanbank/atrium-host-types`](../host-types/) — typed registry
   shapes.
 - [`docs/published-images.md`](../../docs/published-images.md) — the
   full host-extension contract.

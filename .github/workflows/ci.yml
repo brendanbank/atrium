@@ -191,7 +191,7 @@ jobs:
     #      tokens, key files parse as JSON / TS).
     #
     # The emitted repo's `make test` is NOT runnable here because it
-    # depends on the `@brendan-bank/atrium-*` packages being published
+    # depends on the `@brendanbank/atrium-*` packages being published
     # at the version the template pins. That happens at release time;
     # post-publish the same scaffolder is exercised manually as part
     # of the release ritual (RELEASING.md step 1.5+).

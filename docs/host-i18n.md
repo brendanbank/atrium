@@ -16,7 +16,7 @@ own domain-specific strings on top.
 ## Available since
 
 `__atrium_t__` is exported from
-`@brendan-bank/atrium-host-bundle-utils@>=0.14.0` (both the package
+`@brendanbank/atrium-host-bundle-utils@>=0.14.0` (both the package
 root and the `/react` subpath). It reads
 `window.__atrium_i18n__`, populated by atrium 0.14.0 from the SPA's
 i18n module before the host bundle imports.
@@ -28,7 +28,7 @@ back to returning the key. Hosts pinning `^0.14` in
 ## Usage
 
 ```tsx
-import { __atrium_t__ } from '@brendan-bank/atrium-host-bundle-utils';
+import { __atrium_t__ } from '@brendanbank/atrium-host-bundle-utils';
 
 <Button onClick={save}>{__atrium_t__('common.save')}</Button>
 <Text>{__atrium_t__('common.welcomeNamed', { name: me.full_name })}</Text>

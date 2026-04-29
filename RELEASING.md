@@ -11,7 +11,7 @@ not by hand.
 - GPG signing configured for commits *and* tags (the global default in
   this setup, see `~/.claude/CLAUDE.md`). The publish key is the RSA
   4096 hardware-token subkey ending `F60F2EAA7F5ACC52`.
-- `gh` CLI authenticated against the `Brendan-Bank/atrium` repo.
+- `gh` CLI authenticated against the `brendanbank/atrium` repo.
 - `.env` present at the repo root (`make smoke` needs it). If missing:
   `cp .env.example .env`.
 - A clean working tree on the feature branch.
@@ -159,7 +159,7 @@ git push -u origin <branch>
 it implements:
 
 ```bash
-gh issue comment <N> --body "WIP on branch [\`<branch>\`](https://github.com/Brendan-Bank/atrium/tree/<branch>)."
+gh issue comment <N> --body "WIP on branch [\`<branch>\`](https://github.com/brendanbank/atrium/tree/<branch>)."
 ```
 
 That gives anyone tracking the issue a real link to the work in
@@ -261,13 +261,13 @@ and aligns with the global commit-signing default.
 The tag push fires two workflows in parallel:
 
 - `.github/workflows/publish-images.yml` — builds `linux/amd64` +
-  `linux/arm64` and pushes to `ghcr.io/brendan-bank/atrium` with the
+  `linux/arm64` and pushes to `ghcr.io/brendanbank/atrium` with the
   full semver fan-out (`0.11.3`, `0.11`, `0`, `latest`). Typical run
   time: ~3-5 minutes.
 - `.github/workflows/publish-npm.yml` — builds the host SDK
   packages and publishes
-  `@brendan-bank/atrium-host-types@<X.Y.Z>` and
-  `@brendan-bank/atrium-host-bundle-utils@<X.Y.Z>` to GitHub
+  `@brendanbank/atrium-host-types@<X.Y.Z>` and
+  `@brendanbank/atrium-host-bundle-utils@<X.Y.Z>` to GitHub
   Packages (`https://npm.pkg.github.com`). Typical run time: ~1
   minute. Uses the workflow-supplied `GITHUB_TOKEN` (`packages:
   write` scope), so no extra secret to manage.

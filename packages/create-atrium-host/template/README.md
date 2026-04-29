@@ -1,6 +1,6 @@
 # __BRAND_NAME__
 
-A host extension on top of [atrium](https://github.com/Brendan-Bank/atrium).
+A host extension on top of [atrium](https://github.com/brendanbank/atrium).
 Atrium ships the platform layer (auth, RBAC, audit, email, jobs,
 notifications, admin shell); this repo adds the domain-specific routes,
 models, and UI.
@@ -43,7 +43,7 @@ __HOST_NAME__/
     tests/             # pytest smoke tests
   frontend/            # Vite library project (single main.js)
     package.json
-    vite.config.ts     # uses @brendan-bank/atrium-host-bundle-utils/vite
+    vite.config.ts     # uses @brendanbank/atrium-host-bundle-utils/vite
     src/
       main.tsx         # registry calls — ~10 lines
       api.ts
@@ -52,7 +52,7 @@ __HOST_NAME__/
       __BRAND_PASCAL__Page.tsx
       __BRAND_PASCAL__AdminTab.tsx
       __BRAND_PASCAL__ProfileItem.tsx
-    src/test/          # vitest setup + worked example using @brendan-bank/atrium-test-utils
+    src/test/          # vitest setup + worked example using @brendanbank/atrium-test-utils
   .github/workflows/   # CI (typecheck + tests + smoke)
 ```
 
@@ -98,7 +98,7 @@ the atrium repo's `CLAUDE.md` for the contract.
 | Profile-page card             | A component                                          | `reg.registerProfileItem({ key, slot?, render, condition? })`              |
 
 For the full backend extension surface see
-[atrium's `docs/new-project/README.md`](https://github.com/Brendan-Bank/atrium/blob/master/docs/new-project/README.md).
+[atrium's `docs/new-project/README.md`](https://github.com/brendanbank/atrium/blob/master/docs/new-project/README.md).
 
 ## Tests
 
@@ -110,15 +110,15 @@ make typecheck       # tsc --noEmit on the host bundle
 ## Pinning atrium
 
 `compose.yaml` reads `ATRIUM_IMAGE` from `.env` (default
-`ghcr.io/brendan-bank/atrium:__ATRIUM_VERSION__`). Override to test
+`ghcr.io/brendanbank/atrium:__ATRIUM_VERSION__`). Override to test
 against a specific release:
 
 ```bash
-ATRIUM_IMAGE=ghcr.io/brendan-bank/atrium:0.14.1 make build up
+ATRIUM_IMAGE=ghcr.io/brendanbank/atrium:0.14.1 make build up
 ```
 
 The frontend SDK packages
-(`@brendan-bank/atrium-host-types`, `@brendan-bank/atrium-host-bundle-utils`,
-`@brendan-bank/atrium-test-utils`) version in lockstep with the image
+(`@brendanbank/atrium-host-types`, `@brendanbank/atrium-host-bundle-utils`,
+`@brendanbank/atrium-test-utils`) version in lockstep with the image
 — a pin of `^__ATRIUM_VERSION__` matches any patch of the
 `__ATRIUM_VERSION__.x` line.

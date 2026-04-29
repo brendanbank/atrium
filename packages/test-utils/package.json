@@ -1,5 +1,5 @@
 {
-  "name": "@brendan-bank/atrium-test-utils",
+  "name": "@brendanbank/atrium-test-utils",
   "version": "0.14.1",
   "description": "Vitest helpers for unit-testing atrium host bundles. Installs a fake __ATRIUM_REGISTRY__ + window.React, wires a working QueryClient, and exposes a synthetic event bus that mirrors atrium's subscribeEvent semantics — so a host can render permission-gated components and fire SSE events from a test without standing up the SPA.",
   "license": "BSD-2-Clause",
@@ -24,8 +24,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@brendan-bank/atrium-host-bundle-utils": "workspace:*",
-    "@brendan-bank/atrium-host-types": "workspace:*"
+    "@brendanbank/atrium-host-bundle-utils": "workspace:*",
+    "@brendanbank/atrium-host-types": "workspace:*"
   },
   "peerDependencies": {
     "@tanstack/react-query": "^5.0.0",
@@ -53,7 +53,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Brendan-Bank/atrium.git",
+    "url": "https://github.com/brendanbank/atrium.git",
     "directory": "packages/test-utils"
   }
 }

@@ -15,7 +15,7 @@ import {
   __atrium_t__,
   useMe,
   usePerm,
-} from '@brendan-bank/atrium-host-bundle-utils/react';
+} from '@brendanbank/atrium-host-bundle-utils/react';
 
 const ALICE: UserContext = {
   id: 7,

@@ -7,7 +7,7 @@ name: Publish npm packages
 # image (see `publish-images.yml`). Both fire on the same `v*` tag so
 # the npm versions and the image version are always cut together. The
 # packages are published to GitHub Packages
-# (https://npm.pkg.github.com) under the `@brendan-bank` scope —
+# (https://npm.pkg.github.com) under the `@brendanbank` scope —
 # scope-must-match-owner is GitHub Packages' rule.
 #
 # `workflow_dispatch` lets a maintainer re-run an existing tag (e.g.
@@ -55,9 +55,9 @@ jobs:
         with:
           node-version: "25"
           registry-url: "https://npm.pkg.github.com"
-          scope: "@brendan-bank"
+          scope: "@brendanbank"
 
-      # Workspace install resolves `@brendan-bank/atrium-*` via
+      # Workspace install resolves `@brendanbank/atrium-*` via
       # `workspace:*` references; no token needed for this step.
       - run: pnpm install --frozen-lockfile
 

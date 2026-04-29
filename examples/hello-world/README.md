@@ -84,11 +84,11 @@ nginx, your edge load balancer) in front of `:8000` for production.
 ## Pinning the atrium version
 
 The compose file reads `ATRIUM_IMAGE` from `.env` (default
-`ghcr.io/brendan-bank/atrium:latest`). Override to test against a specific
+`ghcr.io/brendanbank/atrium:latest`). Override to test against a specific
 release:
 
 ```bash
-ATRIUM_IMAGE=ghcr.io/brendan-bank/atrium:0.10.0 docker compose up -d --build
+ATRIUM_IMAGE=ghcr.io/brendanbank/atrium:0.10.0 docker compose up -d --build
 ```
 
 ## Smoke test

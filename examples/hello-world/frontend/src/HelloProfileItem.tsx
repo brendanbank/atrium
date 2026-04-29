@@ -26,7 +26,7 @@ import {
   useQueryClient,
   QueryClientProvider,
 } from '@tanstack/react-query';
-import { AtriumProvider, usePerm } from '@brendan-bank/atrium-host-bundle-utils/react';
+import { AtriumProvider, usePerm } from '@brendanbank/atrium-host-bundle-utils/react';
 
 import {
   getHelloState,

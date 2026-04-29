@@ -52,7 +52,7 @@ interface MinimalI18n {
  *  i18next instance.
  *
  *  ```ts
- *  import { __atrium_t__ } from '@brendan-bank/atrium-host-bundle-utils';
+ *  import { __atrium_t__ } from '@brendanbank/atrium-host-bundle-utils';
  *
  *  <Button>{__atrium_t__('common.save')}</Button>
  *  <Text>{__atrium_t__('common.welcome', { name: me.full_name })}</Text>

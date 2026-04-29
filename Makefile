@@ -410,7 +410,7 @@ smoke-hello-build-bundle-dev:
 	# at the repo root causes it to install the whole workspace
 	# (`packages/*` + this example). The SDK packages must be built
 	# *before* the example's vite runs — the example imports from
-	# `@brendan-bank/atrium-host-bundle-utils/vite`, which resolves
+	# `@brendanbank/atrium-host-bundle-utils/vite`, which resolves
 	# through the workspace symlink to `packages/host-bundle-utils/dist/`.
 	# Without the build step, that dist directory is empty and vite
 	# errors out at config load.
@@ -575,11 +575,11 @@ dev-bootstrap-hello-down:
 # --- Hello World against published GHCR images ---
 # Same self-contained example compose.yaml as ``smoke-hello`` and
 # ``dev-bootstrap-hello`` — the only difference is that ATRIUM_IMAGE
-# points at the published ghcr.io/brendan-bank/atrium tag instead of a
+# points at the published ghcr.io/brendanbank/atrium tag instead of a
 # locally-built one. Faithful test of the published-image extension
 # model.
 ATRIUM_GHCR_VERSION ?= latest
-ATRIUM_GHCR_IMAGE := ghcr.io/brendan-bank/atrium:$(ATRIUM_GHCR_VERSION)
+ATRIUM_GHCR_IMAGE := ghcr.io/brendanbank/atrium:$(ATRIUM_GHCR_VERSION)
 
 dev-bootstrap-hello-ghcr: hello-smoke-env
 	@command -v op >/dev/null 2>&1 || { \
@@ -590,7 +590,7 @@ dev-bootstrap-hello-ghcr: hello-smoke-env
 		echo "1Password CLI is not signed in. Run: eval \$$(op signin)"; \
 		exit 1; \
 	}
-	@gh auth token | docker login ghcr.io -u brendan-bank --password-stdin >/dev/null 2>&1 || { \
+	@gh auth token | docker login ghcr.io -u brendanbank --password-stdin >/dev/null 2>&1 || { \
 		echo "docker login to ghcr.io failed (gh auth required for private images)"; exit 1; \
 	}
 	docker pull $(ATRIUM_GHCR_IMAGE)
@@ -628,7 +628,7 @@ dev-bootstrap-hello-ghcr-down:
 	$(COMPOSE_HELLO_PROD) down -v --remove-orphans
 
 smoke-hello-ghcr: hello-smoke-env
-	@gh auth token | docker login ghcr.io -u brendan-bank --password-stdin >/dev/null 2>&1 || { \
+	@gh auth token | docker login ghcr.io -u brendanbank --password-stdin >/dev/null 2>&1 || { \
 		echo "docker login to ghcr.io failed (gh auth required for private images)"; exit 1; \
 	}
 	docker pull $(ATRIUM_GHCR_IMAGE)

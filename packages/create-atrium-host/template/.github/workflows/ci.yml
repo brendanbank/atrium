@@ -73,7 +73,7 @@ jobs:
           WEBAUTHN_ORIGIN=http://localhost:8000
           MAIL_BACKEND=console
           MAIL_FROM=no-reply@example.com
-          ATRIUM_IMAGE=ghcr.io/brendan-bank/atrium:__ATRIUM_VERSION__
+          ATRIUM_IMAGE=ghcr.io/brendanbank/atrium:__ATRIUM_VERSION__
           EOF
 
       - name: Build + start stack

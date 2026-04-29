@@ -65,7 +65,7 @@ export interface HostBundleConfigOptions {
  *  Usage in the host's `vite.config.ts`:
  *
  *  ```ts
- *  import { hostBundleConfig } from '@brendan-bank/atrium-host-bundle-utils/vite';
+ *  import { hostBundleConfig } from '@brendanbank/atrium-host-bundle-utils/vite';
  *
  *  export default hostBundleConfig({ entry: 'src/main.tsx' });
  *  ```

@@ -7,7 +7,7 @@
  * the SPA boots; the import-time side-effects below populate the
  * registry. The dual-tree mount pattern (atrium-React owns the
  * wrapper, the host's React owns the subtree) is encapsulated in
- * `makeWrapperElement` from `@brendan-bank/atrium-host-bundle-utils` — see that
+ * `makeWrapperElement` from `@brendanbank/atrium-host-bundle-utils` — see that
  * package's README for the rationale. The atrium-React reference
  * (`window.React`, exposed by atrium for host bundles) is used only
  * for hooks-free SVG icons that don't need the wrapper trick.
@@ -17,7 +17,7 @@ import { IconHandStop } from '@tabler/icons-react';
 import {
   type AtriumRegistry,
   makeWrapperElement,
-} from '@brendan-bank/atrium-host-bundle-utils';
+} from '@brendanbank/atrium-host-bundle-utils';
 
 import { HelloAdminTab } from './HelloAdminTab';
 import { HelloPage } from './HelloPage';

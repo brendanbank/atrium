@@ -18,14 +18,14 @@
 # rather than ``:latest`` so a passive image scan reports the actual
 # build base; CI / compose typically override this via build args
 # (``ATRIUM_IMAGE=atrium-local:source`` for PR tests).
-ARG ATRIUM_IMAGE=ghcr.io/brendan-bank/atrium:0.14
+ARG ATRIUM_IMAGE=ghcr.io/brendanbank/atrium:0.14
 
 # ---- frontend-builder ----
 #
 # The example consumes the host SDK packages via `workspace:*`
 # references (see `examples/hello-world/frontend/package.json`), so
 # the build needs the full pnpm workspace context — the lockfile, the
-# workspace yaml, the `.npmrc` that maps `@brendan-bank` at GitHub
+# workspace yaml, the `.npmrc` that maps `@brendanbank` at GitHub
 # Packages, and every workspace member's `package.json`. We bring
 # those in first (cache-friendly: lockfile changes invalidate this
 # layer but a source-only edit doesn't), install, then bring in the
@@ -45,7 +45,7 @@ COPY examples/hello-world/frontend/package.json ./examples/hello-world/frontend/
 RUN pnpm install --frozen-lockfile
 
 # Bring in the SDK package sources and build them — the example's
-# vite.config.ts imports from `@brendan-bank/atrium-host-bundle-utils/vite`,
+# vite.config.ts imports from `@brendanbank/atrium-host-bundle-utils/vite`,
 # which resolves through the workspace symlink to `packages/host-bundle-utils/dist/vite/`.
 # That dist directory must exist before vite runs.
 COPY packages/host-types/ ./packages/host-types/

@@ -48,7 +48,7 @@ import { render, type RenderOptions, type RenderResult } from '@testing-library/
 import {
   AtriumProvider,
   type UserContext,
-} from '@brendan-bank/atrium-host-bundle-utils/react';
+} from '@brendanbank/atrium-host-bundle-utils/react';
 import type {
   AdminTab,
   AtriumEvent,
@@ -60,7 +60,7 @@ import type {
   NotificationKindRenderer,
   ProfileItem,
   RouteEntry,
-} from '@brendan-bank/atrium-host-types';
+} from '@brendanbank/atrium-host-types';
 
 export type {
   AdminTab,

@@ -1,5 +1,5 @@
 /** Worked example of testing a host bundle component with
- *  `@brendan-bank/atrium-test-utils`.
+ *  `@brendanbank/atrium-test-utils`.
  *
  *  The widget calls `usePerm()` to gate the bump button on the
  *  `__HOST_PKG__.write` permission. The test installs the fakes once
@@ -14,7 +14,7 @@ import {
   renderWithAtrium,
   type MockAtriumHandles,
   type UserContext,
-} from '@brendan-bank/atrium-test-utils';
+} from '@brendanbank/atrium-test-utils';
 
 import { __BRAND_PASCAL__Widget } from '../__BRAND_PASCAL__Widget';
 import { queryClient } from '../queryClient';

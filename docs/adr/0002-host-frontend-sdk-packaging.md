@@ -1,4 +1,4 @@
-# ADR 0002 — Host frontend SDK packaging (`@brendan-bank/atrium-host-types`, `@brendan-bank/atrium-host-bundle-utils`)
+# ADR 0002 — Host frontend SDK packaging (`@brendanbank/atrium-host-types`, `@brendanbank/atrium-host-bundle-utils`)
 
 Status: accepted, 2026-04-28
 
@@ -24,8 +24,8 @@ same boilerplate at module init:
 Casa's `frontend/src/main.tsx` and `examples/hello-world/frontend/src/main.tsx`
 each carry their own variant of the above. They drift over time.
 
-Issues #37 (`@brendan-bank/atrium-host-bundle-utils`), #38
-(`@brendan-bank/atrium-host-types`),
+Issues #37 (`@brendanbank/atrium-host-bundle-utils`), #38
+(`@brendanbank/atrium-host-types`),
 and #40 (`useMe`/`usePerm`/`useUserContext` hooks) close that gap.
 This ADR records the packaging shape we land them in. It is the
 frontend-side counterpart to ADR 0001 (`app.host_sdk` namespace for
@@ -37,8 +37,8 @@ Python helpers).
 
 Two npm packages live in a new top-level `packages/` directory:
 
-- `packages/host-types/` → published as `@brendan-bank/atrium-host-types`
-- `packages/host-bundle-utils/` → published as `@brendan-bank/atrium-host-bundle-utils`
+- `packages/host-types/` → published as `@brendanbank/atrium-host-types`
+- `packages/host-bundle-utils/` → published as `@brendanbank/atrium-host-bundle-utils`
 
 A repo-root `pnpm-workspace.yaml` includes `packages/*` and
 `examples/hello-world/frontend` so the example consumes the packages
@@ -64,16 +64,16 @@ We considered:
   this PR; a future ADR can pull the atrium frontend in once we have
   room to land the operational changes alongside.
 
-### Publish target — GitHub Packages, `@brendan-bank` scope
+### Publish target — GitHub Packages, `@brendanbank` scope
 
-Same registry family as `ghcr.io/brendan-bank/atrium` for the runtime
+Same registry family as `ghcr.io/brendanbank/atrium` for the runtime
 image. One account/PAT covers both. Publishing happens from the same
 release pipeline (see Consequences for the workflow shape).
 
-The scope is `@brendan-bank` (matching the GitHub owner) rather than
+The scope is `@brendanbank` (matching the GitHub owner) rather than
 the more readable `@atrium` because GitHub Packages enforces
 `scope == owner` for npm publishes. The published name pattern is
-`@brendan-bank/atrium-<area>` so the relationship to atrium stays
+`@brendanbank/atrium-<area>` so the relationship to atrium stays
 visible in the import path. Public-npm registration of a bare
 `@atrium` scope was attempted and refused (existing `atrium` /
 `atrium-*` packages on npmjs.com flagged it as confusable); GitHub
@@ -84,7 +84,7 @@ trademark-adjacent friction.
 
 Both packages bump their version in lockstep with
 `backend/pyproject.toml` on every release. A consumer pinning `^0.14`
-of `@brendan-bank/atrium-host-types` implies "compatible with atrium
+of `@brendanbank/atrium-host-types` implies "compatible with atrium
 `0.14.x` runtime image". This makes the compat matrix
 (`docs/compat-matrix.md`, #46) trivial — one semver column covers
 both the image and the SDK. The packages are 0.x today; pre-1.0
@@ -97,11 +97,11 @@ tool yet. Versions are bumped by hand alongside the existing
 
 ### Subpath exports
 
-`@brendan-bank/atrium-host-bundle-utils` ships three subpath exports:
+`@brendanbank/atrium-host-bundle-utils` ships three subpath exports:
 
 - `.` — runtime helpers (`makeWrapperElement`, `mountInside`,
   `unmountInside`) plus type re-exports from
-  `@brendan-bank/atrium-host-types` so a host needing only the
+  `@brendanbank/atrium-host-types` so a host needing only the
   runtime can `import` from one place.
 - `./vite` — `hostBundleConfig({ entry })` factory. Imported only by
   `vite.config.ts` so it doesn't drag Vite into the host's runtime
@@ -109,7 +109,7 @@ tool yet. Versions are bumped by hand alongside the existing
 - `./react` — `useMe`, `usePerm`, `useRole`, `useUserContext`,
   `<AtriumProvider>`. React is a peer dep on this entry only.
 
-`@brendan-bank/atrium-host-types` is a single types-only entry — `.d.ts` files
+`@brendanbank/atrium-host-types` is a single types-only entry — `.d.ts` files
 under `dist/`, no JS, no runtime cost. `react` is a peer dep so
 `ReactElement` references resolve in the consumer's tree.
 

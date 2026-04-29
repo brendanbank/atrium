@@ -1,6 +1,6 @@
-# @brendan-bank/create-atrium-host
+# @brendanbank/create-atrium-host
 
-Scaffolder for a new [atrium](https://github.com/Brendan-Bank/atrium)
+Scaffolder for a new [atrium](https://github.com/brendanbank/atrium)
 host extension. One command, working repo: backend Python package +
 frontend Vite host bundle + compose stack + CI, all wired against
 atrium's published image and host SDK packages.
@@ -8,7 +8,7 @@ atrium's published image and host SDK packages.
 ## Usage
 
 ```sh
-npx @brendan-bank/create-atrium-host casa-del-leone
+npx @brendanbank/create-atrium-host casa-del-leone
 ```
 
 Walks you through a short prompt sequence (Python module name, brand
@@ -18,7 +18,7 @@ ready to `make dev-bootstrap`.
 For non-interactive use:
 
 ```sh
-npx @brendan-bank/create-atrium-host test-host --yes-defaults
+npx @brendanbank/create-atrium-host test-host --yes-defaults
 ```
 
 ### Options
@@ -50,7 +50,7 @@ casa-del-leone/
       scripts/seed_host_bundle.py
     tests/             pytest smoke tests
   frontend/            Vite library project (single main.js)
-    package.json       @brendan-bank/atrium-host-bundle-utils + -types + -test-utils
+    package.json       @brendanbank/atrium-host-bundle-utils + -types + -test-utils
     vite.config.ts     hostBundleConfig({ entry: 'src/main.tsx' })
     src/
       main.tsx         ~10 lines of registry calls — no wrapper element code
@@ -60,7 +60,7 @@ casa-del-leone/
       CasaDelLeonePage.tsx
       CasaDelLeoneAdminTab.tsx
       CasaDelLeoneProfileItem.tsx
-    src/test/          vitest setup + worked example using @brendan-bank/atrium-test-utils
+    src/test/          vitest setup + worked example using @brendanbank/atrium-test-utils
   .github/
     workflows/ci.yml   typecheck + tests + smoke
     dependabot.yml     weekly grouped bumps

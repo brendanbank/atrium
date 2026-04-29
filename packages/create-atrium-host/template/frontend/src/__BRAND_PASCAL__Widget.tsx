@@ -6,7 +6,7 @@
  * MantineProviders nested in the DOM is supported by Mantine.
  *
  * Permission gating uses `usePerm()` from
- * `@brendan-bank/atrium-host-bundle-utils/react` — a single TanStack
+ * `@brendanbank/atrium-host-bundle-utils/react` — a single TanStack
  * Query subscription against atrium's `/users/me/context`, shared
  * across this widget, the dedicated page, and the admin tab.
  */
@@ -30,7 +30,7 @@ import {
 import {
   AtriumProvider,
   usePerm,
-} from '@brendan-bank/atrium-host-bundle-utils/react';
+} from '@brendanbank/atrium-host-bundle-utils/react';
 
 import {
   bump__BRAND_PASCAL__,

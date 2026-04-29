@@ -11,7 +11,7 @@ For a vanilla host (one Python module, one frontend bundle, the
 default extension shape), the recommended on-ramp is the scaffolder:
 
 ```sh
-npx @brendan-bank/create-atrium-host casa-del-leone
+npx @brendanbank/create-atrium-host casa-del-leone
 cd casa-del-leone
 cp .env.example .env                   # fill in secrets
 make dev-bootstrap
@@ -22,12 +22,12 @@ open http://localhost:8000
 
 The emitted repo is git-initialised, has CI wired
 (`.github/workflows/ci.yml` + `dependabot.yml`), pulls the published
-`@brendan-bank/atrium-host-{types,bundle-utils,test-utils}` packages,
+`@brendanbank/atrium-host-{types,bundle-utils,test-utils}` packages,
 and ships a worked example for every registry slot — home widget,
 route, nav item, admin tab, profile-page card. `make test` is green
 out of the box once the packages are reachable.
 
-Run `npx @brendan-bank/create-atrium-host --help` for the flag list
+Run `npx @brendanbank/create-atrium-host --help` for the flag list
 (`--yes-defaults`, `--no-git`, `--out`, `--atrium`).
 
 ## The custom path: this guide

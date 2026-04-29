@@ -43,7 +43,7 @@ const HELP = `
 ${kleur.bold('create-atrium-host')} — scaffold a new atrium host extension
 
 Usage:
-  npx @brendan-bank/create-atrium-host <name> [options]
+  npx @brendanbank/create-atrium-host <name> [options]
 
 Arguments:
   <name>              Project name (lowercase, dashes; e.g. casa-del-leone)
@@ -251,7 +251,7 @@ export async function run(argv) {
   console.log(kleur.dim(`  python module : ${vars.HOST_PKG}`));
   console.log(kleur.dim(`  brand name    : ${vars.BRAND_NAME}`));
   console.log(kleur.dim(`  primary       : ${vars.BRAND_PRIMARY}`));
-  console.log(kleur.dim(`  atrium image  : ghcr.io/brendan-bank/atrium:${vars.ATRIUM_VERSION}`));
+  console.log(kleur.dim(`  atrium image  : ghcr.io/brendanbank/atrium:${vars.ATRIUM_VERSION}`));
   console.log();
 
   const written = await renderTemplate({

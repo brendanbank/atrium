@@ -3,7 +3,7 @@
 
 /**
  * Worked example of testing a host bundle component with
- * `@brendan-bank/atrium-test-utils`.
+ * `@brendanbank/atrium-test-utils`.
  *
  * The widget calls `usePerm()` to gate the toggle on the
  * `hello.toggle` permission and reads `__atrium_t__('common.loading')`
@@ -29,7 +29,7 @@ import {
   renderWithAtrium,
   type MockAtriumHandles,
   type UserContext,
-} from '@brendan-bank/atrium-test-utils';
+} from '@brendanbank/atrium-test-utils';
 
 import { HelloWidget } from '../HelloWidget';
 import { queryClient } from '../queryClient';

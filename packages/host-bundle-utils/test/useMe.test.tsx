@@ -16,7 +16,7 @@ import {
   useRole,
   useUserContext,
 } from '../src/react/index';
-import type { UserContext } from '@brendan-bank/atrium-host-types';
+import type { UserContext } from '@brendanbank/atrium-host-types';
 
 const ALICE: UserContext = {
   id: 7,

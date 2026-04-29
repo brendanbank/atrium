@@ -1,6 +1,6 @@
-# `@brendan-bank/atrium-host-bundle-utils`
+# `@brendanbank/atrium-host-bundle-utils`
 
-Runtime helpers, Vite preset, and React hooks for [atrium](https://github.com/Brendan-Bank/atrium)
+Runtime helpers, Vite preset, and React hooks for [atrium](https://github.com/brendanbank/atrium)
 host bundles. Wraps the dual-tree mount pattern so a host's
 `main.tsx` collapses to ~10 lines of registration calls.
 
@@ -8,7 +8,7 @@ host bundles. Wraps the dual-tree mount pattern so a host's
 import {
   AtriumRegistry,
   makeWrapperElement,
-} from '@brendan-bank/atrium-host-bundle-utils';
+} from '@brendanbank/atrium-host-bundle-utils';
 import { MyWidget } from './MyWidget';
 
 const reg = window.__ATRIUM_REGISTRY__ as AtriumRegistry;
@@ -22,12 +22,12 @@ reg.registerHomeWidget({
 
 The package is published on **GitHub Packages**, not the public npm
 registry. Add an `.npmrc` to your host project that points the
-`@brendan-bank` scope at GitHub Packages and supplies a token with
+`@brendanbank` scope at GitHub Packages and supplies a token with
 `read:packages` scope:
 
 ```
 # .npmrc
-@brendan-bank:registry=https://npm.pkg.github.com
+@brendanbank:registry=https://npm.pkg.github.com
 //npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
 ```
 
@@ -36,23 +36,23 @@ generate a [classic PAT](https://github.com/settings/tokens) with
 `read:packages` and export it. Then:
 
 ```bash
-pnpm add @brendan-bank/atrium-host-bundle-utils \
-        @brendan-bank/atrium-host-types
+pnpm add @brendanbank/atrium-host-bundle-utils \
+        @brendanbank/atrium-host-types
 ```
 
 ## Three subpath entry-points
 
 | Import                                                     | What you get                                               |
 | ---------------------------------------------------------- | ---------------------------------------------------------- |
-| `@brendan-bank/atrium-host-bundle-utils`                   | `makeWrapperElement`, `mountInside`, `unmountInside`, types |
-| `@brendan-bank/atrium-host-bundle-utils/vite`              | `hostBundleConfig({ entry })` — returns a Vite config      |
-| `@brendan-bank/atrium-host-bundle-utils/react`             | `useMe`, `usePerm`, `useRole`, `useUserContext`, `<AtriumProvider>` |
+| `@brendanbank/atrium-host-bundle-utils`                   | `makeWrapperElement`, `mountInside`, `unmountInside`, types |
+| `@brendanbank/atrium-host-bundle-utils/vite`              | `hostBundleConfig({ entry })` — returns a Vite config      |
+| `@brendanbank/atrium-host-bundle-utils/react`             | `useMe`, `usePerm`, `useRole`, `useUserContext`, `<AtriumProvider>` |
 
 ## Vite preset
 
 ```ts
 // vite.config.ts
-import { hostBundleConfig } from '@brendan-bank/atrium-host-bundle-utils/vite';
+import { hostBundleConfig } from '@brendanbank/atrium-host-bundle-utils/vite';
 
 export default hostBundleConfig({ entry: 'src/main.tsx' });
 ```
@@ -76,7 +76,7 @@ import {
   useMe,
   usePerm,
   useRole,
-} from '@brendan-bank/atrium-host-bundle-utils/react';
+} from '@brendanbank/atrium-host-bundle-utils/react';
 
 function CommissionsPage() {
   const { data: me, isLoading } = useMe();
@@ -110,7 +110,7 @@ to pick up new registry slots and SDK helpers.
 
 ## See also
 
-- [`@brendan-bank/atrium-host-types`](../host-types/) — the typed
+- [`@brendanbank/atrium-host-types`](../host-types/) — the typed
   registry declarations this package re-exports.
 - [`docs/published-images.md`](../../docs/published-images.md) — the
   full host-extension contract.

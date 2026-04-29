@@ -41,7 +41,7 @@ i18n
 
 // Expose the i18next instance on window so host bundles can resolve
 // shared keys (e.g. ``__atrium_t__('common.save')`` from
-// ``@brendan-bank/atrium-host-bundle-utils``) against atrium's bundled
+// ``@brendanbank/atrium-host-bundle-utils``) against atrium's bundled
 // resources + admin overrides + host overlays. The host bundle reads
 // the active locale dynamically — a user's language switch reaches the
 // next ``t()`` call without re-registering. Available since atrium

@@ -43,7 +43,7 @@ concurrency:
 
 # IMAGE_NAME is computed per-job from ``github.repository_owner``
 # lowercased. The owner login can contain uppercase characters
-# (e.g. ``Brendan-Bank``) but GHCR refs are case-sensitive and reject
+# (e.g. ``brendanbank``) but GHCR refs are case-sensitive and reject
 # anything that isn't all-lowercase. ``docker/metadata-action`` is
 # tolerant — it normalises internally — but the per-arch refactor
 # also feeds the name straight into ``build-push-action``'s

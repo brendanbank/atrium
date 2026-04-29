@@ -9,7 +9,7 @@
  * ``credentials: 'include'`` is enough.
  *
  * Permission gating against the signed-in user's RBAC context now
- * lives in `@brendan-bank/atrium-host-bundle-utils/react`
+ * lives in `@brendanbank/atrium-host-bundle-utils/react`
  * (`useMe` / `usePerm`);
  * the `getMeContext` helper that used to live here is gone. */
 export interface HelloState {

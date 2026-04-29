@@ -70,7 +70,7 @@ savings.
 
 ## GHCR image access
 
-Atrium publishes to `ghcr.io/brendan-bank/atrium`. Three ways the
+Atrium publishes to `ghcr.io/brendanbank/atrium`. Three ways the
 host's CI gets pull access:
 
 1. **Public package** — recommended. No login step in CI; `docker pull`

@@ -4,13 +4,13 @@
  * the SPA boots. The import-time side-effects below populate the
  * registry. The dual-tree mount pattern (atrium-React owns the
  * wrapper, the host's React owns the subtree) is encapsulated in
- * `makeWrapperElement` from `@brendan-bank/atrium-host-bundle-utils`.
+ * `makeWrapperElement` from `@brendanbank/atrium-host-bundle-utils`.
  */
 import { IconHandStop } from '@tabler/icons-react';
 import {
   type AtriumRegistry,
   makeWrapperElement,
-} from '@brendan-bank/atrium-host-bundle-utils';
+} from '@brendanbank/atrium-host-bundle-utils';
 
 import { __BRAND_PASCAL__AdminTab } from './__BRAND_PASCAL__AdminTab';
 import { __BRAND_PASCAL__Page } from './__BRAND_PASCAL__Page';

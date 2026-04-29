@@ -1,7 +1,7 @@
 {
-  "name": "@brendan-bank/create-atrium-host",
+  "name": "@brendanbank/create-atrium-host",
   "version": "0.14.1",
-  "description": "Scaffolder for new atrium host extensions: backend Python package + frontend Vite bundle + compose stack + CI, all wired against atrium's published image and host SDK packages. Run via `npx @brendan-bank/create-atrium-host <name>`.",
+  "description": "Scaffolder for new atrium host extensions: backend Python package + frontend Vite bundle + compose stack + CI, all wired against atrium's published image and host SDK packages. Run via `npx @brendanbank/create-atrium-host <name>`.",
   "license": "BSD-2-Clause",
   "type": "module",
   "bin": {
@@ -35,7 +35,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Brendan-Bank/atrium.git",
+    "url": "https://github.com/brendanbank/atrium.git",
     "directory": "packages/create-atrium-host"
   }
 }

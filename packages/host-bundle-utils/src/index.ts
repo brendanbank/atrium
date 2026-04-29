@@ -45,7 +45,7 @@ export type {
   ProfileSlot,
   RouteEntry,
   UserContext,
-} from '@brendan-bank/atrium-host-types';
+} from '@brendanbank/atrium-host-types';
 
 interface AtriumReactGlobal {
   createElement: (

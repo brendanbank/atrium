@@ -12,8 +12,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@brendan-bank/atrium-host-bundle-utils": "^__ATRIUM_VERSION__",
-    "@brendan-bank/atrium-host-types": "^__ATRIUM_VERSION__",
+    "@brendanbank/atrium-host-bundle-utils": "^__ATRIUM_VERSION__",
+    "@brendanbank/atrium-host-types": "^__ATRIUM_VERSION__",
     "@mantine/core": "^9.1.0",
     "@mantine/hooks": "^9.1.0",
     "@tabler/icons-react": "^3.41.1",
@@ -22,7 +22,7 @@
     "react-dom": "^19.2.5"
   },
   "devDependencies": {
-    "@brendan-bank/atrium-test-utils": "^__ATRIUM_VERSION__",
+    "@brendanbank/atrium-test-utils": "^__ATRIUM_VERSION__",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.0.0",

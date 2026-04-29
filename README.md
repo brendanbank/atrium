@@ -394,10 +394,10 @@ toggles) take effect without a restart.
 > command:
 >
 > ```sh
-> npx @brendan-bank/create-atrium-host <name>
+> npx @brendanbank/create-atrium-host <name>
 > ```
 >
-> The `@brendan-bank/create-atrium-host` scaffolder emits a
+> The `@brendanbank/create-atrium-host` scaffolder emits a
 > git-initialised host repo (backend Python package + frontend Vite
 > bundle + Dockerfile + compose stack + CI) wired against atrium's
 > published image and host SDK packages, ready to `make dev-bootstrap`.

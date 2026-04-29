@@ -10,10 +10,10 @@ importers:
 
   examples/hello-world/frontend:
     dependencies:
-      '@brendan-bank/atrium-host-bundle-utils':
+      '@brendanbank/atrium-host-bundle-utils':
         specifier: workspace:*
         version: link:../../../packages/host-bundle-utils
-      '@brendan-bank/atrium-host-types':
+      '@brendanbank/atrium-host-types':
         specifier: workspace:*
         version: link:../../../packages/host-types
       '@mantine/core':
@@ -35,7 +35,7 @@ importers:
         specifier: ^19.2.5
         version: 19.2.5(react@19.2.5)
     devDependencies:
-      '@brendan-bank/atrium-test-utils':
+      '@brendanbank/atrium-test-utils':
         specifier: workspace:*
         version: link:../../../packages/test-utils
       '@playwright/test':
@@ -87,7 +87,7 @@ importers:
 
   packages/host-bundle-utils:
     dependencies:
-      '@brendan-bank/atrium-host-types':
+      '@brendanbank/atrium-host-types':
         specifier: workspace:*
         version: link:../host-types
     devDependencies:
@@ -148,10 +148,10 @@ importers:
 
   packages/test-utils:
     dependencies:
-      '@brendan-bank/atrium-host-bundle-utils':
+      '@brendanbank/atrium-host-bundle-utils':
         specifier: workspace:*
         version: link:../host-bundle-utils
-      '@brendan-bank/atrium-host-types':
+      '@brendanbank/atrium-host-types':
         specifier: workspace:*
         version: link:../host-types
     devDependencies:
