@@ -4,6 +4,7 @@
 .PHONY: help up down logs ps build rebuild migrate migration \
         seed-admin seed-super-admin dev-bootstrap \
         shell-api shell-db test test-backend test-frontend lint format \
+        frontend-typecheck preflight \
         release-bump release-wait release-notes ci-wait \
         clean clean-atrium prod-build prod-up prod-down \
         smoke smoke-extended smoke-dev smoke-up smoke-down \
@@ -62,6 +63,11 @@ help:
 	@echo "  make test-frontend      vitest (unit). Playwright lives in make smoke."
 	@echo "  make lint               ruff + eslint"
 	@echo "  make format             ruff format + prettier"
+	@echo "  make frontend-typecheck"
+	@echo "                          tsc --noEmit on the frontend"
+	@echo "  make preflight          Run every gate CI runs, locally, before pushing"
+	@echo "                          a release branch. ~5 min — catches what would"
+	@echo "                          otherwise cost a CI round-trip. RELEASING.md step 1."
 	@echo ""
 	@echo "  make release-bump V=X.Y.Z"
 	@echo "                          Bump every version pin in lockstep, refresh"
@@ -265,6 +271,11 @@ test-backend:
 test-frontend:
 	cd frontend && pnpm install --ignore-workspace --silent && pnpm test
 
+# Vitest covers runtime behaviour; tsc covers shape. Both are wanted
+# in pre-flight, neither alone is sufficient.
+frontend-typecheck:
+	cd frontend && pnpm typecheck
+
 # --- Lint / format ---
 lint:
 	cd backend && uv run ruff check .
@@ -273,6 +284,34 @@ lint:
 format:
 	cd backend && uv run ruff format .
 	cd frontend && pnpm format
+
+# --- Pre-flight (RELEASING.md step 1) ---
+#
+# Run every gate CI runs, locally, before pushing the release branch.
+# A failed CI round-trip costs ~5 min on GHA; the same failure here
+# costs as long as the offending suite — usually seconds. Catches the
+# mistakes ``make ci-wait`` would otherwise catch only after push.
+#
+# Order matters for the smoke gates: ``smoke`` and ``smoke-hello``
+# share named docker volumes (atrium_mysql_data, atrium_proxy_certs,
+# atrium_frontend_node_modules), so the second one stomps on the
+# first if its stack is still up. Tear down between them.
+#
+# Defensive teardown: if ``smoke`` or ``smoke-hello`` fails, capture
+# the exit, run the ``-down`` target anyway, then propagate the
+# original exit. Without this a flaky red leaves containers
+# accumulating across retries.
+preflight:
+	$(MAKE) test-backend
+	$(MAKE) test-frontend
+	$(MAKE) frontend-typecheck
+	$(MAKE) lint
+	$(MAKE) smoke || (s=$$?; $(MAKE) smoke-down; exit $$s)
+	$(MAKE) smoke-down
+	$(MAKE) smoke-hello || (s=$$?; $(MAKE) smoke-hello-down; exit $$s)
+	$(MAKE) smoke-hello-down
+	@echo
+	@echo "preflight: all gates green. safe to push."
 
 # --- Release ---
 #

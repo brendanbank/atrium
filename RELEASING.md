@@ -18,22 +18,29 @@ not by hand.
 
 ## 1. Pre-flight tests
 
-In order, all four must be green before opening the PR:
-
 ```bash
-make test-backend            # ~1 min, testcontainers-mysql
-make test-frontend           # vitest unit tests, ~10 s
-( cd frontend && pnpm typecheck )
-make lint                    # ruff + eslint; 1 pre-existing warning is OK
-make smoke                   # Playwright against the e2e stack, ~30 s
+make preflight
 ```
 
-Run `make smoke-hello` too if the change touches any of:
+That target runs every gate CI runs, in order, with defensive
+teardown of the smoke stacks between them (they share named docker
+volumes):
 
-- `app/services/notifications.py` or the SSE stream
-- the `frontend/src/host/` registry surface
-- `examples/hello-world/`
-- the published-images contract documented in `docs/published-images.md`
+```
+test-backend           # ~1 min, testcontainers-mysql
+test-frontend          # vitest unit tests, ~10 s
+frontend-typecheck     # tsc --noEmit
+lint                   # ruff + eslint; 1 pre-existing warning is OK
+smoke                  # Playwright against the e2e stack, ~30 s
+smoke-down             # tear down before smoke-hello
+smoke-hello            # Hello World e2e against prod images
+smoke-hello-down       # final cleanup
+```
+
+Total wall-clock: ~5 min. Failures here cost seconds-to-minutes;
+the same failures caught by `make ci-wait` after pushing cost a
+3-5 minute GHA round-trip plus the push. Run `preflight` for any
+non-trivial release branch.
 
 `make smoke-hello` has a known flaky test — `toggle on starts the
 tick, toggle off stops it` — that fails with `socket hang up` when
@@ -50,12 +57,9 @@ just it before chasing root causes:
   CI=1 pnpm exec playwright test --grep 'toggle on starts' )
 ```
 
-Tear the smoke stacks down between runs — they share named volumes:
-
-```bash
-make smoke-down              # before make smoke-hello
-make smoke-hello-down        # after make smoke-hello
-```
+For trivial changes (docs-only, comment fixes), skip `preflight`
+and rely on `make ci-wait BR=<branch>` after push — the workflow
+suite is the source of truth either way.
 
 ## 1.5. Bump the version + sync docs
 
