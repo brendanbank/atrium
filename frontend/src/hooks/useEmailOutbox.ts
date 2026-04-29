@@ -37,6 +37,18 @@ export interface DrainResult {
 
 export const EMAIL_OUTBOX_KEY = ['admin', 'email-outbox'] as const;
 
+/** Poll cadence for the outbox admin view. The cron worker ticks every
+ *  60 s and a host's inline ``drain_outbox_row(...)`` call lands without
+ *  notifying the SPA, so the queue otherwise stays stale until the
+ *  operator hard-refreshes (#83). 8 s is short enough that a "did the
+ *  email go out?" check during a phone call gets a fresh answer, and
+ *  long enough that an idle admin tab isn't hammering the API.
+ *
+ *  ``refetchIntervalInBackground: false`` so a tab left open in another
+ *  window doesn't poll. The next refetch fires the moment the tab
+ *  regains focus. */
+const OUTBOX_REFETCH_INTERVAL_MS = 8_000;
+
 export function useEmailOutbox(params: {
   status?: EmailOutboxStatus | null;
   limit: number;
@@ -54,6 +66,8 @@ export function useEmailOutbox(params: {
       );
       return res.data;
     },
+    refetchInterval: OUTBOX_REFETCH_INTERVAL_MS,
+    refetchIntervalInBackground: false,
   });
 }
 
