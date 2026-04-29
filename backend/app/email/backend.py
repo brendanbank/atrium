@@ -44,7 +44,8 @@ class EmailMessage:
 class MailBackend(Protocol):
     name: str
 
-    async def send(self, message: EmailMessage) -> None: ...
+    async def send(self, message: EmailMessage) -> None:
+        """Deliver ``message`` via this backend's transport."""
 
 
 # -----------------------------------------------------------------------------

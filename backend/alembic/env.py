@@ -11,12 +11,16 @@ from sqlalchemy import pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import async_engine_from_config
 
-# Importing the models package ensures every model class is registered on
-# Base.metadata before autogenerate runs. Empty until task #3 lands.
-import app.models  # noqa: F401
+import app.models
 from alembic import context
 from app.db import Base
 from app.settings import get_settings
+
+# Acknowledge the side-effect import. ``app.models.__init__`` pulls
+# every model class into scope so it registers on ``Base.metadata``
+# before autogenerate inspects it; without the reference below
+# CodeQL flags ``app.models`` as unused.
+_ = app.models
 
 config = context.config
 

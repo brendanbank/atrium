@@ -141,6 +141,11 @@ async def current_user(
     except HTTPException:
         raise
     except Exception:
+        # Defensive: an auth-config read failure here must not turn
+        # an authenticated request into a 500. The 2FA-enforcement
+        # check is best-effort — when we can't read the config we
+        # let the user through with their existing factors and the
+        # next request will retry.
         pass
     return user
 
