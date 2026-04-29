@@ -11,6 +11,7 @@ import {
   IconLanguage,
   IconLock,
   IconMail,
+  IconMailForward,
   IconSend,
   IconServer,
   IconUserPlus,
@@ -21,6 +22,7 @@ import { useSearchParams } from 'react-router-dom';
 import { AuditAdmin } from '@/components/admin/AuditAdmin';
 import { AuthAdmin } from '@/components/admin/AuthAdmin';
 import { BrandingAdmin } from '@/components/admin/BrandingAdmin';
+import { EmailOutboxAdmin } from '@/components/admin/EmailOutboxAdmin';
 import { EmailTemplatesAdmin } from '@/components/admin/EmailTemplatesAdmin';
 import { RemindersAdmin } from '@/components/admin/RemindersAdmin';
 import { RolesAdmin } from '@/components/admin/RolesAdmin';
@@ -32,7 +34,7 @@ import { getAdminTabs } from '@/host/registry';
 
 /** Built-in admin tabs use 100..900 in steps of 100 so a host tab can
  *  interleave with ``order: 250`` (between Auth and Users), ``650``
- *  (between Email templates and Reminders), etc. Host tabs without
+ *  (between Email templates and Email outbox), etc. Host tabs without
  *  ``order`` keep registration order and land **after** every built-in.
  */
 const TAB_ORDER = {
@@ -43,6 +45,7 @@ const TAB_ORDER = {
   roles: 500,
   translations: 600,
   emails: 700,
+  outbox: 750,
   reminders: 800,
   audit: 900,
 } as const;
@@ -62,6 +65,7 @@ export function AdminPage() {
   const canViewAudit = usePerm('audit.read');
   const canManageAppConfig = usePerm('app_setting.manage');
   const canManageEmailTemplates = usePerm('email_template.manage');
+  const canManageEmailOutbox = usePerm('email_outbox.manage');
 
   // Host-registered admin tabs; filtered by the perm code each tab
   // declares (omitted ``perm`` means visible to every viewer of the
@@ -129,6 +133,15 @@ export function AdminPage() {
       icon: <IconMail size={14} />,
       panel: <EmailTemplatesAdmin />,
       order: TAB_ORDER.emails,
+    });
+  }
+  if (canManageEmailOutbox) {
+    tabs.push({
+      key: 'outbox',
+      label: t('emailOutbox.tab'),
+      icon: <IconMailForward size={14} />,
+      panel: <EmailOutboxAdmin />,
+      order: TAB_ORDER.outbox,
     });
   }
   tabs.push({

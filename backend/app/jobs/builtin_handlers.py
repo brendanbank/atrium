@@ -83,23 +83,29 @@ def _backoff_delta(attempts: int) -> timedelta:
     return timedelta(seconds=_BACKOFF_SECONDS[idx])
 
 
-async def email_send_handler(
-    session: AsyncSession,
-    job: ScheduledJob,
-    payload: dict[str, Any],
-) -> None:
-    """Drain a single ``email_outbox`` row.
+async def drain_outbox_row(
+    session: AsyncSession, outbox_id: int
+) -> EmailOutbox | None:
+    """Send a single ``email_outbox`` row through the same pipeline the
+    cron worker uses.
 
     Locks the row FOR UPDATE, attempts delivery via the configured mail
     backend, and either marks it ``sent``, schedules a backoff retry,
     or moves it to ``dead`` after ``MAX_ATTEMPTS`` failures. A final
     ``email_log`` row is written on terminal states so the admin mail
     log mirrors what really happened.
-    """
-    outbox_id = payload.get("outbox_id")
-    if not isinstance(outbox_id, int):
-        raise ValueError(f"email_send: payload missing 'outbox_id': {payload!r}")
 
+    Returns the ``EmailOutbox`` row in its post-attempt state (status
+    flipped to ``sent`` / ``pending`` / ``dead``), or ``None`` if the
+    row was missing. The caller owns the transaction — this function
+    flushes but does not commit, so it composes with both the worker's
+    surrounding `run_one` commit and an HTTP handler that wants to
+    inspect the row before responding.
+
+    Exposed via :mod:`app.host_sdk.email` so a host can wire its own
+    "send now" button on a domain-side outbox view without copy-pasting
+    the render-and-send-and-update-status logic.
+    """
     stmt = (
         select(EmailOutbox)
         .where(EmailOutbox.id == outbox_id)
@@ -108,20 +114,20 @@ async def email_send_handler(
     outbox = (await session.execute(stmt)).scalar_one_or_none()
     if outbox is None:
         # The row was deleted (admin cleanup, manual SQL) — nothing to do.
-        log.warning("email_outbox.missing", outbox_id=outbox_id, job_id=job.id)
-        return
+        log.warning("email_outbox.missing", outbox_id=outbox_id)
+        return None
 
     if outbox.status in {"sent", "dead"}:
         # Idempotent: a prior attempt already finalised this row. The
         # outbox-drain tick is best-effort dedupe but a race is possible.
-        return
+        return outbox
 
     outbox.status = "sending"
     outbox.attempts = (outbox.attempts or 0) + 1
     # Flush so the row visibly progresses even if the handler later
-    # raises — the runner's outer commit will persist it. The
-    # FOR UPDATE lock above already serialises competing workers; we
-    # don't need a discrete inner commit for that.
+    # raises — the surrounding commit will persist it. The FOR UPDATE
+    # lock above already serialises competing workers; no need for a
+    # discrete inner commit.
     await session.flush()
 
     try:
@@ -165,7 +171,7 @@ async def email_send_handler(
             outbox.next_attempt_at = _utcnow_naive() + _backoff_delta(
                 outbox.attempts
             )
-        return
+        return outbox
 
     outbox.status = "sent"
     outbox.last_error = None
@@ -179,6 +185,25 @@ async def email_send_handler(
             status=EmailStatus.SENT.value,
         )
     )
+    return outbox
+
+
+async def email_send_handler(
+    session: AsyncSession,
+    job: ScheduledJob,
+    payload: dict[str, Any],
+) -> None:
+    """Worker entry point: dispatch ``payload['outbox_id']`` to
+    :func:`drain_outbox_row`. Kept thin so the same logic powers both
+    the cron tick and the admin "send now" endpoint without divergence."""
+    outbox_id = payload.get("outbox_id")
+    if not isinstance(outbox_id, int):
+        raise ValueError(f"email_send: payload missing 'outbox_id': {payload!r}")
+    result = await drain_outbox_row(session, outbox_id)
+    if result is None:
+        # ``drain_outbox_row`` already logged the missing row; surface
+        # the job_id alongside for the worker's audit trail.
+        log.warning("email_outbox.missing.job", outbox_id=outbox_id, job_id=job.id)
 
 
 # ----- account hard-delete -----

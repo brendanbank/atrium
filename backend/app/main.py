@@ -18,6 +18,7 @@ from app.api.app_config import admin_router as app_config_admin_router
 from app.api.app_config import public_router as app_config_public_router
 from app.api.audit import router as audit_router
 from app.api.email_otp import router as email_otp_router
+from app.api.email_outbox import router as email_outbox_router
 from app.api.email_templates import router as email_templates_router
 from app.api.health import router as health_router
 from app.api.impersonate import (
@@ -149,6 +150,7 @@ def create_app() -> FastAPI:
     app.include_router(me_context_router)
     app.include_router(audit_router)
     app.include_router(email_templates_router)
+    app.include_router(email_outbox_router)
     app.include_router(reminder_rules_router)
     app.include_router(sessions_router)
     app.include_router(totp_router)
