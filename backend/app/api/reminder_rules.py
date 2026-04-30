@@ -35,7 +35,16 @@ async def list_rules(
 
 
 async def _check_template_exists(session: AsyncSession, key: str) -> None:
-    if (await session.get(EmailTemplate, key)) is None:
+    # ``email_templates`` has a composite primary key ``(key, locale)``
+    # since 0005, so ``session.get(EmailTemplate, key)`` raises. Probe
+    # for any locale variant — the reminder rule references the key
+    # only; the per-locale resolution happens at render time.
+    row = await session.execute(
+        select(EmailTemplate.key)
+        .where(EmailTemplate.key == key)
+        .limit(1)
+    )
+    if row.scalar_one_or_none() is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"email template '{key}' does not exist",
