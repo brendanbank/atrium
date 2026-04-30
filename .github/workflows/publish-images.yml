@@ -88,6 +88,34 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Regression guard for issue #91: v0.19.0 shipped with the SPA
+      # bundle built from VITE_API_BASE_URL="" because the build-args
+      # block above silently overrode the Dockerfile default. The
+      # backend moved to /api/* in v0.19.0 but the published bundle
+      # still called un-prefixed paths, so every API call fell
+      # through to the SPA fallback and returned index.html.
+      #
+      # Build the frontend stage to a local dir and grep — fails
+      # the publish job before the digest push if the prefix is
+      # missing. Runs on amd64 only because the SPA bundle is
+      # platform-agnostic JavaScript; doing it twice would just
+      # double the cost.
+      - name: Verify SPA bundle bakes /api prefix
+        if: matrix.platform == 'linux/amd64'
+        run: |
+          docker buildx build \
+            --target frontend-builder \
+            --build-arg VITE_API_BASE_URL=/api \
+            --output type=local,dest=/tmp/spa-check \
+            --cache-from type=gha,scope=runtime-${{ env.PLATFORM_PAIR }} \
+            .
+          bundle=$(ls /tmp/spa-check/dist/assets/index-*.js | head -1)
+          if ! grep -q '/api' "$bundle"; then
+            echo "::error::SPA bundle does not contain /api — VITE_API_BASE_URL build arg lost (issue #91)" >&2
+            exit 1
+          fi
+          echo "SPA bundle contains /api prefix ($(basename "$bundle"))"
+
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f  # v7.1.0
@@ -97,7 +125,7 @@ jobs:
           target: runtime
           platforms: ${{ matrix.platform }}
           build-args: |
-            VITE_API_BASE_URL=
+            VITE_API_BASE_URL=/api
             VITE_DEFAULT_LANGUAGE=en
           # No tags here — push-by-digest is what lets the merge job
           # below assemble the multi-arch manifest list under the

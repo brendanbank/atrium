@@ -1,6 +1,6 @@
 {
   "name": "@brendanbank/atrium-test-utils",
-  "version": "0.19.0",
+  "version": "0.19.1",
   "description": "Vitest helpers for unit-testing atrium host bundles. Installs a fake __ATRIUM_REGISTRY__ + window.React, wires a working QueryClient, and exposes a synthetic event bus that mirrors atrium's subscribeEvent semantics — so a host can render permission-gated components and fire SSE events from a test without standing up the SPA.",
   "license": "BSD-2-Clause",
   "type": "module",
