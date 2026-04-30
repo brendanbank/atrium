@@ -430,20 +430,22 @@ test.describe('captcha (Turnstile + hCaptcha)', () => {
       await loginAsUser(userPage);
       await userPage.goto('/admin');
 
-      // Wait for the always-present Users link so we know the page
-      // mounted before asserting the Auth link is absent.
+      // A user with no admin perms sees ``SectionPage``'s empty state —
+      // anchor on its copy to confirm the page mounted before asserting
+      // the Auth link is absent.
       await expect(
-        userPage.getByRole('link', { name: /Users|Gebruikers/i }).first(),
+        userPage.getByText(/don't have permission|geen toegang/i),
       ).toBeVisible();
       await expect(
         userPage.getByRole('link', { name: /^Auth$/i }),
       ).toHaveCount(0);
 
-      // Direct-URL access falls through to the first available
-      // section — SectionPage redirects when the path param doesn't
-      // match anything the viewer has perm to see.
+      // Direct-URL access stays on the empty state — no items to
+      // redirect to, so SectionPage just renders the empty copy.
       await userPage.goto('/admin/auth');
-      await expect(userPage).toHaveURL(/\/admin\/users$/);
+      await expect(
+        userPage.getByText(/don't have permission|geen toegang/i),
+      ).toBeVisible();
 
       // And the captcha-specific UI must not be reachable: no
       // "CAPTCHA" heading, no "Site key" or "Provider" inputs — those

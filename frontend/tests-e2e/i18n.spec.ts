@@ -144,7 +144,7 @@ test.describe('Phase 9 — i18n', () => {
     await page.goto('/admin');
 
     await expect(
-      page.getByRole('link', { name: /Users|Gebruikers/i }).first(),
+      page.getByText(/don't have permission|geen toegang/i),
     ).toBeVisible();
     await expect(
       page.getByRole('link', { name: /Translations|Vertalingen/i }),

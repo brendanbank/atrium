@@ -350,19 +350,21 @@ test.describe('Phase 11 — multi-language email templates', () => {
     await loginAsUser(page);
     await page.goto('/admin');
 
-    // Wait for the Users link — universal — so we know the page
-    // rendered before asserting the Email templates link is absent.
+    // A user with no admin perms sees SectionPage's empty state —
+    // anchor on its copy to confirm the page rendered before asserting
+    // the Email templates link is absent.
     await expect(
-      page.getByRole('link', { name: /Users|Gebruikers/i }).first(),
+      page.getByText(/don't have permission|geen toegang/i),
     ).toBeVisible();
     await expect(
       page.getByRole('link', { name: /Email templates|E-mailsjablonen/i }),
     ).toHaveCount(0);
 
-    // Direct-URL access falls through to the first available section
-    // — SectionPage redirects when the path doesn't match anything
-    // the viewer has perm to see.
+    // Direct-URL access stays on the empty state — no items to
+    // redirect to, so SectionPage renders the empty copy.
     await page.goto('/admin/emails');
-    await expect(page).toHaveURL(/\/admin\/users$/);
+    await expect(
+      page.getByText(/don't have permission|geen toegang/i),
+    ).toBeVisible();
   });
 });

@@ -20,6 +20,11 @@ services:
     volumes: !override []
     environment: !override
       APP_BASE_URL: http://localhost:8000
+      # The browser hits the api directly at :8000 in the e2e topology
+      # (no separate web container, no proxy). WebAuthn signs the
+      # origin into the registration response, so the backend must
+      # verify against the same origin or every register/finish 400s.
+      WEBAUTHN_ORIGIN: http://localhost:8000
 
   worker:
     build:
