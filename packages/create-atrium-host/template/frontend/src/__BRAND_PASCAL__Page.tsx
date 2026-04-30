@@ -23,7 +23,7 @@ function __BRAND_PASCAL__PageInner() {
 
 export function __BRAND_PASCAL__Page() {
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme="auto">
       <QueryClientProvider client={queryClient}>
         <AtriumProvider>
           <__BRAND_PASCAL__PageInner />

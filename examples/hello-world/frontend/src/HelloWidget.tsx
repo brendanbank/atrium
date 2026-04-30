@@ -114,7 +114,7 @@ function HelloWidgetInner() {
 
 export function HelloWidget() {
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme="auto">
       <QueryClientProvider client={queryClient}>
         <AtriumProvider>
           <HelloWidgetInner />

@@ -106,7 +106,7 @@ function __BRAND_PASCAL__WidgetInner() {
 
 export function __BRAND_PASCAL__Widget() {
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme="auto">
       <QueryClientProvider client={queryClient}>
         <AtriumProvider>
           <__BRAND_PASCAL__WidgetInner />

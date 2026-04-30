@@ -44,7 +44,7 @@ function HelloPageInner() {
 
 export function HelloPage() {
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme="auto">
       <QueryClientProvider client={queryClient}>
         <HelloPageInner />
       </QueryClientProvider>

@@ -21,7 +21,7 @@ function __BRAND_PASCAL__AdminTabInner() {
 
 export function __BRAND_PASCAL__AdminTab() {
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme="auto">
       <QueryClientProvider client={queryClient}>
         <AtriumProvider>
           <__BRAND_PASCAL__AdminTabInner />

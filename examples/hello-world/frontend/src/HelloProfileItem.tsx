@@ -70,7 +70,7 @@ function HelloProfileItemInner() {
 
 export function HelloProfileItem() {
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme="auto">
       <QueryClientProvider client={queryClient}>
         <AtriumProvider>
           <HelloProfileItemInner />

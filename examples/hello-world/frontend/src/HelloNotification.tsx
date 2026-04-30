@@ -81,7 +81,7 @@ export function HelloToggledNotification({
   createdAt: string;
 }) {
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme="auto">
       <HelloToggledNotificationInner payload={payload} createdAt={createdAt} />
     </MantineProvider>
   );

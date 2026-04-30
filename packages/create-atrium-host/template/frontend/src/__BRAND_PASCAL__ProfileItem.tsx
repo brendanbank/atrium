@@ -27,7 +27,7 @@ function __BRAND_PASCAL__ProfileItemInner() {
 
 export function __BRAND_PASCAL__ProfileItem() {
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme="auto">
       <QueryClientProvider client={queryClient}>
         <AtriumProvider>
           <__BRAND_PASCAL__ProfileItemInner />

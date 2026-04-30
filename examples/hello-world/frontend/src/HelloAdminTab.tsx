@@ -33,7 +33,7 @@ function HelloAdminTabInner() {
 
 export function HelloAdminTab() {
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme="auto">
       <QueryClientProvider client={queryClient}>
         <HelloAdminTabInner />
       </QueryClientProvider>
