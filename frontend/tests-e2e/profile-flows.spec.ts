@@ -71,12 +71,29 @@ test.describe('Profile flows', () => {
       const pwInputs = userPage.locator('input[type="password"]');
       await pwInputs.nth(0).fill(newPassword);
       await pwInputs.nth(1).fill(newPassword);
+      // ``.click()`` doesn't await the network request the click triggers,
+      // so probing /auth/jwt/login immediately afterwards races the
+      // password PATCH — on a slow Docker network the login lands before
+      // the new hash is committed and returns 400 (fastapi-users uses 400
+      // for bad credentials). Arm the response listener before clicking
+      // and await it; that also surfaces a clearer error if the backend
+      // itself rejects the password (HIBP, policy) instead of
+      // misattributing it to "wrong password" on the next request.
+      const updateResponse = userPage.waitForResponse(
+        (resp) =>
+          resp.url().endsWith('/api/users/me') &&
+          resp.request().method() === 'PATCH',
+      );
       await userPage
         .getByRole('button', { name: /^Update password$/i })
         .click();
+      const updateResp = await updateResponse;
+      expect(updateResp.status(), 'password PATCH must succeed').toBeLessThan(
+        400,
+      );
 
       // Verify end-to-end via a fresh context: new password works,
-      // old one doesn't. Skips racing the auto-dismissing toast.
+      // old one doesn't.
       const probe = await browser.newContext();
       try {
         const newLogin = await probe.request.post(
