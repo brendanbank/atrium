@@ -5,6 +5,7 @@
   "nav": {
     "home": "Startseite",
     "admin": "Verwaltung",
+    "settings": "Einstellungen",
     "profile": "Profil",
     "logout": "Abmelden",
     "notifications": "Benachrichtigungen"
@@ -191,7 +192,11 @@
     "deleteFailed": "Löschen fehlgeschlagen",
     "active": "Aktiv",
     "inactive": "Inaktiv",
-    "status": "Status"
+    "status": "Status",
+    "noVisibleSections": "Sie haben keine Berechtigung für die Verwaltungsbereiche."
+  },
+  "settings": {
+    "empty": "Für diese App sind keine Einstellungen registriert."
   },
   "authAdmin": {
     "tab": "Auth",

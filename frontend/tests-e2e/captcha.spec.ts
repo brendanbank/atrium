@@ -364,7 +364,7 @@ test.describe('captcha (Turnstile + hCaptcha)', () => {
     await loginAsAdmin(adminPage);
 
     try {
-      await adminPage.goto('/admin?tab=auth');
+      await adminPage.goto('/admin/auth');
 
       // The Auth tab carries one Save button covering the whole
       // namespace. Locate the Captcha section by its title, then
@@ -430,21 +430,20 @@ test.describe('captcha (Turnstile + hCaptcha)', () => {
       await loginAsUser(userPage);
       await userPage.goto('/admin');
 
-      // Wait for the always-present Users tab so we know the page
-      // mounted before asserting the Auth tab is absent.
+      // Wait for the always-present Users link so we know the page
+      // mounted before asserting the Auth link is absent.
       await expect(
-        userPage.getByRole('tab', { name: /Users|Gebruikers/i }),
+        userPage.getByRole('link', { name: /Users|Gebruikers/i }).first(),
       ).toBeVisible();
       await expect(
-        userPage.getByRole('tab', { name: /^Auth$/i }),
+        userPage.getByRole('link', { name: /^Auth$/i }),
       ).toHaveCount(0);
 
-      // Direct-URL access falls through to the default Users tab —
-      // AdminPage validates ``?tab=auth`` against the user's perms.
-      await userPage.goto('/admin?tab=auth');
-      await expect(
-        userPage.getByRole('tab', { name: /Users|Gebruikers/i }),
-      ).toHaveAttribute('aria-selected', 'true');
+      // Direct-URL access falls through to the first available
+      // section — SectionPage redirects when the path param doesn't
+      // match anything the viewer has perm to see.
+      await userPage.goto('/admin/auth');
+      await expect(userPage).toHaveURL(/\/admin\/users$/);
 
       // And the captcha-specific UI must not be reachable: no
       // "CAPTCHA" heading, no "Site key" or "Provider" inputs — those

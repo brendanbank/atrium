@@ -102,6 +102,16 @@ export type NavItem = {
   order?: number;
 };
 
+/** Sidebar bucket an admin tab lives in. ``admin`` is the default and
+ *  groups every atrium-shipped admin surface (users, roles, branding,
+ *  audit, …); host apps register their own admin tooling here too.
+ *  ``settings`` is a parallel sibling group **above** Admin reserved
+ *  for application-level preferences — atrium ships zero items here,
+ *  so the Settings parent in the sidebar hides entirely until a host
+ *  registers into it. Each item carries an ``order`` weight so a host
+ *  controls where its entry lands within the chosen bucket. */
+export type AdminSection = 'admin' | 'settings';
+
 export type AdminTab = {
   key: string;
   label: string;
@@ -109,21 +119,24 @@ export type AdminTab = {
   /** Permission code; the tab is hidden for users who don't hold it.
    *  Omit to show the tab to every admin viewer. */
   perm?: string;
+  /** Sidebar bucket. Default ``admin``. Set ``settings`` to push a
+   *  host-app preference page into the Settings group instead. */
+  section?: AdminSection;
   /** Returns a fresh element each time the tab is selected. Preferred
-   *  over ``element`` for the same reason as ``RouteEntry.render`` —
-   *  ``Tabs`` keeps panels mounted by default, so a captured element
-   *  can hang onto a now-orphaned host React root when the host bundle
-   *  is hot-reloaded. Exactly one of ``render`` or ``element`` must be
+   *  over ``element`` for the same reason as ``RouteEntry.render``: the
+   *  route remounts on path change, but a captured element can still
+   *  hang onto a stale host React root when the host bundle is
+   *  hot-reloaded. Exactly one of ``render`` or ``element`` must be
    *  supplied. */
   render?: () => ReactElement;
   /** @deprecated Pass ``render: () => element`` instead. Kept for
    *  back-compat with hosts built against pre-0.12 atrium. */
   element?: ReactElement;
-  /** Optional sort key. Lower values render further left. Items
-   *  without ``order`` keep insertion order, sorted **after** every
-   *  item that has one. Atrium's built-in tabs use 100..900 so hosts
-   *  can interleave (e.g. ``order: 750`` to slot between Reminders
-   *  and Audit). */
+  /** Optional sort key. Lower values render higher in the sidebar
+   *  group. Items without ``order`` keep insertion order, sorted
+   *  **after** every item that has one. Atrium's built-in admin tabs
+   *  use 100..900 so hosts can interleave (e.g. ``order: 750`` to slot
+   *  between Reminders and Audit within the Admin group). */
   order?: number;
 };
 
@@ -214,6 +227,19 @@ const profileItems: ProfileItem[] = [];
 const notificationRenderers: NotificationKindRenderer[] = [];
 const localeOverlays: LocaleOverlay[] = [];
 const localeOverlayListeners: Array<(o: LocaleOverlay) => void> = [];
+
+/** Per-key overrides for atrium's built-in admin tabs. Host bundles
+ *  call ``setBuiltinAdminTabSection`` to rebucket a built-in tab into
+ *  the Settings group (or back into Admin) and optionally re-rank it
+ *  within the new bucket. The map is keyed on the built-in tab's
+ *  stable code (``branding`` / ``emails`` / ``outbox`` / etc — see
+ *  ``frontend/src/admin/sections.tsx`` for the full set). */
+type BuiltinAdminTabOverride = {
+  section?: AdminSection;
+  order?: number;
+};
+const builtinAdminTabOverrides: Map<string, BuiltinAdminTabOverride> =
+  new Map();
 
 function hasRenderOrElement(
   entry: { render?: unknown; element?: unknown },
@@ -307,6 +333,30 @@ function registerNotificationKind(renderer: NotificationKindRenderer): void {
   notificationRenderers.push(renderer);
 }
 
+/** Relocate one of atrium's built-in admin tabs into a different
+ *  sidebar group, and optionally re-rank it within that group. Pass
+ *  the tab's stable atrium key (``branding`` / ``emails`` / ``outbox``
+ *  / ``reminders`` / ``translations`` / ``system`` / ``auth`` /
+ *  ``users`` / ``roles`` / ``audit``). ``section`` decides which
+ *  group it lands in; ``order`` overrides the built-in default
+ *  ordering. Calling with ``section: 'admin'`` reverts a previously-
+ *  moved tab back to the Admin group.
+ *
+ *  The override applies to the built-in tab as atrium ships it — the
+ *  tab itself isn't re-registered, so the host doesn't need to supply
+ *  a ``render`` or ``perm``. The perm gate (``app_setting.manage``,
+ *  ``email_template.manage``, etc.) still applies and the tab still
+ *  hides for users without it. */
+function setBuiltinAdminTabSection(
+  key: string,
+  section: AdminSection,
+  order?: number,
+): void {
+  const override: BuiltinAdminTabOverride = { section };
+  if (order !== undefined) override.order = order;
+  builtinAdminTabOverrides.set(key, override);
+}
+
 function registerLocale(overlay: LocaleOverlay): void {
   if (typeof overlay.locale !== 'string' || overlay.locale.length === 0) {
     console.warn(
@@ -340,6 +390,7 @@ const baseRegistry = {
   registerRoute,
   registerNavItem,
   registerAdminTab,
+  setBuiltinAdminTabSection,
   registerProfileItem,
   registerNotificationKind,
   registerLocale,
@@ -417,6 +468,15 @@ export function getAdminTabs(): readonly AdminTab[] {
   return sortByOrder(adminTabs);
 }
 
+/** Look up a host-supplied override for a built-in admin tab. Returns
+ *  ``undefined`` when no host has called ``setBuiltinAdminTabSection``
+ *  for the given key, in which case atrium's shipped defaults apply. */
+export function getBuiltinAdminTabOverride(
+  key: string,
+): BuiltinAdminTabOverride | undefined {
+  return builtinAdminTabOverrides.get(key);
+}
+
 export function getProfileItems(): readonly ProfileItem[] {
   return sortByOrder(profileItems);
 }
@@ -461,6 +521,7 @@ export function __resetRegistryForTests(): void {
   routes.length = 0;
   navItems.length = 0;
   adminTabs.length = 0;
+  builtinAdminTabOverrides.clear();
   profileItems.length = 0;
   notificationRenderers.length = 0;
   localeOverlays.length = 0;
@@ -486,6 +547,7 @@ export {
   registerRoute,
   registerNavItem,
   registerAdminTab,
+  setBuiltinAdminTabSection,
   registerProfileItem,
   registerNotificationKind,
   registerLocale,

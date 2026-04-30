@@ -55,7 +55,7 @@ test.describe('Phase 1 — branding', () => {
     page,
   }) => {
     await loginAsAdmin(page);
-    await page.goto('/admin?tab=branding');
+    await page.goto('/admin/branding');
 
     const newName = `E2E Brand ${Date.now()}`;
     const nameInput = page.getByLabel(/Brand name|Merknaam/i).first();
@@ -85,7 +85,7 @@ test.describe('Phase 1 — branding', () => {
     page,
   }) => {
     await loginAsAdmin(page);
-    await page.goto('/admin?tab=branding');
+    await page.goto('/admin/branding');
 
     // Mantine renders Select as a combobox with the labelled trigger
     // exposing the current value. Click it, then click the option.
@@ -127,25 +127,25 @@ test.describe('Phase 1 — branding', () => {
       .toBe('dark');
   });
 
-  test('non-admin does not see the Branding tab', async ({ page }) => {
+  test('non-admin does not see the Branding section', async ({ page }) => {
     await loginAsUser(page);
     await page.goto('/admin');
 
-    // The Users tab is universal — wait for it so we know the page
-    // mounted before asserting the Branding tab is absent.
+    // Without app_setting.manage the sidebar's Admin group still has
+    // Users (everyone sees it) but no Branding link. Wait for the
+    // Users link to confirm the page mounted before asserting absence.
     await expect(
-      page.getByRole('tab', { name: /Users|Gebruikers/i }),
+      page.getByRole('link', { name: /Users|Gebruikers/i }).first(),
     ).toBeVisible();
     await expect(
-      page.getByRole('tab', { name: /Branding|Huisstijl/i }),
+      page.getByRole('link', { name: /Branding|Huisstijl/i }),
     ).toHaveCount(0);
 
-    // Direct-URL access also falls through to the default tab — the
-    // AdminPage validates ``?tab=branding`` against the user's perms.
-    await page.goto('/admin?tab=branding');
-    await expect(
-      page.getByRole('tab', { name: /Users|Gebruikers/i }),
-    ).toHaveAttribute('aria-selected', 'true');
+    // Direct-URL access falls through to the first visible section —
+    // SectionPage redirects when the path param doesn't match
+    // anything the viewer has perm to see.
+    await page.goto('/admin/branding');
+    await expect(page).toHaveURL(/\/admin\/users$/);
   });
 });
 

@@ -26,8 +26,8 @@ tested. Bring your own domain on top.
   built-in handlers (audit pruning, email outbox draining, account
   hard-delete), plus a host-app handler registry
 - **Email**: pluggable backend (console in dev, SMTP relay in prod),
-  DB-stored Jinja2 templates edited via CKEditor, durable outbox
-  with exponential-backoff retries
+  DB-stored Jinja2 templates edited via a Mantine-themed Tiptap
+  editor, durable outbox with exponential-backoff retries
 - **Deploy**: Docker Compose. An internal nginx terminates TLS with a
   self-signed cert; you front it with whatever public proxy you like.
 
@@ -174,7 +174,14 @@ admin-only.
 
 ## What's in the admin UI
 
-Out of the box you get tabs for:
+The left sidebar carries two expandable groups: **Settings** (above)
+and **Admin** (below). Atrium ships every built-in surface listed
+below in **Admin**. **Settings** is reserved for application-level
+preferences a host app registers — atrium ships zero items there, so
+the group hides itself until you push something into it via
+`registerAdminTab({ section: 'settings', … })`.
+
+Out of the box the **Admin** group contains:
 
 - **Users** — list, invite (multi-role), edit role assignments, reset
   password, impersonate (super-admin), permanent delete (with grace
@@ -187,9 +194,9 @@ Out of the box you get tabs for:
   (Turnstile / hCaptcha), password policy, role-mandatory 2FA list
 - **Translations** — enabled locales, per-key string overrides per
   locale
-- **Email templates** — edit subject + HTML with a CKEditor; per-locale
-  tabs (a SegmentedControl) let you author nl / de / fr variants on
-  top of the seeded English row
+- **Email templates** — edit subject + HTML with a Mantine-themed
+  Tiptap editor; per-locale tabs (a SegmentedControl) let you author
+  nl / de / fr variants on top of the seeded English row
 - **Reminders** — wire scheduled emails to host-defined anchors
 - **Audit** — read-only log view, filterable by entity / action
 

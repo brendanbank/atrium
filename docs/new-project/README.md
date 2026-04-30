@@ -640,7 +640,9 @@ interface AtriumRegistry {
   }) => void;
   registerAdminTab: (t: {
     key: string; label: string; icon?: unknown;
-    perm?: string; element: unknown;
+    perm?: string;
+    section?: 'admin' | 'settings'; order?: number;
+    render: () => unknown;
   }) => void;
   registerProfileItem: (p: {
     key: string;
@@ -989,7 +991,7 @@ Adding an endpoint, a job, a UI fragment — the standard moves:
 | Home widget                   | A React component in `frontend/src/`                     | `reg.registerHomeWidget({ key, render })`                                  |
 | Dedicated route               | A page component                                         | `reg.registerRoute({ key, path, element, layout? })`                       |
 | Sidebar link                  | A label + path                                           | `reg.registerNavItem({ key, label, to, icon?, condition? })`               |
-| Admin tab                     | A component, gated by a permission                       | `reg.registerAdminTab({ key, label, icon?, perm, element })`               |
+| Admin / Settings tab          | A component, gated by a permission                       | `reg.registerAdminTab({ key, label, icon?, perm, section?, order?, render })` |
 | Profile-page card             | A component                                              | `reg.registerProfileItem({ key, slot?, render, condition? })`              |
 | Bell / inbox per-kind UI      | Title + (optional) detail-modal element                  | `reg.registerNotificationKind({ kind, render, title?, href? })`            |
 | Selective React Query refresh | Handler that invalidates the host's affected query keys  | `reg.subscribeEvent('your.kind', (evt) => qc.invalidateQueries({...}))`    |

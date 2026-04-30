@@ -127,6 +127,14 @@ export interface NavItem {
   order?: number;
 }
 
+/** Sidebar bucket an admin tab lives in. `admin` is the default and
+ *  groups every atrium-shipped admin surface plus host admin tooling.
+ *  `settings` is a parallel sibling group above Admin reserved for
+ *  application-level preferences — atrium ships zero items here, so
+ *  the Settings parent hides entirely until a host registers into it.
+ *  Available since atrium 0.17. */
+export type AdminSection = 'admin' | 'settings';
+
 export interface AdminTab {
   key: string;
   label: string;
@@ -134,17 +142,22 @@ export interface AdminTab {
   /** Permission code; the tab is hidden for users without it. Omit to
    *  show the tab to every viewer with admin access. */
   perm?: string;
+  /** Sidebar bucket. Default `'admin'`. Set `'settings'` to push a
+   *  host-app preference page into the Settings group instead.
+   *  Available since atrium 0.17. */
+  section?: AdminSection;
   /** Returns a fresh element each time the tab is selected. Strongly
    *  preferred — see `RouteEntry.render`. Exactly one of `render` /
    *  `element` must be supplied. */
   render?: () => ReactElement;
   /** @deprecated Pass `render: () => element` instead. */
   element?: ReactElement;
-  /** Optional sort key. Lower values render further left. Items
-   *  without `order` keep registration order, sorted **after** every
-   *  item that has one. Atrium's built-in tabs use 100..900 in steps
-   *  of 100; a host tab with `order: 750` would slot between Email
-   *  templates (700) and Reminders (800). Available since atrium 0.16. */
+  /** Optional sort key. Lower values render higher in the sidebar
+   *  group. Items without `order` keep registration order, sorted
+   *  **after** every item that has one. Atrium's built-in admin tabs
+   *  use 100..900 in steps of 100; a host tab with `order: 750`
+   *  would slot between Email templates (700) and Reminders (800).
+   *  Available since atrium 0.16. */
   order?: number;
 }
 
@@ -221,6 +234,17 @@ export interface AtriumRegistry {
   registerRoute: (route: RouteEntry) => void;
   registerNavItem: (item: NavItem) => void;
   registerAdminTab: (tab: AdminTab) => void;
+  /** Relocate one of atrium's built-in admin tabs into a different
+   *  sidebar group, and optionally re-rank it within that group. Pass
+   *  the tab's stable atrium key (e.g. `'branding'`, `'emails'`,
+   *  `'outbox'`, `'reminders'`, `'translations'`); the perm gate the
+   *  built-in already declares is preserved. Available since atrium
+   *  0.17. */
+  setBuiltinAdminTabSection?: (
+    key: string,
+    section: AdminSection,
+    order?: number,
+  ) => void;
   registerProfileItem: (item: ProfileItem) => void;
   registerNotificationKind: (renderer: NotificationKindRenderer) => void;
   registerLocale: (overlay: LocaleOverlay) => void;

@@ -163,7 +163,7 @@ test('admin can delete a user from the admin UI', async ({ browser }) => {
       (window as any).confirm = () => true;
     });
 
-    await adminPage.goto('/admin?tab=users');
+    await adminPage.goto('/admin/users');
 
     // The Users tab carries two tables — Users and Invitations. The
     // freshly-created user appears in BOTH (one as a user record, the

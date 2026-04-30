@@ -5,6 +5,7 @@
   "nav": {
     "home": "Accueil",
     "admin": "Administration",
+    "settings": "Paramètres",
     "profile": "Profil",
     "logout": "Se déconnecter",
     "notifications": "Notifications"
@@ -191,7 +192,11 @@
     "deleteFailed": "Impossible de supprimer",
     "active": "Actif",
     "inactive": "Inactif",
-    "status": "Statut"
+    "status": "Statut",
+    "noVisibleSections": "Vous n'avez accès à aucune section d'administration."
+  },
+  "settings": {
+    "empty": "Aucun paramètre n'a été enregistré pour cette application."
   },
   "authAdmin": {
     "tab": "Auth",

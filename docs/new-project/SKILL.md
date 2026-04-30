@@ -360,7 +360,7 @@ from app.logging import log                              # structlog logger
 registerHomeWidget({ key, render })
 registerRoute({ key, path, element, requireAuth?, layout? })
 registerNavItem({ key, label, to, icon?, condition? })
-registerAdminTab({ key, label, icon?, perm?, element })
+registerAdminTab({ key, label, icon?, perm?, section?, order?, render })
 registerProfileItem({ key, slot?, render, condition? })
 registerNotificationKind({ kind, render, title?, href? })
 subscribeEvent(kind, (evt) => { /* qc.invalidateQueries(...) */ })

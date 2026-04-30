@@ -57,8 +57,23 @@ if (!reg || !AtriumReact) {
     label: 'Hello World',
     icon: AtriumReact.createElement(IconHandStop, { size: 14 }),
     perm: 'hello.toggle',
+    section: 'settings',
+    // Sort after the relocated atrium built-ins below — see the
+    // setBuiltinAdminTabSection block.
+    order: 600,
     render: () => makeWrapperElement(<HelloAdminTab />),
   });
+  // Move atrium's content-management built-ins (branding, email
+  // templates / outbox, reminders, translations) into the Settings
+  // group in the order: Branding -> Email templates -> Email outbox
+  // -> Reminders -> Translations. Each call is optional on older
+  // atrium images: the registry Proxy turns it into a console warning
+  // + no-op when ``setBuiltinAdminTabSection`` isn't shipped yet.
+  reg.setBuiltinAdminTabSection?.('branding', 'settings', 100);
+  reg.setBuiltinAdminTabSection?.('emails', 'settings', 200);
+  reg.setBuiltinAdminTabSection?.('outbox', 'settings', 300);
+  reg.setBuiltinAdminTabSection?.('reminders', 'settings', 400);
+  reg.setBuiltinAdminTabSection?.('translations', 'settings', 500);
   reg.registerProfileItem({
     key: 'hello-profile',
     slot: 'after-roles',

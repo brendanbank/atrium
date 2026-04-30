@@ -133,24 +133,37 @@ test.describe('hello-world example', () => {
   test('admin tab renders for admin and is hidden for non-admin', async ({
     page,
   }) => {
+    // Hello World is registered against two registries: a top-level
+    // sidebar nav item (always visible) and an admin tab gated by
+    // ``hello.toggle`` and pushed into the Settings sidebar group via
+    // ``section: 'settings'``. The Settings group only auto-expands
+    // when the active path starts with ``/settings``, so navigating
+    // straight to it both proves the route renders the admin tab AND
+    // surfaces the Settings child link in the sidebar accessibility
+    // tree. A non-admin lacks ``hello.toggle`` so the Settings group
+    // has zero items and hides itself entirely — direct-URL access
+    // bounces them back via SectionPage's first-available redirect.
     await loginAsSuperAdmin(page);
-    await page.goto('/admin');
-    // The tab list lives at the top of the admin shell. Match by role
-    // for stability against label translation.
+    await page.goto('/settings/hello');
+    // The two "Hello World" links: the top-level sidebar nav points
+    // at the host's /hello page; the Settings child points at the
+    // admin tab route. Sidebar order interleaves them via the nav's
+    // ``order`` field, so probe by href rather than first/last.
     await expect(
-      page.getByRole('tab', { name: 'Hello World' }),
-    ).toBeVisible();
+      page.getByRole('link', { name: 'Hello World' }),
+    ).toHaveCount(2);
+    await expect(
+      page.locator('a[href="/settings/hello"]', { hasText: 'Hello World' }),
+    ).toHaveCount(1);
+    await expect(
+      page.locator('a[href="/hello"]', { hasText: 'Hello World' }),
+    ).toHaveCount(1);
 
-    // Switch into a non-admin and assert the tab is hidden. atrium's
-    // /admin route gates by role rather than perm, so a plain ``user``
-    // sees an empty tab list — but they shouldn't even see this tab
-    // option in the markup (perm is filtered server-side via
-    // me.permissions and client-side via getAdminTabs filter).
     await loginAsUser(page);
     await page.goto('/admin');
     await expect(
-      page.getByRole('tab', { name: 'Hello World' }),
-    ).toHaveCount(0);
+      page.getByRole('link', { name: 'Hello World' }),
+    ).toHaveCount(1);
   });
 
   test('toggle on starts the tick, toggle off stops it', async ({ page }) => {

@@ -19,25 +19,35 @@ import sys
 from sqlalchemy import select
 from sqlalchemy.dialects.mysql import insert
 
-from app.db import get_session_factory
+from app.db import get_engine, get_session_factory
 from app.models.ops import AppSetting
 
 
 async def _seed(url: str) -> None:
     factory = get_session_factory()
-    async with factory() as session:
-        existing = (
-            await session.execute(
-                select(AppSetting).where(AppSetting.key == "system")
-            )
-        ).scalar_one_or_none()
-        merged = {**(existing.value if existing else {}), "host_bundle_url": url}
+    try:
+        async with factory() as session:
+            existing = (
+                await session.execute(
+                    select(AppSetting).where(AppSetting.key == "system")
+                )
+            ).scalar_one_or_none()
+            merged = {
+                **(existing.value if existing else {}),
+                "host_bundle_url": url,
+            }
 
-        stmt = insert(AppSetting).values(key="system", value=merged)
-        stmt = stmt.on_duplicate_key_update(value=merged)
-        await session.execute(stmt)
-        await session.commit()
-        print(f"system.host_bundle_url set to {url!r}")
+            stmt = insert(AppSetting).values(key="system", value=merged)
+            stmt = stmt.on_duplicate_key_update(value=merged)
+            await session.execute(stmt)
+            await session.commit()
+            print(f"system.host_bundle_url set to {url!r}")
+    finally:
+        # Dispose the engine while the loop is still alive. Without
+        # this, aiomysql's Connection.__del__ runs after asyncio.run()
+        # closes the loop and prints a noisy "Event loop is closed"
+        # traceback at interpreter shutdown.
+        await get_engine().dispose()
 
 
 def main() -> None:
