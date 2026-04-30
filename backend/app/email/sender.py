@@ -54,7 +54,16 @@ _FALLBACK_LOCALE = "en"
 
 
 def _html_to_text(html: str) -> str:
-    """Coarse HTML to text for the plain-text alternative."""
+    """Coarse HTML to text for the plain-text alternative.
+
+    Tag-stripping is destructive — an ``<a href="X">Y</a>`` becomes
+    ``Y`` with the URL gone. Templates whose plaintext alternative
+    needs the URL surfaced should follow the ``email_verify`` pattern
+    and include a paste-able ``{{ url }}`` line outside the anchor:
+
+        <a href="{{ url }}">Click here</a>
+        <p>Or paste this link: {{ url }}</p>
+    """
     text = _BREAK_RE.sub("\n", html)
     text = _TAG_RE.sub("", text)
     text = unescape(text)

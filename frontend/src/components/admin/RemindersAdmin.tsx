@@ -88,11 +88,20 @@ function RuleFormModal({
       notifications.show({ color: 'teal', message: t('reminders.saved') });
       onClose();
     } catch (err) {
-      const resp = (err as { response?: { data?: { detail?: string } } }).response;
-      notifications.show({
-        color: 'red',
-        message: resp?.data?.detail ?? t('admin.saveFailed'),
-      });
+      const resp = (err as { response?: { data?: { detail?: unknown } } }).response;
+      // ``detail`` is a string for app-raised HTTPException (the common
+      // case) but a list of validation-error objects on a 422 from
+      // FastAPI / Pydantic. Mantine's Notification renders ``message``
+      // as a React child, so passing a non-string crashes the page
+      // (React error #31). Coerce to a string.
+      const detail = resp?.data?.detail;
+      const message =
+        typeof detail === 'string'
+          ? detail
+          : Array.isArray(detail)
+            ? detail.map((d) => (typeof d === 'object' && d !== null && 'msg' in d ? String((d as { msg: unknown }).msg) : String(d))).join('; ')
+            : t('admin.saveFailed');
+      notifications.show({ color: 'red', message });
     }
   });
 
@@ -113,7 +122,14 @@ function RuleFormModal({
           <Select
             label={t('reminders.template')}
             required
-            data={templates.map((t_) => ({ value: t_.key, label: t_.key }))}
+            // ``email_templates`` carries one row per (key, locale)
+            // since 0005 — the Select keys on ``template_key`` only, so
+            // collapse duplicates here. Mantine v9 throws "Duplicate
+            // options are not supported" if the same value appears
+            // twice in ``data``, which would page-error the modal.
+            data={Array.from(new Set(templates.map((t_) => t_.key)))
+              .sort()
+              .map((key) => ({ value: key, label: key }))}
             searchable
             {...form.getInputProps('template_key')}
           />
