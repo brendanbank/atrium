@@ -18,11 +18,12 @@ import { getHomeWidgets } from '@/host/registry';
  *  out of the 680px column. The atrium-shipped welcome content stays
  *  in the narrow column.
  *
- *  The ``home.intro`` line is integrator-facing copy: it tells someone
- *  who's just spun up a fresh starter where to hook their own pages.
- *  Once any host widget is registered the intro is noise, so we hide
- *  it. The greeting + the action buttons stay either way — they're
- *  useful chrome regardless of whether a host owns the page. */
+ *  Once any host widget is registered the greeting + intro read as
+ *  orphan chrome above whatever the widget itself owns, so we hide
+ *  both (issue #100). On a fresh starter with zero widgets the
+ *  greeting + intro still render so the page is never blank. The
+ *  action buttons stay either way — they're useful nav regardless
+ *  of whether a host owns the page. */
 export function HomePage() {
   const { t } = useTranslation();
   const { data: me } = useMe();
@@ -34,12 +35,16 @@ export function HomePage() {
       <HostHomeWidgets />
       <Container size={680}>
         <Stack gap="md">
-          <Title order={2}>
-            {me?.full_name
-              ? t('home.welcomeNamed', { name: me.full_name })
-              : t('home.welcome')}
-          </Title>
-          {!hasHostWidgets && <Text c="dimmed">{t('home.intro')}</Text>}
+          {!hasHostWidgets && (
+            <>
+              <Title order={2}>
+                {me?.full_name
+                  ? t('home.welcomeNamed', { name: me.full_name })
+                  : t('home.welcome')}
+              </Title>
+              <Text c="dimmed">{t('home.intro')}</Text>
+            </>
+          )}
           <Group>
             <Button
               component={Link}

@@ -1,6 +1,6 @@
 {
   "name": "@brendanbank/create-atrium-host",
-  "version": "0.20.0",
+  "version": "0.21.0",
   "description": "Scaffolder for new atrium host extensions: backend Python package + frontend Vite bundle + compose stack + CI, all wired against atrium's published image and host SDK packages. Run via `npx @brendanbank/create-atrium-host <name>`.",
   "license": "BSD-2-Clause",
   "type": "module",

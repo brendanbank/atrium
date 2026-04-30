@@ -92,13 +92,14 @@ test.describe('hello-world example', () => {
     await expect(card.getByTestId('hello-toggle')).toBeVisible();
   });
 
-  test('starter intro is hidden when a host home widget is registered', async ({
+  test('starter greeting and intro are hidden when a host home widget is registered', async ({
     page,
   }) => {
     // The integrator-onboarding line ("This is the Atrium starter
-    // shell...") is noise once a host has shipped its own home widget.
-    // The intro should not render on a page where the hello-world
-    // widget mounts.
+    // shell...") and the "Welcome, <name>" greeting are both orphan
+    // chrome once a host has shipped its own home widget (issue #100).
+    // Neither should render on a page where the hello-world widget
+    // mounts.
     await loginAsSuperAdmin(page);
     await page.goto('/');
     await expect(page.getByTestId('hello-card')).toBeVisible();
@@ -107,6 +108,11 @@ test.describe('hello-world example', () => {
         'This is the Atrium starter shell. Hook your domain pages onto the routes from here.',
       ),
     ).toHaveCount(0);
+    // The "Welcome, ..." greeting is rendered as a level-2 heading by
+    // the starter HomePage; the hello widget itself only emits a
+    // level-4 Title, so a missing level-2 heading is a tight proxy for
+    // "starter chrome is gone".
+    await expect(page.getByRole('heading', { level: 2 })).toHaveCount(0);
   });
 
   test('nav item appears in the sidebar', async ({ page }) => {

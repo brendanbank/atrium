@@ -10,7 +10,7 @@ name = "atrium-backend"
 # ``window.__ATRIUM_VERSION__`` for host-bundle feature detection.
 # Until the next release-bump lands, ``__ATRIUM_VERSION__`` reports
 # this value verbatim — i.e. the *previous* released version.
-version = "0.20.0"
+version = "0.21.0"
 description = "Atrium — auth/RBAC/notifications/audit starter (backend)"
 readme = "../README.md"
 requires-python = ">=3.12"
