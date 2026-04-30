@@ -103,18 +103,28 @@ jobs:
       - name: Verify SPA bundle bakes /api prefix
         if: matrix.platform == 'linux/amd64'
         run: |
+          # ``--output type=local`` exports the full filesystem of the
+          # target stage, so the bundle lands at ``app/dist/assets/...``
+          # (mirroring the Dockerfile's ``WORKDIR /app``), not
+          # ``dist/assets/...``. ``find`` keeps the check robust to
+          # future workdir changes.
           docker buildx build \
             --target frontend-builder \
             --build-arg VITE_API_BASE_URL=/api \
             --output type=local,dest=/tmp/spa-check \
             --cache-from type=gha,scope=runtime-${{ env.PLATFORM_PAIR }} \
             .
-          bundle=$(ls /tmp/spa-check/dist/assets/index-*.js | head -1)
+          bundle=$(find /tmp/spa-check -path '*/dist/assets/index-*.js' -type f | head -1)
+          if [ -z "$bundle" ]; then
+            echo "::error::SPA bundle file not found in /tmp/spa-check — exporter layout changed?" >&2
+            find /tmp/spa-check -maxdepth 4 -type d | head -20 >&2
+            exit 1
+          fi
           if ! grep -q '/api' "$bundle"; then
             echo "::error::SPA bundle does not contain /api — VITE_API_BASE_URL build arg lost (issue #91)" >&2
             exit 1
           fi
-          echo "SPA bundle contains /api prefix ($(basename "$bundle"))"
+          echo "SPA bundle contains /api prefix ($bundle)"
 
       - name: Build and push by digest
         id: build
