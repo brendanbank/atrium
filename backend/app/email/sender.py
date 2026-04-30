@@ -10,9 +10,10 @@ and falls back to ``locale='en'`` when no row exists for the requested
 locale — a host app that hasn't authored a translation still ships a
 working email instead of a 500.
 
-Subject is a single Jinja line; body is HTML produced by CKEditor with
-Jinja expressions inside. A plain-text version of the body is derived
-by stripping tags so clients that disable HTML still render sensibly.
+Subject is a single Jinja line; body is HTML produced by the admin
+rich-text editor with Jinja expressions inside. A plain-text version
+of the body is derived by stripping tags so clients that disable HTML
+still render sensibly.
 """
 from __future__ import annotations
 
@@ -35,7 +36,7 @@ from app.models.ops import EmailLog
 # ``<script>alert(1)</script>`` or an attacker-controlled notes field
 # gets HTML-escaped into the rendered email body rather than executing
 # in an owner's inbox. Template authors who genuinely want raw HTML
-# (e.g. a precomposed CKEditor body passed through a context var) can
+# (e.g. a precomposed editor body passed through a context var) can
 # opt out explicitly with ``{{ value | safe }}``.
 _env = Environment(
     loader=BaseLoader(),

@@ -30,9 +30,9 @@ export function useEmailTemplates() {
 /** Fetch a specific (key, locale) row.
  *
  * The admin UI calls this whenever the locale picker changes inside a
- * modal so CKEditor's body always reflects the row the next save will
- * PATCH. ``enabled`` lets the caller short-circuit until both axes
- * are known (the modal mounts with no template selected). */
+ * modal so the editor's body always reflects the row the next save
+ * will PATCH. ``enabled`` lets the caller short-circuit until both
+ * axes are known (the modal mounts with no template selected). */
 export function useEmailTemplate(
   key: string | null,
   locale: string | null,

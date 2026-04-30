@@ -65,7 +65,7 @@ async def update_template(
     row = await session.get(EmailTemplate, (key, locale))
     updates = payload.model_dump(exclude_unset=True)
     if "body_html" in updates and updates["body_html"] is not None:
-        # Bleach runs on every write so CKEditor or a pasted body
+        # Bleach runs on every write so the editor or a pasted body
         # containing <script>/on*= handlers / javascript: URLs can't
         # land in the DB. Allowed-list is in services.html_sanitise.
         updates["body_html"] = sanitise_template_body(updates["body_html"])

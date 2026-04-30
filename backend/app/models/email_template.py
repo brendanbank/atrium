@@ -18,8 +18,8 @@ class EmailTemplate(Base):
     string so it can hold BCP-47 region tags like ``en-US`` or ``pt-BR``
     if a host app needs them; the seed only ships base codes.
 
-    Subject is a single Jinja line; body is HTML (as produced by
-    CKEditor) with Jinja expressions inside.
+    Subject is a single Jinja line; body is HTML (as produced by the
+    admin rich-text editor) with Jinja expressions inside.
     """
     __tablename__ = "email_templates"
 

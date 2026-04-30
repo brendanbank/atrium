@@ -3,8 +3,8 @@
 
 """Owner-authored HTML (email templates) → safe HTML.
 
-CKEditor writes reasonably clean output, but we shouldn't trust it —
-a compromised owner account could plant ``<script>``,
+The rich-text editor writes reasonably clean output, but we shouldn't
+trust it — a compromised owner account could plant ``<script>``,
 ``onerror=…``, or ``javascript:`` URLs that execute for the next
 admin to preview a template. Bleach strips everything outside the
 allowed tag/attribute set and rewrites any non-http(s)/mailto URL
@@ -64,7 +64,7 @@ def sanitise_template_body(html: str) -> str:
     """Strip dangerous tags / attributes / protocols from an owner-
     authored email template body. Safe input passes through unchanged
     (aside from whitespace normalisation that bleach does inside
-    attributes — typical CKEditor output round-trips)."""
+    attributes — typical rich-text editor output round-trips)."""
     return bleach.clean(
         html,
         tags=ALLOWED_TAGS,
