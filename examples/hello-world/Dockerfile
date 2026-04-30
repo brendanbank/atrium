@@ -18,7 +18,7 @@
 # rather than ``:latest`` so a passive image scan reports the actual
 # build base; CI / compose typically override this via build args
 # (``ATRIUM_IMAGE=atrium-local:source`` for PR tests).
-ARG ATRIUM_IMAGE=ghcr.io/brendanbank/atrium:0.17
+ARG ATRIUM_IMAGE=ghcr.io/brendanbank/atrium:0.18
 
 # ---- frontend-builder ----
 #

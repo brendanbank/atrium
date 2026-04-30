@@ -38,9 +38,15 @@ import {
   type UseQueryResult,
 } from '@tanstack/react-query';
 
-import type { UserContext } from '@brendanbank/atrium-host-types';
+import type {
+  AtriumUserChangeDetail,
+  UserContext,
+} from '@brendanbank/atrium-host-types';
 
-export type { UserContext } from '@brendanbank/atrium-host-types';
+export type {
+  AtriumUserChangeDetail,
+  UserContext,
+} from '@brendanbank/atrium-host-types';
 export { __atrium_t__ } from '../i18n';
 
 interface AtriumContextValue {
@@ -386,4 +392,105 @@ export function useAtriumNavigate(): (
  *  cache is updated by the event subscription. */
 export function __resetAtriumLocationCacheForTests(): void {
   cachedLocation = null;
+}
+
+// ---------------------------------------------------------------------------
+// Identity transitions — `atrium:userchange`
+// ---------------------------------------------------------------------------
+
+const ATRIUM_USERCHANGE_EVENT = 'atrium:userchange';
+
+const NO_USERCHANGE: AtriumUserChangeDetail = {
+  previous: null,
+  current: null,
+  nonce: 0,
+};
+
+// Module-level cache so `useSyncExternalStore.getSnapshot` returns a
+// referentially-stable object across renders. Updated only when an
+// `atrium:userchange` event lands; `null` until the first event.
+let cachedUserChange: AtriumUserChangeDetail | null = null;
+
+function getUserChangeSnapshot(): AtriumUserChangeDetail {
+  return cachedUserChange ?? NO_USERCHANGE;
+}
+
+function getServerUserChangeSnapshot(): AtriumUserChangeDetail {
+  return NO_USERCHANGE;
+}
+
+function subscribeUserChange(onChange: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const handler = (e: Event) => {
+    const detail = (
+      e as CustomEvent<Partial<AtriumUserChangeDetail> | undefined>
+    ).detail;
+    if (
+      detail &&
+      (detail.previous === null || typeof detail.previous === 'number') &&
+      (detail.current === null || typeof detail.current === 'number')
+    ) {
+      cachedUserChange = {
+        previous: detail.previous,
+        current: detail.current,
+        nonce: typeof detail.nonce === 'number' ? detail.nonce : 0,
+      };
+      onChange();
+    }
+  };
+  window.addEventListener(ATRIUM_USERCHANGE_EVENT, handler);
+  return () => window.removeEventListener(ATRIUM_USERCHANGE_EVENT, handler);
+}
+
+/** Subscribe to atrium's identity transitions from inside a host
+ *  bundle's React tree. Returns the most recent `atrium:userchange`
+ *  detail — `{previous, current, nonce}` — or a zeroed sentinel
+ *  (`{previous: null, current: null, nonce: 0}`) before any event has
+ *  fired. The hook does NOT report the initial signed-in state on
+ *  mount; use `useUserContext()` for that.
+ *
+ *  Bridges the `atrium:userchange` CustomEvent atrium dispatches on
+ *  `window` through `useSyncExternalStore`, so multiple subscribers in
+ *  the same tree share one event listener and the snapshot is
+ *  referentially stable when nothing has changed.
+ *
+ *  The canonical use is wiping a host's own QueryClient when the user
+ *  swaps — without it, user A's host cache renders for user B until
+ *  staleness forces a refetch:
+ *
+ *  ```tsx
+ *  function HostCacheGuard({ client }: { client: QueryClient }) {
+ *    const { nonce } = useAtriumUser();
+ *    useEffect(() => {
+ *      // nonce > 0 means at least one transition has fired; on the
+ *      // first paint we skip (the host already loaded against the
+ *      // current user).
+ *      if (nonce > 0) client.clear();
+ *    }, [nonce, client]);
+ *    return null;
+ *  }
+ *  ```
+ *
+ *  Hosts that don't use React (or want to clear the cache from outside
+ *  any component) can subscribe directly:
+ *  `window.addEventListener('atrium:userchange', () => client.clear())`.
+ *
+ *  Available on atrium 0.18+. On older atrium images the event is
+ *  never dispatched, so the hook stays at the zeroed sentinel — host
+ *  bundles that need to support pre-0.18 atrium can read
+ *  `window.__ATRIUM_VERSION__` and fall back to the in-component
+ *  watch-`useUserContext` workaround. */
+export function useAtriumUser(): AtriumUserChangeDetail {
+  return useSyncExternalStore(
+    subscribeUserChange,
+    getUserChangeSnapshot,
+    getServerUserChangeSnapshot,
+  );
+}
+
+/** Test-only: drop the cached snapshot so the next `getSnapshot`
+ *  returns the zeroed sentinel. Production code never calls this — the
+ *  cache is updated by the event subscription. */
+export function __resetAtriumUserCacheForTests(): void {
+  cachedUserChange = null;
 }

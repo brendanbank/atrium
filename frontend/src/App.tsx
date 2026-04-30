@@ -8,6 +8,7 @@ import { MaintenancePage } from './components/MaintenancePage';
 import { RequireAuth } from './components/RequireAuth';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useMe } from './hooks/useAuth';
+import { IdentityBridge } from './host/identity';
 import { NavigationBridge } from './host/navigation';
 import { getRoutes } from './host/registry';
 import { AcceptInvitePage } from './routes/AcceptInvitePage';
@@ -36,6 +37,7 @@ export default function App() {
     return (
       <>
         <NavigationBridge />
+        <IdentityBridge />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/2fa" element={<TwoFactorPage />} />
@@ -61,6 +63,7 @@ export default function App() {
   return (
     <>
       <NavigationBridge />
+      <IdentityBridge />
       <Routes>
         {/* Public auth routes (no layout) */}
         <Route path="/login" element={<LoginPage />} />

@@ -52,6 +52,38 @@ export interface AdminUserRow {
 }
 
 // ---------------------------------------------------------------------------
+// Window event payloads
+// ---------------------------------------------------------------------------
+
+/** Detail payload of the ``atrium:userchange`` window CustomEvent
+ *  atrium dispatches whenever the signed-in user identity changes —
+ *  login, logout, logout-all, impersonation start/stop, same-tab
+ *  re-login as a different user. ``previous`` and ``current`` are user
+ *  ids; ``null`` means signed out (or, for ``previous``, transitioning
+ *  out of the signed-out state). ``nonce`` is a monotonic per-event
+ *  counter. The event does NOT fire on first identity observation
+ *  after a page load (the user has not changed).
+ *
+ *  Available since atrium 0.18. The canonical use is host bundles
+ *  clearing their own QueryClient cache when the user changes — atrium
+ *  clears its own cache via ``qc.clear()`` on logout, but a host bundle
+ *  runs a separate QueryClient (by design — see
+ *  ``@brendanbank/atrium-host-bundle-utils/react``) and needs an
+ *  external signal:
+ *
+ *  ```ts
+ *  window.addEventListener('atrium:userchange', () => {
+ *    hostQueryClient.clear();
+ *  });
+ *  ```
+ */
+export interface AtriumUserChangeDetail {
+  previous: number | null;
+  current: number | null;
+  nonce: number;
+}
+
+// ---------------------------------------------------------------------------
 // Notification + event payloads
 // ---------------------------------------------------------------------------
 
