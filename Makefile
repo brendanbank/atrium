@@ -7,7 +7,7 @@
         frontend-typecheck preflight \
         release-bump release-wait release-notes ci-wait \
         clean clean-atrium prod-build prod-up prod-down \
-        smoke smoke-extended smoke-dev smoke-up smoke-down \
+        smoke smoke-extended smoke-dev smoke-up smoke-down smoke-host-deps \
         smoke-hello smoke-hello-dev smoke-hello-down smoke-hello-ghcr \
         dev-bootstrap-hello dev-bootstrap-hello-down \
         dev-bootstrap-hello-ghcr dev-bootstrap-hello-ghcr-down hello-smoke-env \
@@ -411,6 +411,10 @@ SMOKE_EMAIL_OTP_EMAIL := email-otp-admin@example.com
 SMOKE_EMAIL_OTP_PASSWORD := email-otp-pw-12345
 
 smoke-up:
+	@if [ ! -f .env ]; then \
+		echo "creating .env from .env.example"; \
+		cp .env.example .env; \
+	fi
 	$(COMPOSE_E2E) up -d --build
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do \
 		curl -fsS http://localhost:8000/api/readyz > /dev/null && break; \
@@ -427,7 +431,18 @@ smoke-up:
 smoke-down:
 	$(COMPOSE_E2E) down -v
 
-smoke: smoke-up
+# Playwright runs on the host (chromium binary is glibc-only and the
+# dev web container is alpine/musl). Install host-side deps if
+# missing — idempotent no-op once present.
+smoke-host-deps:
+	@if [ ! -d frontend/node_modules ]; then \
+		echo "installing host-side frontend deps for Playwright..."; \
+		cd frontend && pnpm install --ignore-workspace --silent; \
+	fi
+	@cd frontend && pnpm exec playwright install chromium 2>/dev/null \
+		|| pnpm exec playwright install chromium
+
+smoke: smoke-up smoke-host-deps
 	cd frontend && E2E_BASE_URL=http://localhost:8000 \
 		E2E_ADMIN_EMAIL=$(SMOKE_EMAIL) E2E_ADMIN_PASSWORD=$(SMOKE_PASSWORD) \
 		E2E_ADMIN_TOTP_SECRET=$(SMOKE_TOTP_SECRET) \
@@ -439,7 +454,7 @@ smoke: smoke-up
 # the e2e stack — the full pre-prune behaviour. Use before risky
 # frontend changes; the PR-gating ``make smoke`` only runs the four
 # golden-path specs.
-smoke-extended: smoke-up
+smoke-extended: smoke-up smoke-host-deps
 	cd frontend && E2E_BASE_URL=http://localhost:8000 \
 		E2E_ADMIN_EMAIL=$(SMOKE_EMAIL) E2E_ADMIN_PASSWORD=$(SMOKE_PASSWORD) \
 		E2E_ADMIN_TOTP_SECRET=$(SMOKE_TOTP_SECRET) \

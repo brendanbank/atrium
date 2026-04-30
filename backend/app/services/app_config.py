@@ -218,6 +218,17 @@ async def put_namespace(
     stmt = stmt.on_duplicate_key_update(value=stmt.inserted.value)
     await session.execute(stmt)
     await session.commit()
+
+    # Invalidate consumer caches whose source data is this namespace.
+    # The maintenance middleware caches ``system.maintenance_mode`` for
+    # 2 s; without this reset, a non-super-admin request that lands
+    # within that window after an admin flips the flag still sees the
+    # stale value (Playwright suite saw cascading 503s on tests
+    # following the maintenance specs).
+    if key == "system":
+        from app.services.maintenance import reset_cache as _reset_maint
+
+        _reset_maint()
     return validated
 
 

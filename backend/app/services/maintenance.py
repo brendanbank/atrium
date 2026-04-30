@@ -36,11 +36,18 @@ from app.models.ops import AppSetting
 from app.models.rbac import Role, role_permissions, user_roles
 from app.settings import get_settings
 
-# Endpoints that must remain reachable when maintenance is on. Health
-# probes for monitoring; /api/app-config so the frontend can render
-# the maintenance page itself; the JWT login + 2FA flow so a
+# API endpoints that must remain reachable when maintenance is on.
+# Health probes for monitoring; /api/app-config so the frontend can
+# render the maintenance page itself; the JWT login + 2FA flow so a
 # super_admin can sign in to disable maintenance; /api/users/me so
 # the client knows whether the current cookie is super_admin.
+#
+# Non-/api/* requests (the SPA's HTML + JS bundle, static assets) are
+# inherently bypassed — see ``MaintenanceMiddleware.dispatch``. The SPA
+# loads, fetches /api/app-config, sees ``system.maintenance_mode=true``,
+# and renders ``MaintenancePage`` client-side. If the SPA itself were
+# 503'd here the browser would receive raw JSON instead of the SPA
+# HTML and there would be no way to render a friendly maintenance page.
 BYPASS_PATHS: Final = frozenset({
     "/api/healthz",
     "/api/readyz",
@@ -163,11 +170,19 @@ class MaintenanceMiddleware(BaseHTTPMiddleware):
     nothing else."""
 
     async def dispatch(self, request: Request, call_next):
+        # Non-API requests serve the SPA HTML + assets — let them
+        # through unconditionally so the SPA can render its own
+        # MaintenancePage. The SPA fetches /api/app-config (on the
+        # bypass list below) and reads ``system.maintenance_mode``
+        # itself.
+        path = request.url.path
+        if not path.startswith("/api/"):
+            return await call_next(request)
+
         # Bypass-path check FIRST — it's free and avoids hitting the DB
         # on /healthz, /readyz, the auth flow, and /app-config. The
         # smoke-up flow polls /readyz before running alembic, so a DB
         # query here would deadlock the bring-up sequence.
-        path = request.url.path
         if _is_bypass_path(path):
             return await call_next(request)
 

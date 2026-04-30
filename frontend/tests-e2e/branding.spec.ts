@@ -131,21 +131,23 @@ test.describe('Phase 1 — branding', () => {
     await loginAsUser(page);
     await page.goto('/admin');
 
-    // Without app_setting.manage the sidebar's Admin group still has
-    // Users (everyone sees it) but no Branding link. Wait for the
-    // Users link to confirm the page mounted before asserting absence.
+    // A user with no admin perms sees ``SectionPage``'s empty state
+    // (``admin.noVisibleSections``) — anchor on that copy to confirm
+    // the page mounted before asserting the gated section is absent.
     await expect(
-      page.getByRole('link', { name: /Users|Gebruikers/i }).first(),
+      page.getByText(/don't have permission|geen toegang/i),
     ).toBeVisible();
     await expect(
       page.getByRole('link', { name: /Branding|Huisstijl/i }),
     ).toHaveCount(0);
 
-    // Direct-URL access falls through to the first visible section —
-    // SectionPage redirects when the path param doesn't match
-    // anything the viewer has perm to see.
+    // Direct-URL access stays on the empty state — there are no items
+    // to redirect to, so SectionPage just renders the empty copy at
+    // whichever section path the user typed.
     await page.goto('/admin/branding');
-    await expect(page).toHaveURL(/\/admin\/users$/);
+    await expect(
+      page.getByText(/don't have permission|geen toegang/i),
+    ).toBeVisible();
   });
 });
 
