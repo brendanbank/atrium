@@ -126,11 +126,13 @@ function builtinsFor(
  *  override map, so a built-in only ever appears in one bucket. */
 function useBuiltinDefs(): BuiltinDef[] {
   const { t } = useTranslation();
+  const canManageUsers = usePerm('user.manage');
   const canManageRoles = usePerm('role.manage');
   const canViewAudit = usePerm('audit.read');
   const canManageAppConfig = usePerm('app_setting.manage');
   const canManageEmailTemplates = usePerm('email_template.manage');
   const canManageEmailOutbox = usePerm('email_outbox.manage');
+  const canManageReminderRules = usePerm('reminder_rule.manage');
 
   const defs: BuiltinDef[] = [];
 
@@ -152,14 +154,16 @@ function useBuiltinDefs(): BuiltinDef[] {
       defaultSection: 'admin',
     });
   }
-  defs.push({
-    key: 'users',
-    label: t('users.tab'),
-    icon: <IconUserPlus size={14} />,
-    render: () => <UsersAdmin />,
-    order: ADMIN_ORDER.users,
-    defaultSection: 'admin',
-  });
+  if (canManageUsers) {
+    defs.push({
+      key: 'users',
+      label: t('users.tab'),
+      icon: <IconUserPlus size={14} />,
+      render: () => <UsersAdmin />,
+      order: ADMIN_ORDER.users,
+      defaultSection: 'admin',
+    });
+  }
   if (canManageAppConfig) {
     defs.push({
       key: 'branding',
@@ -210,14 +214,16 @@ function useBuiltinDefs(): BuiltinDef[] {
       defaultSection: 'admin',
     });
   }
-  defs.push({
-    key: 'reminders',
-    label: t('reminders.tab'),
-    icon: <IconSend size={14} />,
-    render: () => <RemindersAdmin />,
-    order: ADMIN_ORDER.reminders,
-    defaultSection: 'admin',
-  });
+  if (canManageReminderRules) {
+    defs.push({
+      key: 'reminders',
+      label: t('reminders.tab'),
+      icon: <IconSend size={14} />,
+      render: () => <RemindersAdmin />,
+      order: ADMIN_ORDER.reminders,
+      defaultSection: 'admin',
+    });
+  }
   if (canViewAudit) {
     defs.push({
       key: 'audit',
