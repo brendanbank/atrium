@@ -211,6 +211,10 @@ def init_worker(host: HostWorkerCtx) -> None:
 Through the registries atrium already exposes:
 
 - **Routers** — `app.include_router(my_router)` from `init_app`.
+  The host's router prefix MUST start with `/api/...` so the SPA owns
+  un-prefixed URL space (atrium issue #89). The matching frontend
+  fetches use `/api/<your-name>/...`. Atrium does NOT auto-prefix host
+  routers — the host owns its full path.
 - **App-config namespaces** — `register_namespace("my_ns", MyModel, public=False)`
   from `app.services.app_config`. Reaches the admin UI at
   `/admin/app-config` automatically.
@@ -676,8 +680,13 @@ workflow.
 *App configuration*):
 
 - **Build-time**: the host's frontend builds bake `VITE_API_BASE_URL` etc.
-  at build time. The atrium image is published with `VITE_API_BASE_URL=""`
-  so the SPA calls relative paths and lands on the same origin.
+  at build time. The atrium image is published with `VITE_API_BASE_URL=/api`
+  so the SPA calls `/api/...` paths on the same origin. Atrium's JSON
+  routes live under `/api/*`; the un-prefixed URL space belongs to the
+  SPA (so `/admin/users`, `/notifications` etc. resolve to React Router,
+  not JSON — see atrium issue #89). **Host bundles must follow the same
+  contract**: register routers with `prefix="/api/<your-name>"` and have
+  the host frontend call `/api/<your-name>/...`.
 - **Env vars** (`.env` consumed by compose's `env_file`): secrets,
   infrastructure, build-time identity. JWT secret, DSN, WebAuthn RP ID,
   mail backend.

@@ -15,7 +15,7 @@ import { randomBytes } from 'crypto';
 import type { Page } from '@playwright/test';
 import { generate as generateTOTP } from 'otplib';
 
-export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000';
+export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000/api';
 
 // crypto-backed uniqueness for fixture data — keeps the email
 // local-part unique across parallel runs without reaching for

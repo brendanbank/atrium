@@ -731,11 +731,16 @@ edge proxy (your firewall)             <- terminates public TLS
     v
 proxy (nginx:alpine, :9443)            <- this repo; trusts XFF from edge
     |  HTTP (docker network)
-    +- /api/*  ->  api  (FastAPI on :8000, rewrite strips /api)
-    +- /*      ->  web  (nginx:alpine serving built dist)
+    +- /*      ->  api  (FastAPI on :8000 — serves both /api/* JSON
+                          routes and the SPA dist via Starlette)
             |
             +- mysql + worker inside the same compose
 ```
+
+JSON routes live under `/api/*` so the SPA owns un-prefixed URL space
+(every admin tab is an SPA route at `/admin/<tab>`; without the API
+namespace, a hard-reload of `/admin/audit` would resolve to the audit
+JSON instead of the SPA — issue #89).
 
 `infra/proxy/gen-cert.sh` generates a self-signed cert at first boot
 into the `atrium_proxy_certs` volume — stable across restarts, wipe
@@ -753,7 +758,8 @@ sees the real client IP.
 - The frontend bundle is built with `VITE_API_BASE_URL=/api`
   (relative). One image works regardless of which hostname the
   browser arrived on — handy when you hit the VM directly for
-  testing on `:9443`.
+  testing on `:9443`. Atrium's FastAPI mounts every JSON route under
+  `/api/*`; the SPA static mount catches everything else.
 
 ### First deploy on a new box
 

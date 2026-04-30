@@ -15,7 +15,7 @@ function uniqueSuffix(): string {
   return `${Date.now()}-${randomBytes(4).readUInt32BE(0)}`;
 }
 
-export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000';
+export const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000/api';
 
 /**
  * Convenience: log in as the smoke-seeded super_admin (the same

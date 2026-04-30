@@ -211,7 +211,7 @@ dev-bootstrap:
 	$(MAKE) up
 	@echo "waiting for api /readyz..."
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
-		curl -fsS http://localhost:8000/readyz > /dev/null 2>&1 && break; \
+		curl -fsS http://localhost:8000/api/readyz > /dev/null 2>&1 && break; \
 		sleep 2; \
 	done
 	$(MAKE) migrate
@@ -413,7 +413,7 @@ SMOKE_EMAIL_OTP_PASSWORD := email-otp-pw-12345
 smoke-up:
 	$(COMPOSE_E2E) up -d --build
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do \
-		curl -fsS http://localhost:8000/readyz > /dev/null && break; \
+		curl -fsS http://localhost:8000/api/readyz > /dev/null && break; \
 		sleep 2; \
 	done
 	$(COMPOSE_E2E) run --rm api alembic upgrade head
@@ -461,7 +461,7 @@ smoke-dev:
 	$(COMPOSE_DEV) up -d --force-recreate api worker web
 	$(COMPOSE_DEV) up -d mysql proxy
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do \
-		curl -fsS http://localhost:8000/readyz > /dev/null && break; \
+		curl -fsS http://localhost:8000/api/readyz > /dev/null && break; \
 		sleep 2; \
 	done
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do \
@@ -530,12 +530,12 @@ smoke-hello-build-bundle-dev:
 	# errors out at config load.
 	cd examples/hello-world/frontend && pnpm install --frozen-lockfile=false --silent
 	pnpm -r --filter './packages/*' build
-	cd examples/hello-world/frontend && VITE_API_BASE_URL=http://localhost:8000 pnpm build
+	cd examples/hello-world/frontend && VITE_API_BASE_URL=http://localhost:8000/api pnpm build
 
 smoke-hello-dev: smoke-hello-build-bundle-dev
 	$(COMPOSE_HELLO_DEV) up -d --build api worker web mysql proxy hello-bundle
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
-		curl -fsS http://localhost:8000/readyz > /dev/null && break; \
+		curl -fsS http://localhost:8000/api/readyz > /dev/null && break; \
 		sleep 2; \
 	done
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do \
@@ -608,7 +608,7 @@ smoke-hello: hello-smoke-env
 	docker build -t atrium-local:source --target runtime .
 	ATRIUM_IMAGE=atrium-local:source $(COMPOSE_HELLO_PROD) up -d --build
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
-		curl -fsS http://localhost:8000/readyz > /dev/null && break; \
+		curl -fsS http://localhost:8000/api/readyz > /dev/null && break; \
 		sleep 2; \
 	done
 	$(COMPOSE_HELLO_PROD) exec -T api alembic upgrade head
@@ -655,7 +655,7 @@ dev-bootstrap-hello: hello-smoke-env
 	ATRIUM_IMAGE=atrium-local:source $(COMPOSE_HELLO_PROD) up -d --build
 	@echo "waiting for api /readyz..."
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
-		curl -fsS http://localhost:8000/readyz > /dev/null && break; \
+		curl -fsS http://localhost:8000/api/readyz > /dev/null && break; \
 		sleep 2; \
 	done
 	$(COMPOSE_HELLO_PROD) exec -T api alembic upgrade head
@@ -711,7 +711,7 @@ dev-bootstrap-hello-ghcr: hello-smoke-env
 	ATRIUM_IMAGE=$(ATRIUM_GHCR_IMAGE) $(COMPOSE_HELLO_PROD) up -d --build
 	@echo "waiting for api /readyz..."
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
-		curl -fsS http://localhost:8000/readyz > /dev/null && break; \
+		curl -fsS http://localhost:8000/api/readyz > /dev/null && break; \
 		sleep 2; \
 	done
 	$(COMPOSE_HELLO_PROD) exec -T api alembic upgrade head
@@ -748,7 +748,7 @@ smoke-hello-ghcr: hello-smoke-env
 	docker pull $(ATRIUM_GHCR_IMAGE)
 	ATRIUM_IMAGE=$(ATRIUM_GHCR_IMAGE) $(COMPOSE_HELLO_PROD) up -d --build
 	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do \
-		curl -fsS http://localhost:8000/readyz > /dev/null && break; \
+		curl -fsS http://localhost:8000/api/readyz > /dev/null && break; \
 		sleep 2; \
 	done
 	$(COMPOSE_HELLO_PROD) exec -T api alembic upgrade head
@@ -762,7 +762,7 @@ smoke-hello-ghcr: hello-smoke-env
 		|| pnpm exec playwright install chromium
 	cd examples/hello-world/frontend && \
 		E2E_BASE_URL=http://localhost:8000 \
-		E2E_API_URL=http://localhost:8000 \
+		E2E_API_URL=http://localhost:8000/api \
 		E2E_ADMIN_EMAIL=$(SMOKE_EMAIL) \
 		E2E_ADMIN_PASSWORD=$(SMOKE_PASSWORD) \
 		E2E_ADMIN_TOTP_SECRET=$(SMOKE_TOTP_SECRET) \

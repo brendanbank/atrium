@@ -28,7 +28,7 @@ import { NOTIFS_LIST_KEY, NOTIFS_UNREAD_KEY } from './useNotifications';
  * automatically.
  */
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 
 export function useNotificationStream(enabled: boolean) {
   const qc = useQueryClient();

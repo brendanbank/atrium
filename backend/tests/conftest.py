@@ -268,6 +268,37 @@ async def session(engine: AsyncEngine) -> AsyncGenerator[AsyncSession, None]:
     await _reseed_rbac(engine)
 
 
+class _ApiPrefixASGI:
+    """Test-only ASGI wrapper that prepends ``/api`` to every request
+    path before it reaches atrium's router.
+
+    Atrium mounts every JSON route under ``/api/...`` so the SPA owns
+    the un-prefixed URL space (issue #89). Updating every test path
+    string would be ~170 mechanical edits with no behavioral coverage
+    — the prefix logic is exercised by the e2e Playwright suite which
+    speaks real ``/api/...`` URLs through nginx. This wrapper keeps
+    unit-test paths terse while still routing them through the same
+    app object production uses.
+
+    Idempotent: requests already starting with ``/api`` are passed
+    through unmodified, so a test that explicitly verifies the
+    prefixed URL still works.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            if not path.startswith("/api"):
+                scope = {**scope, "path": "/api" + path}
+                raw = scope.get("raw_path")
+                if isinstance(raw, bytes):
+                    scope["raw_path"] = b"/api" + raw
+        await self.app(scope, receive, send)
+
+
 @pytest_asyncio.fixture
 async def client(engine: AsyncEngine) -> AsyncGenerator[httpx.AsyncClient, None]:
     """HTTP client with DB override bound to the test engine."""
@@ -281,7 +312,7 @@ async def client(engine: AsyncEngine) -> AsyncGenerator[httpx.AsyncClient, None]
 
     app.dependency_overrides[get_session] = _override_get_session
 
-    transport = httpx.ASGITransport(app=app)
+    transport = httpx.ASGITransport(app=_ApiPrefixASGI(app))
     async with httpx.AsyncClient(
         transport=transport, base_url="http://test"
     ) as c:

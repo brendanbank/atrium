@@ -6,7 +6,7 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.base import BaseHTTPMiddleware
 
@@ -114,58 +114,70 @@ def create_app() -> FastAPI:
     # rate-limit bucket increment.
     app.add_middleware(MaintenanceMiddleware)
 
-    app.include_router(health_router)
+    # Every JSON route lives under ``/api/...`` so the SPA owns the
+    # un-prefixed URL space (``/admin/users``, ``/notifications`` etc.
+    # are SPA routes). Without this split, a hard reload of an SPA
+    # admin page would resolve to the API JSON because the API route
+    # matches first and ``SPAStaticFiles`` only falls back on a 404.
+    # See issue #89.
+    api_router = APIRouter()
+    api_router.include_router(health_router)
 
     # Auth routes — no public /register; invite flow is the only path.
-    app.include_router(
+    api_router.include_router(
         fastapi_users.get_auth_router(auth_backend),
         prefix="/auth/jwt",
         tags=["auth"],
     )
-    app.include_router(
+    api_router.include_router(
         fastapi_users.get_reset_password_router(),
         prefix="/auth",
         tags=["auth"],
     )
-    app.include_router(
+    api_router.include_router(
         fastapi_users.get_verify_router(UserRead),
         prefix="/auth",
         tags=["auth"],
     )
     # GET /users/me + PATCH /users/me for self-service.
     # Superuser-only routes (GET /{id}, PATCH /{id}, DELETE /{id}) come free.
-    app.include_router(
+    api_router.include_router(
         fastapi_users.get_users_router(UserRead, UserUpdate),
         prefix="/users",
         tags=["users"],
     )
 
-    app.include_router(app_config_public_router)
-    app.include_router(app_config_admin_router)
-    app.include_router(invites_router)
-    app.include_router(notifications_router)
-    app.include_router(admin_users_router)
-    app.include_router(admin_roles_router)
-    app.include_router(impersonate_router)
-    app.include_router(me_context_router)
-    app.include_router(audit_router)
-    app.include_router(email_templates_router)
-    app.include_router(email_outbox_router)
-    app.include_router(reminder_rules_router)
-    app.include_router(sessions_router)
-    app.include_router(totp_router)
-    app.include_router(totp_admin_router)
-    app.include_router(email_otp_router)
-    app.include_router(webauthn_router)
-    app.include_router(account_deletion_self_router)
-    app.include_router(account_deletion_admin_router)
-    app.include_router(signup_router)
+    api_router.include_router(app_config_public_router)
+    api_router.include_router(app_config_admin_router)
+    api_router.include_router(invites_router)
+    api_router.include_router(notifications_router)
+    api_router.include_router(admin_users_router)
+    api_router.include_router(admin_roles_router)
+    api_router.include_router(impersonate_router)
+    api_router.include_router(me_context_router)
+    api_router.include_router(audit_router)
+    api_router.include_router(email_templates_router)
+    api_router.include_router(email_outbox_router)
+    api_router.include_router(reminder_rules_router)
+    api_router.include_router(sessions_router)
+    api_router.include_router(totp_router)
+    api_router.include_router(totp_admin_router)
+    api_router.include_router(email_otp_router)
+    api_router.include_router(webauthn_router)
+    api_router.include_router(account_deletion_self_router)
+    api_router.include_router(account_deletion_admin_router)
+    api_router.include_router(signup_router)
+
+    app.include_router(api_router, prefix="/api")
 
     host_module = os.environ.get("ATRIUM_HOST_MODULE")
     if host_module:
         # ImportError is intentionally loud — the operator opted in by
         # setting the env var, so a typo or missing dep should fail
         # startup rather than silently launch atrium without the host.
+        # Hosts must mount their own routes under /api/... so they
+        # don't shadow SPA routes (see issue #89). Atrium does not
+        # prefix on the host's behalf — the host owns its full path.
         mod = importlib.import_module(host_module)
         init = getattr(mod, "init_app", None)
         if callable(init):

@@ -20,7 +20,7 @@ import { loginAndPassTOTP } from './helpers';
 const email = process.env.E2E_ADMIN_EMAIL;
 const password = process.env.E2E_ADMIN_PASSWORD;
 const totpSecret = process.env.E2E_ADMIN_TOTP_SECRET;
-const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000';
+const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000/api';
 
 test.beforeAll(() => {
   if (!email || !password || !totpSecret) {

@@ -426,7 +426,10 @@ The starter ships *only* the platform layer. To add your domain:
    `backend/app/models/__init__.py`.
 2. Add an Alembic migration with `make migration m='add your_thing'`.
 3. Add Pydantic schemas under `backend/app/schemas/`, an API router
-   under `backend/app/api/`, and mount it in `backend/app/main.py`.
+   under `backend/app/api/`, and mount it in `backend/app/main.py`
+   via `api_router.include_router(your_router)` (atrium adds the
+   `/api` prefix to that wrapper so the SPA owns un-prefixed URL
+   space — see issue #89).
 4. Gate routes with `Depends(require_perm("your_thing.manage"))`.
    Add the new permission codes to a follow-up migration that
    inserts into `permissions` and `role_permissions`.

@@ -18,7 +18,7 @@ COPY frontend/package.json frontend/pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 COPY frontend/ ./
 
-ARG VITE_API_BASE_URL=""
+ARG VITE_API_BASE_URL="/api"
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 RUN pnpm build
 
@@ -40,7 +40,8 @@ COPY --from=frontend-builder /app/dist /opt/atrium/static/host
 USER app
 
 # Re-declare HEALTHCHECK on the derived image. The base atrium image
-# already ships one (curl /healthz on :8000), but image scanners flag
-# absence at the leaf Dockerfile because they don't trace inheritance.
+# already ships one (curl /api/healthz on :8000), but image scanners
+# flag absence at the leaf Dockerfile because they don't trace
+# inheritance.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -fsS http://localhost:8000/healthz || exit 1
+    CMD curl -fsS http://localhost:8000/api/healthz || exit 1

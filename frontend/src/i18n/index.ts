@@ -115,7 +115,7 @@ void (async () => {
     // ``/app-config`` would hit the Vite dev server (port 5173) which
     // serves index.html for unknown paths — the JSON parse would
     // silently fail and overrides would never apply.
-    const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000';
+    const apiBase = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000/api';
     const res = await fetch(`${apiBase}/app-config`, {
       credentials: 'include',
     });

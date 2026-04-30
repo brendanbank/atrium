@@ -29,7 +29,7 @@ const ALICE: UserContext = {
 };
 
 const server = setupServer(
-  http.get('/users/me/context', () => HttpResponse.json(ALICE)),
+  http.get('/api/users/me/context', () => HttpResponse.json(ALICE)),
 );
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
@@ -102,7 +102,7 @@ describe('useMe', () => {
 
   test('returns null when atrium responds 401', async () => {
     server.use(
-      http.get('/users/me/context', () => new HttpResponse(null, { status: 401 })),
+      http.get('/api/users/me/context', () => new HttpResponse(null, { status: 401 })),
     );
     render(withProviders(<MeProbe />));
     await waitFor(() =>
@@ -113,7 +113,7 @@ describe('useMe', () => {
   test('shares one query subscription across hooks', async () => {
     let calls = 0;
     server.use(
-      http.get('/users/me/context', () => {
+      http.get('/api/users/me/context', () => {
         calls += 1;
         return HttpResponse.json(ALICE);
       }),
@@ -183,19 +183,19 @@ describe('useRole', () => {
 });
 
 describe('AtriumProvider', () => {
-  test('fetches the same-origin /users/me/context (no /api prefix)', async () => {
-    // Atrium mounts /users/me/context at the SPA root — hosts loaded
-    // inside atrium's SPA fetch a same-origin relative path. The
-    // package must not prefix it (issue #72).
+  test('fetches the same-origin /api/users/me/context', async () => {
+    // Atrium >= 0.19 mounts /api/users/me/context — hosts loaded
+    // inside atrium's SPA fetch a same-origin relative path under
+    // /api/* (atrium issue #89).
     let hit = false;
     server.use(
-      http.get('/users/me/context', () => {
+      http.get('/api/users/me/context', () => {
         hit = true;
         return HttpResponse.json(ALICE);
       }),
-      http.get('/api/users/me/context', () =>
+      http.get('/users/me/context', () =>
         HttpResponse.json(
-          { detail: 'wrong path — apiBase prefix should not be applied' },
+          { detail: 'wrong path — atrium 0.19 mounts under /api/*' },
           { status: 404 },
         ),
       ),

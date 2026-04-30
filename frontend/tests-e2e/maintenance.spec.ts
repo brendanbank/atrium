@@ -69,7 +69,7 @@ test('super_admin can flip maintenance mode and a regular user sees the maintena
       .poll(
         async () => {
           const resp = await userPage.request.get(
-            `${process.env.E2E_API_URL ?? 'http://localhost:8000'}/notifications`,
+            `${process.env.E2E_API_URL ?? 'http://localhost:8000/api'}/notifications`,
           );
           return resp.status();
         },
@@ -155,7 +155,7 @@ test('login still works during maintenance for super_admin', async ({
     // Drop the auth cookie. ``POST /auth/jwt/logout`` is on the
     // maintenance bypass list, so this still succeeds.
     const logoutResp = await adminPage.request.post(
-      `${process.env.E2E_API_URL ?? 'http://localhost:8000'}/auth/jwt/logout`,
+      `${process.env.E2E_API_URL ?? 'http://localhost:8000/api'}/auth/jwt/logout`,
     );
     expect([200, 204].includes(logoutResp.status())).toBe(true);
     await adminContext.clearCookies();

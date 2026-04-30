@@ -54,8 +54,8 @@ _TIMEOUT_SECONDS: Final = 5.0
 # routes them); register handles its own check inline because it has
 # a JSON body.
 _GATED_PATHS: Final = frozenset({
-    "/auth/jwt/login",
-    "/auth/forgot-password",
+    "/api/auth/jwt/login",
+    "/api/auth/forgot-password",
 })
 
 

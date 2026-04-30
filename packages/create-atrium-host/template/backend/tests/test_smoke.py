@@ -29,8 +29,8 @@ def test_router_mounted() -> None:
     from __HOST_PKG__.router import router
 
     paths = {route.path for route in router.routes}
-    assert "/__HOST_PKG__/state" in paths
-    assert "/__HOST_PKG__/bump" in paths
+    assert "/api/__HOST_PKG__/state" in paths
+    assert "/api/__HOST_PKG__/bump" in paths
 
 
 def test_models_isolated_from_atrium_base() -> None:

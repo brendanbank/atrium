@@ -1,12 +1,14 @@
 """Demo HTTP surface.
 
-- ``GET /__HOST_PKG__/state`` — read-only, auth required.
-- ``POST /__HOST_PKG__/bump`` — gated by ``__HOST_PKG__.write``,
+- ``GET /api/__HOST_PKG__/state`` — read-only, auth required.
+- ``POST /api/__HOST_PKG__/bump`` — gated by ``__HOST_PKG__.write``,
   increments the demo counter and writes an audit row.
 
-Replace these with your real routes. The auth dependencies and the
-audit/notify helpers (imported from ``app.*``) are the surface a
-host calls atrium through.
+Replace these with your real routes. Atrium mounts every JSON route
+under ``/api/...`` so the SPA owns un-prefixed URL space (atrium
+issue #89); host routes follow the same contract. The auth
+dependencies and the audit/notify helpers (imported from ``app.*``)
+are the surface a host calls atrium through.
 """
 from __future__ import annotations
 
@@ -23,7 +25,7 @@ from app.services.audit import record as record_audit
 
 from .models import __BRAND_PASCAL__State
 
-router = APIRouter(prefix="/__HOST_PKG__", tags=["__HOST_PKG__"])
+router = APIRouter(prefix="/api/__HOST_PKG__", tags=["__HOST_PKG__"])
 
 
 class StateOut(BaseModel):

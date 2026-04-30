@@ -87,9 +87,9 @@ function App() {
 }
 ```
 
-The hooks fetch atrium's fixed same-origin `/users/me/context`
-endpoint — no path is configurable, since a host bundle loads inside
-atrium's SPA and hits the same origin. `<AtriumProvider>` reads from
+The hooks fetch atrium's fixed same-origin `/api/users/me/context`
+endpoint (atrium >= 0.19) — no path is configurable, since a host
+bundle loads inside atrium's SPA and hits the same origin. `<AtriumProvider>` reads from
 your existing `<QueryClientProvider>` by default — no second
 QueryClient. Pass `client={hostQueryClient}` to wrap one inline; pass
 `fetchUserContext={...}` to inject a custom fetcher (useful for tests
@@ -97,8 +97,8 @@ or hosts that want axios-shaped retry).
 
 ## Versioning
 
-The package version tracks atrium's image version. Pin `^0.18` for
-"compatible with atrium 0.18.x"; bump together with the atrium image
+The package version tracks atrium's image version. Pin `^0.19` for
+"compatible with atrium 0.19.x"; bump together with the atrium image
 to pick up new registry slots and SDK helpers.
 
 ## See also

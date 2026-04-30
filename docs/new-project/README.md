@@ -747,8 +747,11 @@ export async function getThing(id: number): Promise<YourThing> {
 ```
 
 `credentials: 'include'` carries the atrium auth cookie. Build with
-`VITE_API_BASE_URL=""` (the default in the Dockerfile below) so the
-bundle calls relative paths.
+`VITE_API_BASE_URL="/api"` (the default in the Dockerfile below) so
+the bundle calls atrium's API namespace — every JSON route lives
+under `/api/...` so the SPA owns un-prefixed URL space (atrium issue
+#89). Your backend router must use `prefix="/api/your-thing"` to
+match.
 
 ### `frontend/src/queryClient.ts`
 
@@ -773,7 +776,7 @@ into the wrapper).
 ## Step 5 - Dockerfile
 
 ```dockerfile
-ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.18
+ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.19
 
 # ---- frontend-builder ----
 FROM node:25-alpine AS frontend-builder
@@ -782,7 +785,7 @@ RUN npm install -g pnpm@10.33.1
 COPY frontend/package.json frontend/pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 COPY frontend/ ./
-ARG VITE_API_BASE_URL=""
+ARG VITE_API_BASE_URL="/api"
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 RUN pnpm build
 
@@ -862,8 +865,8 @@ services:
         condition: service_healthy
       api:
         condition: service_started
-    # The shared image's HEALTHCHECK curls /healthz, which the worker
-    # has no HTTP port for. Disable it.
+    # The shared image's HEALTHCHECK curls /api/healthz, which the
+    # worker has no HTTP port for. Disable it.
     healthcheck:
       disable: true
 
@@ -926,7 +929,7 @@ MAIL_FROM=no-reply@example.com
 
 # Pin the atrium base image. X.Y for patch uptake; X.Y.Z for fully
 # deterministic deploys.
-ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.18
+ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.19
 ```
 
 For the full env-var surface (CAPTCHA secret, SMTP host/port/user, etc.)
@@ -1275,7 +1278,7 @@ Duplicate keys: last write wins, console warning. Path collisions in
 10. **One image, two services.** The same `atrium-<your-app>` image
     runs both api and worker. The worker's CMD overrides to
     `python -m app.worker`. Disable the healthcheck on the worker —
-    the shared image's `HEALTHCHECK` curls `/healthz`, which the
+    the shared image's `HEALTHCHECK` curls `/api/healthz`, which the
     worker has no port for.
 
 ## What lives where

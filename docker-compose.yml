@@ -6,9 +6,9 @@
 # Services:
 #   proxy    — nginx w/ self-signed cert, terminates TLS on :443
 #              (edge Caddy on the firewall reverse-proxies to us)
-#   api      — FastAPI (uvicorn). Serves both /api routes and the
-#              built SPA via Starlette StaticFiles at /. Same image
-#              shared with the worker.
+#   api      — FastAPI (uvicorn). Serves both /api/* JSON routes
+#              and the built SPA via Starlette StaticFiles at /.
+#              Same image shared with the worker.
 #   worker   — APScheduler + email sender. Same image as api,
 #              different command.
 #   mysql    — MySQL 8 (internal network only)

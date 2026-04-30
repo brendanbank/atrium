@@ -39,9 +39,10 @@ FROM frontend-base AS frontend-builder
 COPY frontend/package.json frontend/pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 COPY frontend/ ./
-# Empty default makes the SPA call relative paths (/auth/jwt/login,
-# /users/me, etc.) — same origin as the API, no rewrite needed.
-ARG VITE_API_BASE_URL=""
+# SPA calls /api/... — atrium mounts every JSON route under /api so
+# the un-prefixed URL space (e.g. /admin/audit) is owned by the SPA
+# router. Same origin as the API, no rewrite needed.
+ARG VITE_API_BASE_URL="/api"
 ARG VITE_DEFAULT_LANGUAGE=en
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \
     VITE_DEFAULT_LANGUAGE=${VITE_DEFAULT_LANGUAGE}
@@ -103,6 +104,6 @@ USER app
 
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -fsS http://localhost:8000/healthz || exit 1
+    CMD curl -fsS http://localhost:8000/api/healthz || exit 1
 
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

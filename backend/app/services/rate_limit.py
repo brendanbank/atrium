@@ -30,15 +30,15 @@ from app.settings import get_settings
 # password is ~4 retries spread over a minute (typo, caps-lock, wrong
 # password manager entry). Five is plenty.
 AUTH_LIMITS: dict[tuple[str, str], tuple[int, int]] = {
-    ("POST", "/auth/jwt/login"): (5, 60),
-    ("POST", "/auth/forgot-password"): (3, 60),
-    ("POST", "/auth/reset-password"): (10, 60),
-    ("POST", "/invites/accept"): (10, 60),
+    ("POST", "/api/auth/jwt/login"): (5, 60),
+    ("POST", "/api/auth/forgot-password"): (3, 60),
+    ("POST", "/api/auth/reset-password"): (10, 60),
+    ("POST", "/api/invites/accept"): (10, 60),
     # Self-serve signup. Tighter than reset because every successful
     # call creates a User row + sends an email; 3/min is enough for a
     # legitimate retry after a typo.
-    ("POST", "/auth/register"): (3, 60),
-    ("POST", "/auth/verify-email"): (10, 60),
+    ("POST", "/api/auth/register"): (3, 60),
+    ("POST", "/api/auth/verify-email"): (10, 60),
 }
 
 

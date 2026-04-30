@@ -10,7 +10,7 @@ is lying.
 | Atrium extension point         | How the example uses it                              |
 |--------------------------------|------------------------------------------------------|
 | `ATRIUM_HOST_MODULE` bootstrap | `atrium_hello_world.bootstrap.init_app/init_worker`  |
-| `app.include_router`           | `/hello/state` (auth) and `/hello/toggle` (perm)     |
+| `app.include_router`           | `/api/hello/state` (auth) and `/api/hello/toggle` (perm) |
 | `seed_permissions_sync`        | Seeds `hello.toggle` in the host alembic migration   |
 | APScheduler `add_job`          | 3 s tick (2 s in tests) increments the counter inline (via `host.scheduler.add_job` on the `HostWorkerCtx`) |
 | Host alembic chain             | Own `hello_state` table in `alembic_version_app`     |

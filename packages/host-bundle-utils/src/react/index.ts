@@ -5,22 +5,24 @@
  * React hooks + provider for atrium host bundles.
  *
  * One TanStack Query subscription serves the whole host tree:
- * `useMe()` fetches `/users/me/context` once and shares the result
- * with every `usePerm()`, `useRole()`, and `useUserContext()` caller.
+ * `useMe()` fetches `/api/users/me/context` once and shares the
+ * result with every `usePerm()`, `useRole()`, and `useUserContext()`
+ * caller.
  *
- * The endpoint path is fixed by atrium — it's mounted at the SPA root
- * by `app.include_router(me_context_router)` and served from the same
- * origin as the bundle. There's no `apiBase` prop because there's
- * nothing for the host to configure: a host bundle that loads inside
- * atrium's SPA fetches a same-origin relative path. Hosts that want
- * to layer their own retry / headers / mock can pass `fetchUserContext`.
+ * The endpoint path is fixed by atrium — it's mounted under
+ * `/api/...` (atrium >= 0.19) and served from the same origin as the
+ * bundle. There's no `apiBase` prop because there's nothing for the
+ * host to configure: a host bundle that loads inside atrium's SPA
+ * fetches a same-origin relative path. Hosts that want to layer
+ * their own retry / headers / mock can pass `fetchUserContext`.
  *
- * The hooks reuse the host's enclosing `<QueryClientProvider>` if one
- * is already mounted; pass `client={hostQueryClient}` to
+ * The hooks reuse the host's enclosing `<QueryClientProvider>` if
+ * one is already mounted; pass `client={hostQueryClient}` to
  * `<AtriumProvider>` only if you want this provider to wrap the
  * QueryClient too. Two QueryClients (atrium's + the host's) is the
- * intended state — atrium clears its cache on logout via `qc.clear()`,
- * and a shared client would lose host queries the user still wants.
+ * intended state — atrium clears its cache on logout via
+ * `qc.clear()`, and a shared client would lose host queries the user
+ * still wants.
  */
 import {
   createContext,
@@ -53,7 +55,7 @@ interface AtriumContextValue {
   fetchUserContext: () => Promise<UserContext | null>;
 }
 
-const ME_CONTEXT_PATH = '/users/me/context';
+const ME_CONTEXT_PATH = '/api/users/me/context';
 
 async function defaultFetchUserContext(): Promise<UserContext | null> {
   const res = await fetch(ME_CONTEXT_PATH, {
@@ -76,10 +78,10 @@ export interface AtriumProviderProps {
    *  inherit the caller's enclosing one. Use this only when the host
    *  hasn't already set up its own provider. */
   client?: QueryClient;
-  /** Override the fetcher for `/users/me/context`. Useful for tests
-   *  and for hosts that want to layer an axios interceptor or extra
-   *  headers on top. The default uses `fetch` with `credentials:
-   *  'include'`. */
+  /** Override the fetcher for `/api/users/me/context`. Useful for
+   *  tests and for hosts that want to layer an axios interceptor or
+   *  extra headers on top. The default uses `fetch` with
+   *  `credentials: 'include'`. */
   fetchUserContext?: () => Promise<UserContext | null>;
   children: ReactNode;
 }

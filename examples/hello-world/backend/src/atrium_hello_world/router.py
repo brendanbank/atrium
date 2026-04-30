@@ -3,10 +3,14 @@
 
 """HTTP surface for the Hello World demo.
 
-- ``GET /hello/state`` — read-only state. Auth required so the widget
-  has a real user identity, but no special permission.
-- ``POST /hello/toggle`` — gated by the ``hello.toggle`` permission
-  (seeded by the alembic migration). Writes an audit row.
+- ``GET /api/hello/state`` — read-only state. Auth required so the
+  widget has a real user identity, but no special permission.
+- ``POST /api/hello/toggle`` — gated by the ``hello.toggle``
+  permission (seeded by the alembic migration). Writes an audit row.
+
+Atrium mounts every JSON route under ``/api/...`` so the SPA owns
+un-prefixed URL space (issue #89). Host bundles follow the same
+contract — see ``docs/published-images.md``.
 """
 from __future__ import annotations
 
@@ -24,7 +28,7 @@ from app.services.notifications import notify_user
 
 from .models import HelloState
 
-router = APIRouter(prefix="/hello", tags=["hello-world"])
+router = APIRouter(prefix="/api/hello", tags=["hello-world"])
 
 
 class StateOut(BaseModel):

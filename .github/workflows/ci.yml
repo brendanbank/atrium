@@ -289,12 +289,12 @@ jobs:
     #
     # The unified atrium image serves the SPA via Starlette StaticFiles
     # from the same process as the API, so Playwright points at
-    # localhost:8000 for both the SPA load and the API surface — no
-    # separate web container, no /api rewrite.
+    # localhost:8000 for the SPA load. JSON routes are mounted under
+    # /api so the SPA owns un-prefixed URL space (issue #89).
     runs-on: ubuntu-latest
     env:
       E2E_BASE_URL: http://localhost:8000
-      E2E_API_URL: http://localhost:8000
+      E2E_API_URL: http://localhost:8000/api
       E2E_ADMIN_EMAIL: admin@example.com
       E2E_ADMIN_PASSWORD: smoke-pw-12345
       # Fixed TOTP secret so Playwright can compute valid codes
@@ -322,7 +322,7 @@ jobs:
       - name: Wait for API
         run: |
           for i in $(seq 1 40); do
-            if curl -fsS http://localhost:8000/readyz > /dev/null; then exit 0; fi
+            if curl -fsS http://localhost:8000/api/readyz > /dev/null; then exit 0; fi
             sleep 3
           done
           echo "API did not become ready" >&2
@@ -408,7 +408,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       E2E_BASE_URL: http://localhost:8000
-      E2E_API_URL: http://localhost:8000
+      E2E_API_URL: http://localhost:8000/api
       E2E_ADMIN_EMAIL: admin@example.com
       E2E_ADMIN_PASSWORD: smoke-pw-12345
       E2E_ADMIN_TOTP_SECRET: JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP
@@ -480,7 +480,7 @@ jobs:
       - name: Wait for API
         run: |
           for i in $(seq 1 40); do
-            if curl -fsS http://localhost:8000/readyz > /dev/null; then exit 0; fi
+            if curl -fsS http://localhost:8000/api/readyz > /dev/null; then exit 0; fi
             sleep 3
           done
           echo "API did not become ready" >&2

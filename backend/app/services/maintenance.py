@@ -37,22 +37,26 @@ from app.models.rbac import Role, role_permissions, user_roles
 from app.settings import get_settings
 
 # Endpoints that must remain reachable when maintenance is on. Health
-# probes for monitoring; /app-config so the frontend can render the
-# maintenance page itself; the JWT login + 2FA flow so a super_admin
-# can sign in to disable maintenance; /users/me so the client knows
-# whether the current cookie is super_admin.
+# probes for monitoring; /api/app-config so the frontend can render
+# the maintenance page itself; the JWT login + 2FA flow so a
+# super_admin can sign in to disable maintenance; /api/users/me so
+# the client knows whether the current cookie is super_admin.
 BYPASS_PATHS: Final = frozenset({
-    "/healthz",
-    "/readyz",
-    "/health",
-    "/app-config",
-    "/auth/jwt/login",
-    "/auth/jwt/logout",
-    "/users/me",
-    "/users/me/context",
+    "/api/healthz",
+    "/api/readyz",
+    "/api/health",
+    "/api/app-config",
+    "/api/auth/jwt/login",
+    "/api/auth/jwt/logout",
+    "/api/users/me",
+    "/api/users/me/context",
 })
 
-_BYPASS_PREFIXES: Final = ("/auth/totp/", "/auth/email-otp/", "/auth/webauthn/")
+_BYPASS_PREFIXES: Final = (
+    "/api/auth/totp/",
+    "/api/auth/email-otp/",
+    "/api/auth/webauthn/",
+)
 
 _TTL_SECONDS: Final = 2.0
 _cache: dict[str, object] = {"flag": False, "message": "", "expires_at": 0.0}

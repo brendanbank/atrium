@@ -16,7 +16,7 @@ import { loginAndPassTOTP } from './helpers';
  * even a UV=PREFERRED RP if settings ever flip.
  */
 
-const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000';
+const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000/api';
 
 const email = process.env.E2E_ADMIN_EMAIL;
 const password = process.env.E2E_ADMIN_PASSWORD;

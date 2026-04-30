@@ -18,7 +18,7 @@
 # rather than ``:latest`` so a passive image scan reports the actual
 # build base; CI / compose typically override this via build args
 # (``ATRIUM_IMAGE=atrium-local:source`` for PR tests).
-ARG ATRIUM_IMAGE=ghcr.io/brendanbank/atrium:0.18
+ARG ATRIUM_IMAGE=ghcr.io/brendanbank/atrium:0.19
 
 # ---- frontend-builder ----
 #
@@ -56,10 +56,11 @@ RUN pnpm -r --filter './packages/*' build
 COPY examples/hello-world/frontend/ ./examples/hello-world/frontend/
 WORKDIR /app/examples/hello-world/frontend
 
-# Same default as the unified atrium image — bundle calls relative
-# paths (`/hello/state`, `/hello/toggle`) so it lands on whatever
-# origin the SPA was loaded from.
-ARG VITE_API_BASE_URL=""
+# Same default as the unified atrium image — bundle calls
+# `/api/hello/state`, `/api/hello/toggle` so it lands on whatever
+# origin the SPA was loaded from. Atrium mounts every JSON route
+# under /api so the SPA owns un-prefixed URL space (atrium issue #89).
+ARG VITE_API_BASE_URL="/api"
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 RUN pnpm build
 
@@ -81,7 +82,7 @@ COPY --from=frontend-builder /app/examples/hello-world/frontend/dist /opt/atrium
 USER app
 
 # Re-declare HEALTHCHECK on the derived image. The base atrium image
-# already ships one (curl /healthz), but image scanners flag absence
-# at the leaf Dockerfile because they don't trace inheritance.
+# already ships one (curl /api/healthz), but image scanners flag
+# absence at the leaf Dockerfile because they don't trace inheritance.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -fsS http://localhost:8000/healthz || exit 1
+    CMD curl -fsS http://localhost:8000/api/healthz || exit 1

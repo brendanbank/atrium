@@ -24,7 +24,7 @@ import {
 const adminEmail = process.env.E2E_ADMIN_EMAIL;
 const adminPassword = process.env.E2E_ADMIN_PASSWORD;
 const adminTotpSecret = process.env.E2E_ADMIN_TOTP_SECRET;
-const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000';
+const API_URL = process.env.E2E_API_URL ?? 'http://localhost:8000/api';
 
 test.beforeAll(() => {
   if (!adminEmail || !adminPassword || !adminTotpSecret) {

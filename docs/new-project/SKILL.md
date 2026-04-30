@@ -104,8 +104,10 @@ Create these files (full contents in [`README.md`](README.md), section
 - `backend/src/<your_pkg>/models.py` — define `class HostBase(DeclarativeBase)`
   and your tables on it. **Never** parent host tables on `app.db.Base`.
 - `backend/src/<your_pkg>/router.py` — a normal FastAPI APIRouter.
-  Imports atrium's `current_user` (auth required) or
-  `require_perm("...")` (permission required) for gating.
+  Use `prefix="/api/<your_pkg>"` so the SPA owns un-prefixed URL
+  space (atrium issue #89). Imports atrium's `current_user` (auth
+  required) or `require_perm("...")` (permission required) for
+  gating.
 
 ### 3. Alembic chain
 
@@ -202,14 +204,14 @@ Two-stage build: node-builder for the SPA, then `FROM ${ATRIUM_IMAGE}`
 to install the host package and copy the bundle into the static dir:
 
 ```dockerfile
-ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.18
+ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.19
 FROM node:25-alpine AS frontend-builder
 WORKDIR /app
 RUN npm install -g pnpm@10.33.1
 COPY frontend/package.json frontend/pnpm-lock.yaml* ./
 RUN pnpm install --frozen-lockfile 2>/dev/null || pnpm install
 COPY frontend/ ./
-ARG VITE_API_BASE_URL=""
+ARG VITE_API_BASE_URL="/api"
 ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 RUN pnpm build
 
@@ -235,8 +237,8 @@ Required env vars on **both** api and worker:
 - `MAIL_BACKEND`, `MAIL_FROM` (and `SMTP_*` if `MAIL_BACKEND=smtp`)
 
 Disable healthcheck on the worker (`healthcheck: { disable: true }`) —
-the shared image's HEALTHCHECK curls `/healthz`, which the worker has
-no HTTP port for.
+the shared image's HEALTHCHECK curls `/api/healthz`, which the worker
+has no HTTP port for.
 
 ### 8. .env.example
 
