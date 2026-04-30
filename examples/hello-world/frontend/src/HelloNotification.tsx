@@ -30,6 +30,7 @@ import {
   Stack,
   Text,
 } from '@mantine/core';
+import { useAtriumColorScheme } from '@brendanbank/atrium-host-bundle-utils/react';
 
 interface HelloToggledPayload {
   enabled?: boolean;
@@ -80,8 +81,9 @@ export function HelloToggledNotification({
   payload: HelloToggledPayload;
   createdAt: string;
 }) {
+  const scheme = useAtriumColorScheme();
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme={scheme}>
       <HelloToggledNotificationInner payload={payload} createdAt={createdAt} />
     </MantineProvider>
   );

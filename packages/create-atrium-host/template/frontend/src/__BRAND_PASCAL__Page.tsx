@@ -1,7 +1,10 @@
 import { Container, Stack, Text, Title } from '@mantine/core';
 import { MantineProvider } from '@mantine/core';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { AtriumProvider } from '@brendanbank/atrium-host-bundle-utils/react';
+import {
+  AtriumProvider,
+  useAtriumColorScheme,
+} from '@brendanbank/atrium-host-bundle-utils/react';
 
 import { __BRAND_PASCAL__Widget } from './__BRAND_PASCAL__Widget';
 import { queryClient } from './queryClient';
@@ -22,8 +25,9 @@ function __BRAND_PASCAL__PageInner() {
 }
 
 export function __BRAND_PASCAL__Page() {
+  const scheme = useAtriumColorScheme();
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme={scheme}>
       <QueryClientProvider client={queryClient}>
         <AtriumProvider>
           <__BRAND_PASCAL__PageInner />

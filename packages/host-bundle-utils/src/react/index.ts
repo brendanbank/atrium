@@ -41,11 +41,15 @@ import {
 } from '@tanstack/react-query';
 
 import type {
+  AtriumColorScheme,
+  AtriumColorSchemeChangeDetail,
   AtriumUserChangeDetail,
   UserContext,
 } from '@brendanbank/atrium-host-types';
 
 export type {
+  AtriumColorScheme,
+  AtriumColorSchemeChangeDetail,
   AtriumUserChangeDetail,
   UserContext,
 } from '@brendanbank/atrium-host-types';
@@ -495,4 +499,94 @@ export function useAtriumUser(): AtriumUserChangeDetail {
  *  cache is updated by the event subscription. */
 export function __resetAtriumUserCacheForTests(): void {
   cachedUserChange = null;
+}
+
+// ---------------------------------------------------------------------------
+// Color scheme — `atrium:colorschemechange` + `window.__ATRIUM_COLOR_SCHEME__`
+// ---------------------------------------------------------------------------
+
+const ATRIUM_COLOR_SCHEME_EVENT = 'atrium:colorschemechange';
+const ATRIUM_COLOR_SCHEME_GLOBAL = '__ATRIUM_COLOR_SCHEME__';
+
+const DEFAULT_COLOR_SCHEME: AtriumColorScheme = 'auto';
+
+function isColorScheme(value: unknown): value is AtriumColorScheme {
+  return value === 'auto' || value === 'light' || value === 'dark';
+}
+
+let cachedColorScheme: AtriumColorScheme | null = null;
+
+function readWindowColorScheme(): AtriumColorScheme {
+  if (typeof window === 'undefined') return DEFAULT_COLOR_SCHEME;
+  const value = (window as unknown as Record<string, unknown>)[
+    ATRIUM_COLOR_SCHEME_GLOBAL
+  ];
+  return isColorScheme(value) ? value : DEFAULT_COLOR_SCHEME;
+}
+
+function getColorSchemeSnapshot(): AtriumColorScheme {
+  if (cachedColorScheme === null) cachedColorScheme = readWindowColorScheme();
+  return cachedColorScheme;
+}
+
+function getServerColorSchemeSnapshot(): AtriumColorScheme {
+  return DEFAULT_COLOR_SCHEME;
+}
+
+function subscribeColorScheme(onChange: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const handler = (e: Event) => {
+    const detail = (
+      e as CustomEvent<Partial<AtriumColorSchemeChangeDetail> | undefined>
+    ).detail;
+    if (detail && isColorScheme(detail.current)) {
+      cachedColorScheme = detail.current;
+    } else {
+      cachedColorScheme = readWindowColorScheme();
+    }
+    onChange();
+  };
+  window.addEventListener(ATRIUM_COLOR_SCHEME_EVENT, handler);
+  return () => window.removeEventListener(ATRIUM_COLOR_SCHEME_EVENT, handler);
+}
+
+/** Resolve atrium's outer-provider color scheme from inside a host
+ *  bundle. Pass the result to the host's own ``<MantineProvider>`` so
+ *  the nested provider doesn't default to ``"light"`` and create a
+ *  two-tone UI when atrium's chrome flips to dark (atrium #96).
+ *
+ *  ```tsx
+ *  function MyWidget() {
+ *    const scheme = useAtriumColorScheme();
+ *    return (
+ *      <MantineProvider defaultColorScheme={scheme}>
+ *        ...
+ *      </MantineProvider>
+ *    );
+ *  }
+ *  ```
+ *
+ *  Bridges the ``atrium:colorschemechange`` CustomEvent atrium
+ *  dispatches on ``window`` through ``useSyncExternalStore``. The first
+ *  read falls back to ``window.__ATRIUM_COLOR_SCHEME__`` (atrium stamps
+ *  it synchronously on mount) so a host bundle that mounts before any
+ *  transition fires still gets the right scheme on its first paint.
+ *
+ *  Available on atrium 0.20+. On older atrium images neither the global
+ *  nor the event exist, and the hook returns ``"auto"`` — the same
+ *  scheme atrium's default brand preset uses, so a host on a pre-0.20
+ *  shell behaves identically to one with the in-source
+ *  ``defaultColorScheme="auto"`` workaround. */
+export function useAtriumColorScheme(): AtriumColorScheme {
+  return useSyncExternalStore(
+    subscribeColorScheme,
+    getColorSchemeSnapshot,
+    getServerColorSchemeSnapshot,
+  );
+}
+
+/** Test-only: drop the cached scheme so the next ``getSnapshot`` re-reads
+ *  ``window.__ATRIUM_COLOR_SCHEME__``. Production code never calls this. */
+export function __resetAtriumColorSchemeCacheForTests(): void {
+  cachedColorScheme = null;
 }

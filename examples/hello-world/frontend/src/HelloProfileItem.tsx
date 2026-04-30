@@ -26,7 +26,11 @@ import {
   useQueryClient,
   QueryClientProvider,
 } from '@tanstack/react-query';
-import { AtriumProvider, usePerm } from '@brendanbank/atrium-host-bundle-utils/react';
+import {
+  AtriumProvider,
+  useAtriumColorScheme,
+  usePerm,
+} from '@brendanbank/atrium-host-bundle-utils/react';
 
 import {
   getHelloState,
@@ -69,8 +73,9 @@ function HelloProfileItemInner() {
 }
 
 export function HelloProfileItem() {
+  const scheme = useAtriumColorScheme();
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme={scheme}>
       <QueryClientProvider client={queryClient}>
         <AtriumProvider>
           <HelloProfileItemInner />

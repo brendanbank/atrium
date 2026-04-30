@@ -10,6 +10,7 @@
  */
 import { Card, MantineProvider, Stack, Text, Title } from '@mantine/core';
 import { QueryClientProvider } from '@tanstack/react-query';
+import { useAtriumColorScheme } from '@brendanbank/atrium-host-bundle-utils/react';
 
 import { HelloWidget } from './HelloWidget';
 import { queryClient } from './queryClient';
@@ -32,8 +33,9 @@ function HelloAdminTabInner() {
 }
 
 export function HelloAdminTab() {
+  const scheme = useAtriumColorScheme();
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme={scheme}>
       <QueryClientProvider client={queryClient}>
         <HelloAdminTabInner />
       </QueryClientProvider>

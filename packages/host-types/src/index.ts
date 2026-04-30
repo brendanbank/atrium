@@ -83,6 +83,28 @@ export interface AtriumUserChangeDetail {
   nonce: number;
 }
 
+/** Resolved color scheme for the atrium app's outer ``<MantineProvider>``,
+ *  driven by the brand preset (``"dark"`` for ``dark-glass``, ``"auto"``
+ *  for everything else). Host bundles read it via
+ *  ``useAtriumColorScheme()`` and pass it to their own
+ *  ``<MantineProvider>`` so nested providers don't default to ``"light"``
+ *  and produce a two-tone UI on systems set to dark mode (atrium #96). */
+export type AtriumColorScheme = 'auto' | 'light' | 'dark';
+
+/** Detail payload of the ``atrium:colorschemechange`` window CustomEvent
+ *  atrium dispatches whenever the resolved scheme changes — typically
+ *  because an admin flipped the brand preset in app-config. The current
+ *  scheme is also published synchronously on
+ *  ``window.__ATRIUM_COLOR_SCHEME__`` so a host that mounts after the
+ *  initial dispatch can read the value without waiting for an event.
+ *
+ *  Available since atrium 0.20. */
+export interface AtriumColorSchemeChangeDetail {
+  previous: AtriumColorScheme | null;
+  current: AtriumColorScheme;
+  nonce: number;
+}
+
 // ---------------------------------------------------------------------------
 // Notification + event payloads
 // ---------------------------------------------------------------------------

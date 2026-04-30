@@ -20,8 +20,8 @@ near-empty diff is expected.
 
 | Package                  | What's in it                                   | Hosts import it for                        |
 | ------------------------ | ---------------------------------------------- | ------------------------------------------ |
-| `host-types`             | TypeScript declarations only — `AtriumRegistry`, `UserContext`, `NavItem` / `AdminTab` / `ProfileItem`, `AtriumNotification`, `AtriumEvent`, `AtriumLocation`, `AtriumUserChangeDetail`. | Type-checking host bundles against the registry contract. No runtime code. |
-| `host-bundle-utils`      | Vite preset (`./vite`), React hooks (`./react` — `useMe` / `usePerm` / `useRole` / `useAtriumLocation` / `useAtriumNavigate` / `useAtriumUser`), `__atrium_t__` i18n helper, the dual-tree mount pattern. | Building a host bundle: `main.tsx` ends up ~10 lines of `register*` calls. |
+| `host-types`             | TypeScript declarations only — `AtriumRegistry`, `UserContext`, `NavItem` / `AdminTab` / `ProfileItem`, `AtriumNotification`, `AtriumEvent`, `AtriumLocation`, `AtriumUserChangeDetail`, `AtriumColorScheme` / `AtriumColorSchemeChangeDetail`. | Type-checking host bundles against the registry contract. No runtime code. |
+| `host-bundle-utils`      | Vite preset (`./vite`), React hooks (`./react` — `useMe` / `usePerm` / `useRole` / `useAtriumLocation` / `useAtriumNavigate` / `useAtriumUser` / `useAtriumColorScheme`), `__atrium_t__` i18n helper, the dual-tree mount pattern. | Building a host bundle: `main.tsx` ends up ~10 lines of `register*` calls. |
 | `test-utils`             | Vitest helpers — fake `__ATRIUM_REGISTRY__` + `window.React`, working QueryClient, synthetic event bus mirroring `subscribeEvent`. | Unit-testing host components in isolation, no SPA boot. |
 | `create-atrium-host`     | The `npx @brendanbank/create-atrium-host <name>` scaffolder. Emits backend Python package + frontend Vite bundle + compose stack + CI, all wired against atrium's published image and these SDK packages. | Bootstrapping a fresh host repo from scratch. |
 

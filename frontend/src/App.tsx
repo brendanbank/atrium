@@ -8,6 +8,7 @@ import { MaintenancePage } from './components/MaintenancePage';
 import { RequireAuth } from './components/RequireAuth';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useMe } from './hooks/useAuth';
+import { ColorSchemeBridge } from './host/color-scheme';
 import { IdentityBridge } from './host/identity';
 import { NavigationBridge } from './host/navigation';
 import { getRoutes } from './host/registry';
@@ -38,6 +39,7 @@ export default function App() {
       <>
         <NavigationBridge />
         <IdentityBridge />
+        <ColorSchemeBridge />
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route path="/2fa" element={<TwoFactorPage />} />
@@ -64,6 +66,7 @@ export default function App() {
     <>
       <NavigationBridge />
       <IdentityBridge />
+      <ColorSchemeBridge />
       <Routes>
         {/* Public auth routes (no layout) */}
         <Route path="/login" element={<LoginPage />} />

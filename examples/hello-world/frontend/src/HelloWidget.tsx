@@ -36,6 +36,7 @@ import {
 import {
   __atrium_t__,
   AtriumProvider,
+  useAtriumColorScheme,
   usePerm,
 } from '@brendanbank/atrium-host-bundle-utils/react';
 
@@ -113,8 +114,9 @@ function HelloWidgetInner() {
 }
 
 export function HelloWidget() {
+  const scheme = useAtriumColorScheme();
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme={scheme}>
       <QueryClientProvider client={queryClient}>
         <AtriumProvider>
           <HelloWidgetInner />

@@ -12,6 +12,7 @@ import {
   Title,
 } from '@mantine/core';
 import { QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { useAtriumColorScheme } from '@brendanbank/atrium-host-bundle-utils/react';
 
 import { getHelloState } from './api';
 import { HelloWidget } from './HelloWidget';
@@ -43,8 +44,9 @@ function HelloPageInner() {
 }
 
 export function HelloPage() {
+  const scheme = useAtriumColorScheme();
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme={scheme}>
       <QueryClientProvider client={queryClient}>
         <HelloPageInner />
       </QueryClientProvider>

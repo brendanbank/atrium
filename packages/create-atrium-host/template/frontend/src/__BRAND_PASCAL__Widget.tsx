@@ -29,6 +29,7 @@ import {
 } from '@tanstack/react-query';
 import {
   AtriumProvider,
+  useAtriumColorScheme,
   usePerm,
 } from '@brendanbank/atrium-host-bundle-utils/react';
 
@@ -105,8 +106,9 @@ function __BRAND_PASCAL__WidgetInner() {
 }
 
 export function __BRAND_PASCAL__Widget() {
+  const scheme = useAtriumColorScheme();
   return (
-    <MantineProvider>
+    <MantineProvider defaultColorScheme={scheme}>
       <QueryClientProvider client={queryClient}>
         <AtriumProvider>
           <__BRAND_PASCAL__WidgetInner />
