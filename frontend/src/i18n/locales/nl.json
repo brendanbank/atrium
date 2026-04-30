@@ -5,6 +5,7 @@
   "nav": {
     "home": "Home",
     "admin": "Beheer",
+    "settings": "Instellingen",
     "profile": "Profiel",
     "logout": "Afmelden",
     "notifications": "Meldingen"
@@ -191,7 +192,11 @@
     "deleteFailed": "Verwijderen mislukt",
     "active": "Actief",
     "inactive": "Inactief",
-    "status": "Status"
+    "status": "Status",
+    "noVisibleSections": "Je hebt geen toegang tot beheerinstellingen."
+  },
+  "settings": {
+    "empty": "Er zijn geen instellingen voor deze app geregistreerd."
   },
   "authAdmin": {
     "tab": "Auth",

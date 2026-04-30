@@ -5,6 +5,7 @@
   "nav": {
     "home": "Home",
     "admin": "Admin",
+    "settings": "Settings",
     "profile": "Profile",
     "logout": "Log out",
     "notifications": "Notifications"
@@ -191,7 +192,11 @@
     "deleteFailed": "Could not delete",
     "active": "Active",
     "inactive": "Inactive",
-    "status": "Status"
+    "status": "Status",
+    "noVisibleSections": "You don't have permission to view any admin sections."
+  },
+  "settings": {
+    "empty": "No settings have been registered for this app."
   },
   "maintenance": {
     "title": "{{brand}} is offline for maintenance",

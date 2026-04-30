@@ -640,7 +640,9 @@ interface AtriumRegistry {
   }) => void;
   registerAdminTab: (t: {
     key: string; label: string; icon?: unknown;
-    perm?: string; element: unknown;
+    perm?: string;
+    section?: 'admin' | 'settings'; order?: number;
+    render: () => unknown;
   }) => void;
   registerProfileItem: (p: {
     key: string;
@@ -771,7 +773,7 @@ into the wrapper).
 ## Step 5 - Dockerfile
 
 ```dockerfile
-ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.16
+ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.17
 
 # ---- frontend-builder ----
 FROM node:25-alpine AS frontend-builder
@@ -924,7 +926,7 @@ MAIL_FROM=no-reply@example.com
 
 # Pin the atrium base image. X.Y for patch uptake; X.Y.Z for fully
 # deterministic deploys.
-ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.16
+ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.17
 ```
 
 For the full env-var surface (CAPTCHA secret, SMTP host/port/user, etc.)
@@ -989,7 +991,7 @@ Adding an endpoint, a job, a UI fragment — the standard moves:
 | Home widget                   | A React component in `frontend/src/`                     | `reg.registerHomeWidget({ key, render })`                                  |
 | Dedicated route               | A page component                                         | `reg.registerRoute({ key, path, element, layout? })`                       |
 | Sidebar link                  | A label + path                                           | `reg.registerNavItem({ key, label, to, icon?, condition? })`               |
-| Admin tab                     | A component, gated by a permission                       | `reg.registerAdminTab({ key, label, icon?, perm, element })`               |
+| Admin / Settings tab          | A component, gated by a permission                       | `reg.registerAdminTab({ key, label, icon?, perm, section?, order?, render })` |
 | Profile-page card             | A component                                              | `reg.registerProfileItem({ key, slot?, render, condition? })`              |
 | Bell / inbox per-kind UI      | Title + (optional) detail-modal element                  | `reg.registerNotificationKind({ kind, render, title?, href? })`            |
 | Selective React Query refresh | Handler that invalidates the host's affected query keys  | `reg.subscribeEvent('your.kind', (evt) => qc.invalidateQueries({...}))`    |

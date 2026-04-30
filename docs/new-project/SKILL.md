@@ -202,7 +202,7 @@ Two-stage build: node-builder for the SPA, then `FROM ${ATRIUM_IMAGE}`
 to install the host package and copy the bundle into the static dir:
 
 ```dockerfile
-ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.16
+ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.17
 FROM node:25-alpine AS frontend-builder
 WORKDIR /app
 RUN npm install -g pnpm@10.33.1
@@ -360,7 +360,7 @@ from app.logging import log                              # structlog logger
 registerHomeWidget({ key, render })
 registerRoute({ key, path, element, requireAuth?, layout? })
 registerNavItem({ key, label, to, icon?, condition? })
-registerAdminTab({ key, label, icon?, perm?, element })
+registerAdminTab({ key, label, icon?, perm?, section?, order?, render })
 registerProfileItem({ key, slot?, render, condition? })
 registerNotificationKind({ kind, render, title?, href? })
 subscribeEvent(kind, (evt) => { /* qc.invalidateQueries(...) */ })

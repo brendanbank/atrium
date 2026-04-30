@@ -106,13 +106,21 @@ test.describe('host-bundle slot system', () => {
     await loginAsAdmin(page);
     await patchSystem(page.request, { host_bundle_url: TEST_BUNDLE_PATH });
 
-    await page.route(`**${TEST_BUNDLE_PATH}`, async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: 'application/javascript',
-        body: TEST_BUNDLE_SOURCE,
-      });
-    });
+    // Match both bare `/__test_host_bundle.js` (prod nginx build) and
+    // the `?import` suffix Vite appends when the SPA is served by the
+    // dev server. A bare-glob match would miss the dev case and the
+    // dynamic-import would 404 with a confusing "host bundle failed
+    // to load" error.
+    await page.route(
+      new RegExp(`${TEST_BUNDLE_PATH.replace(/\./g, '\\.')}(\\?.*)?$`),
+      async (route) => {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/javascript',
+          body: TEST_BUNDLE_SOURCE,
+        });
+      },
+    );
 
     await page.goto('/');
 
@@ -131,11 +139,13 @@ test.describe('host-bundle slot system', () => {
     await page.goto('/__test_route');
     await expect(page.getByTestId('host-route')).toBeVisible();
 
-    // 4. Admin tab appears on /admin and renders its panel content.
+    // 4. Admin tab appears as a child of the Admin sidebar group and
+    // renders its component when navigated to. The test bundle didn't
+    // declare a section so it defaults to ``admin``.
     await page.goto('/admin');
-    const adminTab = page.getByRole('tab', { name: 'host-admin-marker' });
-    await expect(adminTab).toBeVisible();
-    await adminTab.click();
+    const adminLink = page.getByRole('link', { name: 'host-admin-marker' });
+    await expect(adminLink).toBeVisible();
+    await adminLink.click();
     await expect(page.getByTestId('host-admin-tab')).toBeVisible();
   });
 });

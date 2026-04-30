@@ -655,9 +655,11 @@ System tab) and the `audit_prune` job will DELETE older rows daily.
 - `preferred_language` lives on the User row and is exposed via
   `/users/me`; the profile page picker writes it back. i18next syncs
   to it on save.
-- CKEditor 5 is loaded from the CDN (see `index.html`); the
-  `VITE_CKEDITOR_LICENSE_KEY` is injected via Vite HTML
-  `%VITE_*%` substitution. Set it to `GPL` to use the free tier.
+- The email-template body editor is `RichTextField` (a Mantine-themed
+  Tiptap wrapper in `src/components/RichTextField.tsx`) — bundled with
+  the SPA, no CDN, no license key. Toolbar is restricted to the tag
+  set the backend bleach allow-list permits; anything richer would be
+  stripped server-side anyway.
 - Host bundles inject UI fragments via the registry in
   `src/host/registry.ts`: `registerHomeWidget`, `registerRoute`,
   `registerNavItem`, `registerAdminTab`, `registerProfileItem`. All
@@ -667,6 +669,21 @@ System tab) and the `audit_prune` job will DELETE older rows daily.
   `after-roles` (default) / `after-sessions` / `before-delete`) and an
   optional `condition({ me })` predicate; the host owns the card
   chrome (no auto-wrapping in a `Paper`).
+- The admin shell has two sibling left-sidebar groups: **Settings**
+  (above) and **Admin** (below). Each is an expandable Mantine
+  `NavLink` parent whose children are the registered admin tabs for
+  that bucket. Atrium ships every built-in tab in **Admin**; host
+  apps choose where their tab lands via `registerAdminTab({ section:
+  'settings' | 'admin', order })`. Default `section` is `'admin'`.
+  The Settings parent **hides entirely** when no host has registered
+  into it. Each tab is a real route — `/admin/<key>` or
+  `/settings/<key>` — so deep-links and back-button work. The
+  pre-0.17 `?tab=key` URL still redirects to the new path for
+  bookmark continuity. The full list lives in
+  `src/admin/sections.tsx`; both the sidebar (`AppLayout`) and the
+  route page (`SectionPage` in `src/routes/AdminPage.tsx`) consume
+  the same `useAdminSectionItems()` / `useSettingsSectionItems()`
+  hooks so visibility filtering and sort order stay consistent.
 
 ## Testing
 
@@ -684,7 +701,7 @@ System tab) and the `audit_prune` job will DELETE older rows daily.
 - **Smoke**: `make smoke` brings up the e2e stack (prod web image via
   `docker-compose.e2e.yml`), seeds an admin, and runs the Playwright
   suite. Run before pushing anything that touches auth, the app
-  shell, the login flow, or the admin app-config tabs.
+  shell, the login flow, or the admin / settings sidebar groups.
 - When running Vitest or Playwright from the host, use the dev web
   container (`docker compose exec web node_modules/.bin/vitest run …`)
   because pnpm's virtual store doesn't expose the binary at

@@ -25,6 +25,7 @@ import {
   __ATRIUM_REGISTRY__,
   __resetRegistryForTests,
   getAdminTabs,
+  getBuiltinAdminTabOverride,
   getHomeWidgets,
   getLocaleOverlays,
   getNavItems,
@@ -39,6 +40,7 @@ import {
   registerNotificationKind,
   registerProfileItem,
   registerRoute,
+  setBuiltinAdminTabSection,
   subscribeEvent,
   subscribeLocaleOverlay,
 } from '@/host/registry';
@@ -187,6 +189,30 @@ describe('host registry', () => {
     expect(tabs[0]?.perm).toBe('thing.manage');
   });
 
+  it('registerAdminTab carries the optional section bucket through', () => {
+    registerAdminTab({
+      key: 'default-section',
+      label: 'A',
+      render: () => <span>A</span>,
+    });
+    registerAdminTab({
+      key: 'in-settings',
+      label: 'B',
+      section: 'settings',
+      render: () => <span>B</span>,
+    });
+    registerAdminTab({
+      key: 'in-admin',
+      label: 'C',
+      section: 'admin',
+      render: () => <span>C</span>,
+    });
+    const tabs = getAdminTabs();
+    expect(tabs.find((t) => t.key === 'default-section')?.section).toBeUndefined();
+    expect(tabs.find((t) => t.key === 'in-settings')?.section).toBe('settings');
+    expect(tabs.find((t) => t.key === 'in-admin')?.section).toBe('admin');
+  });
+
   it('registerAdminTab carries render() through and accepts deprecated element', () => {
     registerAdminTab({
       key: 'a',
@@ -203,6 +229,34 @@ describe('host registry', () => {
     expect(tabs[0]?.element).toBeUndefined();
     expect(tabs[1]?.render).toBeUndefined();
     expect(tabs[1]?.element).toBeDefined();
+  });
+
+  it('setBuiltinAdminTabSection records overrides keyed by tab key', () => {
+    expect(getBuiltinAdminTabOverride('branding')).toBeUndefined();
+    setBuiltinAdminTabSection('branding', 'settings', 100);
+    setBuiltinAdminTabSection('emails', 'settings');
+    setBuiltinAdminTabSection('reminders', 'admin', 50);
+
+    expect(getBuiltinAdminTabOverride('branding')).toEqual({
+      section: 'settings',
+      order: 100,
+    });
+    expect(getBuiltinAdminTabOverride('emails')).toEqual({
+      section: 'settings',
+    });
+    expect(getBuiltinAdminTabOverride('reminders')).toEqual({
+      section: 'admin',
+      order: 50,
+    });
+    expect(getBuiltinAdminTabOverride('audit')).toBeUndefined();
+  });
+
+  it('setBuiltinAdminTabSection last-write-wins for the same key', () => {
+    setBuiltinAdminTabSection('branding', 'settings', 100);
+    setBuiltinAdminTabSection('branding', 'admin');
+    expect(getBuiltinAdminTabOverride('branding')).toEqual({
+      section: 'admin',
+    });
   });
 
   it('registerAdminTab drops the registration when neither render nor element is supplied', () => {

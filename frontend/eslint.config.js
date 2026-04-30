@@ -32,8 +32,8 @@ export default tseslint.config(
       ],
       // eslint-plugin-react-hooks 7 added these rules. They're useful
       // signals but trigger on legitimate "reset form when modal opens"
-      // patterns and on our CKEditor integration's ref usage. Warn
-      // rather than error so we still see them without failing CI.
+      // patterns. Warn rather than error so we still see them without
+      // failing CI.
       'react-hooks/set-state-in-effect': 'warn',
       'react-hooks/refs': 'warn',
     },

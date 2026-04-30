@@ -27,12 +27,10 @@ export default defineConfig({
   // hides instability. Fix the underlying issue when something breaks.
   retries: 0,
   workers: 1,
-  // Per-test ceiling. The first navigation pulls CKEditor 5 from
-  // cdn.ckeditor.com and chromium's IPv6 fallback can add ~20 s on
-  // some networks; combined with the toggle spec's ~16 s flow this
-  // test ceiling needs to be 60 s. Lower this back to 30 s once
-  // CKEditor is served locally.
-  timeout: 60_000,
+  // Per-test ceiling. Generous because the Hello World toggle spec
+  // chains a ~16 s flow and a cold docker network can add a few
+  // seconds of first-paint latency.
+  timeout: 30_000,
   expect: {
     // Polled assertions like toBeVisible/toHaveText. The widget
     // depends on a first browser-side fetch of /hello/state — local
@@ -50,13 +48,9 @@ export default defineConfig({
     // errors rather than threading a per-target switch.
     ignoreHTTPSErrors: true,
     // Per-action ceilings so a hung click or fetch doesn't sit at the
-    // test ceiling. navigationTimeout is generous because the SPA
-    // pulls CKEditor 5 from cdn.ckeditor.com on every cold page load
-    // and chromium's IPv6 fallback can add ~20 s on networks where
-    // the AAAA record points at a slow path. Lower this back to 10 s
-    // once CKEditor is served locally.
+    // test ceiling.
     actionTimeout: 5_000,
-    navigationTimeout: 45_000,
+    navigationTimeout: 15_000,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },

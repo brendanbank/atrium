@@ -141,7 +141,7 @@ test.describe('Phase 11 — multi-language email templates', () => {
     const originalEn = await getEmailTemplate(page.request, 'invite', 'en');
 
     try {
-      await page.goto('/admin?tab=emails');
+      await page.goto('/admin/emails');
 
       // Open the invite row's edit modal. The grouped table renders one
       // row per template key; ``getByRole('row')`` then filtering by
@@ -344,24 +344,25 @@ test.describe('Phase 11 — multi-language email templates', () => {
     }
   });
 
-  test('non-admin does not see the Email templates tab', async ({ page }) => {
+  test('non-admin does not see the Email templates section', async ({
+    page,
+  }) => {
     await loginAsUser(page);
     await page.goto('/admin');
 
-    // Wait for the Users tab — universal — so we know the page rendered
-    // before asserting the Email templates tab is absent.
+    // Wait for the Users link — universal — so we know the page
+    // rendered before asserting the Email templates link is absent.
     await expect(
-      page.getByRole('tab', { name: /Users|Gebruikers/i }),
+      page.getByRole('link', { name: /Users|Gebruikers/i }).first(),
     ).toBeVisible();
     await expect(
-      page.getByRole('tab', { name: /Email templates|E-mailsjablonen/i }),
+      page.getByRole('link', { name: /Email templates|E-mailsjablonen/i }),
     ).toHaveCount(0);
 
-    // Direct-URL access should fall through to the default tab — the
-    // AdminPage validates ``?tab=emails`` against the user's perms.
-    await page.goto('/admin?tab=emails');
-    await expect(
-      page.getByRole('tab', { name: /Users|Gebruikers/i }),
-    ).toHaveAttribute('aria-selected', 'true');
+    // Direct-URL access falls through to the first available section
+    // — SectionPage redirects when the path doesn't match anything
+    // the viewer has perm to see.
+    await page.goto('/admin/emails');
+    await expect(page).toHaveURL(/\/admin\/users$/);
   });
 });

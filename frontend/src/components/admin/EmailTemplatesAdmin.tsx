@@ -19,7 +19,7 @@ import { notifications } from '@mantine/notifications';
 import { IconEdit } from '@tabler/icons-react';
 import { useTranslation } from 'react-i18next';
 
-import { CKEditorField } from '@/components/CKEditorField';
+import { RichTextField } from '@/components/RichTextField';
 import {
   useEmailTemplate,
   useEmailTemplates,
@@ -32,8 +32,8 @@ const FALLBACK_LOCALES = ['en'];
 
 /** Inner editor — keyed on (templateKey, locale) so when the user
  * switches locales the parent remounts this child and useState picks
- * up the freshly-loaded subject/body synchronously, avoiding the
- * effect-to-setState race CKEditor's async init would lose against. */
+ * up the freshly-loaded subject/body synchronously instead of going
+ * through an effect-to-setState shuffle. */
 function VariantEditor({
   initial,
   templateKey,
@@ -73,7 +73,7 @@ function VariantEditor({
         <Text size="sm" fw={500}>
           {t('emailTemplates.body')}
         </Text>
-        <CKEditorField value={body} onChange={setBody} />
+        <RichTextField value={body} onChange={setBody} />
         <Text size="xs" c="dimmed">
           {t('emailTemplates.jinjaHint')}
         </Text>

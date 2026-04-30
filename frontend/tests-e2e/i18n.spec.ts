@@ -105,7 +105,7 @@ test.describe('Phase 9 — i18n', () => {
     page,
   }) => {
     await loginAsAdmin(page);
-    await page.goto('/admin?tab=translations');
+    await page.goto('/admin/translations');
 
     // The TranslationsAdmin renders one row per i18n key. Filter by
     // ``nav.home`` so we don't hunt through ~150 rows. The TextInput
@@ -139,15 +139,15 @@ test.describe('Phase 9 — i18n', () => {
     ).toBeVisible();
   });
 
-  test('non-admin does not see the Translations tab', async ({ page }) => {
+  test('non-admin does not see the Translations section', async ({ page }) => {
     await loginAsUser(page);
     await page.goto('/admin');
 
     await expect(
-      page.getByRole('tab', { name: /Users|Gebruikers/i }),
+      page.getByRole('link', { name: /Users|Gebruikers/i }).first(),
     ).toBeVisible();
     await expect(
-      page.getByRole('tab', { name: /Translations|Vertalingen/i }),
+      page.getByRole('link', { name: /Translations|Vertalingen/i }),
     ).toHaveCount(0);
   });
 });

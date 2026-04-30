@@ -11,7 +11,7 @@ import { useMe } from './hooks/useAuth';
 import { NavigationBridge } from './host/navigation';
 import { getRoutes } from './host/registry';
 import { AcceptInvitePage } from './routes/AcceptInvitePage';
-import { AdminPage } from './routes/AdminPage';
+import { SectionPage } from './routes/AdminPage';
 import { ForgotPasswordPage } from './routes/ForgotPasswordPage';
 import { HomePage } from './routes/HomePage';
 import { LoginPage } from './routes/LoginPage';
@@ -100,7 +100,16 @@ export default function App() {
           }
         >
           <Route index element={<HomePage />} />
-          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/admin" element={<SectionPage bucket="admin" />} />
+          <Route
+            path="/admin/:section"
+            element={<SectionPage bucket="admin" />}
+          />
+          <Route path="/settings" element={<SectionPage bucket="settings" />} />
+          <Route
+            path="/settings/:section"
+            element={<SectionPage bucket="settings" />}
+          />
           <Route path="/profile" element={<ProfilePage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           {shellAuthRoutes.map((r) => (

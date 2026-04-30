@@ -306,8 +306,9 @@ registerRoute({ key, path, element,           // Adds a <Route> in the
                 requireAuth?, layout? })       //   app router.
 registerNavItem({ key, label, to, icon?,      // Sidebar link.
                   condition? })
-registerAdminTab({ key, label, icon?,         // Adds a tab to /admin.
-                   perm?, element })
+registerAdminTab({ key, label, icon?,         // Sidebar entry inside
+                   perm?, section?,           //   the Admin (default)
+                   order?, render })          //   or Settings group.
 registerProfileItem({ key, slot?,             // Card on /profile.
                       condition?, render })
 registerNotificationKind({ kind, render,      // Per-kind rendering for
@@ -324,7 +325,12 @@ subscribeEvent(kind, handler)                 // Tap into atrium's
   appear conditionally (e.g. only for users holding a particular
   permission).
 - `registerAdminTab`'s `perm` filters the tab on `me.permissions` — users
-  who lack the code never see the tab in the markup.
+  who lack the code never see the tab in the markup. The optional
+  `section: 'admin' | 'settings'` (default `'admin'`) picks which
+  sidebar group the tab lives in; `'settings'` lands in the Settings
+  parent that hides itself when no host has registered into it.
+  `order` is a sort weight inside the chosen group (lower → higher
+  in the list); the route ends up at `/<section>/<key>`.
 - `registerProfileItem`'s `slot` (default `'after-roles'`) picks where the
   card lands in the `/profile` stack; the host owns the chrome — atrium
   drops the rendered element straight in without wrapping.

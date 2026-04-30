@@ -15,16 +15,23 @@ import {
 } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import {
+  IconAdjustments,
   IconBell,
   IconHome,
   IconSettings,
   IconUser,
   IconLogout,
 } from '@tabler/icons-react';
+import type { ReactElement } from 'react';
 import { useEffect, useRef } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
+import {
+  useAdminSectionItems,
+  useSettingsSectionItems,
+  type SectionItem,
+} from '@/admin/sections';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useMe, useLogout } from '@/hooks/useAuth';
 import { getNavItems, type NavItem } from '@/host/registry';
@@ -43,6 +50,8 @@ export function AppLayout() {
   const logout = useLogout();
   const navigate = useNavigate();
   const location = useLocation();
+  const adminItems = useAdminSectionItems();
+  const settingsItems = useSettingsSectionItems();
 
   const initials = me?.full_name
     ? me.full_name
@@ -57,11 +66,6 @@ export function AppLayout() {
     await logout();
     navigate('/login', { replace: true });
   };
-
-  // Atrium has no built-in admin role; show the admin link to anyone
-  // holding the conventional ``admin`` RBAC role. Host apps can swap
-  // this for their own role code as needed.
-  const isAdmin = me?.roles.includes('admin') ?? false;
 
   const configured = appConfig?.i18n?.enabled_locales;
   const enabledLocales =
@@ -177,7 +181,8 @@ export function AppLayout() {
       <AppShell.Navbar p="xs">
         {buildNavLinks({
           me: me ?? null,
-          isAdmin,
+          adminItems,
+          settingsItems,
           pathname: location.pathname,
           onNavigate: close,
           t,
@@ -193,27 +198,47 @@ export function AppLayout() {
   );
 }
 
-/** Built-in nav slots use 100/200/300 so a host can interleave with
- *  ``order: 150`` (between Home and Notifications), ``250`` (between
- *  Notifications and Admin), or any value > 300 to land below them. A
- *  host item with no ``order`` keeps insertion order and lands after
- *  everything that does have one — including the built-ins. */
+/** Built-in nav slots use 100/200/250/300 so a host can interleave
+ *  with ``order: 150`` (between Home and Notifications) or any value
+ *  > 300 to land below Admin. The Settings parent slots in at 250 —
+ *  above Admin and below Notifications — so host preference pages get
+ *  a natural home that won't shove Admin off the bottom. A host item
+ *  with no ``order`` keeps insertion order and lands after everything
+ *  that does have one — including the built-ins. */
 const NAV_ORDER = {
   home: 100,
   notifications: 200,
+  settings: 250,
   admin: 300,
 } as const;
 
+interface SectionNavGroup {
+  key: string;
+  label: string;
+  to: string;
+  icon: ReactElement;
+  order: number;
+  items: SectionItem[];
+}
+
 function buildNavLinks(args: {
   me: CurrentUser | null;
-  isAdmin: boolean;
+  adminItems: SectionItem[];
+  settingsItems: SectionItem[];
   pathname: string;
   onNavigate: () => void;
   t: ReturnType<typeof useTranslation>['t'];
 }) {
-  const { me, isAdmin, pathname, onNavigate, t } = args;
+  const { me, adminItems, settingsItems, pathname, onNavigate, t } = args;
 
-  const builtins: (NavItem & { active: boolean })[] = [
+  type FlatItem = NavItem & { active: boolean };
+  type GroupItem = SectionNavGroup & { active: boolean };
+  type Entry = FlatItem | GroupItem;
+
+  const isGroup = (entry: Entry): entry is GroupItem =>
+    (entry as GroupItem).items !== undefined;
+
+  const entries: Entry[] = [
     {
       key: '__atrium_home',
       label: t('nav.home'),
@@ -231,29 +256,47 @@ function buildNavLinks(args: {
       active: pathname.startsWith('/notifications'),
     },
   ];
-  if (isAdmin) {
-    builtins.push({
+
+  // Settings hides entirely when no host has registered into it —
+  // there's no atrium-shipped content for this group. Admin hides
+  // when the viewer holds zero qualifying perms (matches the previous
+  // ``isAdmin`` gate but is now derived from the resolved item list).
+  if (settingsItems.length > 0) {
+    entries.push({
+      key: '__atrium_settings',
+      label: t('nav.settings'),
+      to: '/settings',
+      icon: <IconAdjustments size={16} />,
+      order: NAV_ORDER.settings,
+      items: settingsItems,
+      active: pathname.startsWith('/settings'),
+    });
+  }
+  if (adminItems.length > 0) {
+    entries.push({
       key: '__atrium_admin',
       label: t('nav.admin'),
       to: '/admin',
       icon: <IconSettings size={16} />,
       order: NAV_ORDER.admin,
+      items: adminItems,
       active: pathname.startsWith('/admin'),
     });
   }
 
-  const hostItems = getNavItems().filter((item) =>
-    item.condition ? item.condition({ me }) : true,
-  );
+  const hostItems = getNavItems()
+    .filter((item) => (item.condition ? item.condition({ me }) : true))
+    .map(
+      (item): FlatItem => ({
+        ...item,
+        active: pathname === item.to || pathname.startsWith(`${item.to}/`),
+      }),
+    );
+  entries.push(...hostItems);
 
-  // Merge then re-sort. ``getNavItems`` already sorts host items by
-  // ``order``; re-sorting the merged list with the same comparator
-  // splices the built-ins in at the right place.
-  const merged: (NavItem & { active?: boolean })[] = [
-    ...builtins,
-    ...hostItems,
-  ];
-  merged.sort((a, b) => {
+  // Stable sort: items with order come first; same-key falls back to
+  // insertion order (Array.prototype.sort is stable in ES2019+).
+  entries.sort((a, b) => {
     const ao = a.order;
     const bo = b.order;
     if (ao === undefined && bo === undefined) return 0;
@@ -262,18 +305,53 @@ function buildNavLinks(args: {
     return ao - bo;
   });
 
-  return merged.map((item) => (
-    <NavLink
-      key={item.key}
-      component={Link}
-      to={item.to}
-      label={item.label}
-      leftSection={item.icon}
-      active={
-        item.active ??
-        (pathname === item.to || pathname.startsWith(`${item.to}/`))
-      }
-      onClick={onNavigate}
-    />
-  ));
+  return entries.map((entry) => {
+    if (isGroup(entry)) {
+      const opened = entry.active;
+      return (
+        <NavLink
+          key={entry.key}
+          label={entry.label}
+          leftSection={entry.icon}
+          // Default-open when we're already inside the group so the
+          // active child is visible without an extra click; users can
+          // still toggle it closed.
+          defaultOpened={opened}
+          // The parent itself isn't directly clickable — child links
+          // own navigation. Marking it active when one of its children
+          // is matches the highlight users expect from a sidebar.
+          active={entry.active}
+          childrenOffset={28}
+        >
+          {entry.items.map((item) => {
+            const to = `${entry.to}/${item.key}`;
+            return (
+              <NavLink
+                key={item.key}
+                component={Link}
+                to={to}
+                label={item.label}
+                leftSection={item.icon}
+                active={
+                  pathname === to || pathname.startsWith(`${to}/`)
+                }
+                onClick={onNavigate}
+              />
+            );
+          })}
+        </NavLink>
+      );
+    }
+    return (
+      <NavLink
+        key={entry.key}
+        component={Link}
+        to={entry.to}
+        label={entry.label}
+        leftSection={entry.icon}
+        active={entry.active}
+        onClick={onNavigate}
+      />
+    );
+  });
 }

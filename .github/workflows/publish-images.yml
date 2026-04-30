@@ -99,7 +99,6 @@ jobs:
           build-args: |
             VITE_API_BASE_URL=
             VITE_DEFAULT_LANGUAGE=en
-            VITE_CKEDITOR_LICENSE_KEY=GPL
           # No tags here — push-by-digest is what lets the merge job
           # below assemble the multi-arch manifest list under the
           # real semver tags.
