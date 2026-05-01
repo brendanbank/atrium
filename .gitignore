@@ -58,4 +58,5 @@ logs/
 # Local MySQL volumes if bind-mounted
 .mysql-data/
 
-.claude/
+.claude/*
+!.claude/skills/
