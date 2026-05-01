@@ -119,7 +119,7 @@ def _q(value: str) -> str:
 
 async def _read_pats_config():
     """Read ``app_settings['pats']``. On any failure return the model
-    defaults (which include ``enabled=False``).
+    defaults (which include ``enabled=True`` since Phase 4).
 
     Reading on every PAT-presenting request is fine: PATs are far
     rarer than cookie requests, and a 2-3 ms DB hit per PAT call is

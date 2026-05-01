@@ -135,13 +135,13 @@ class PatsConfig(BaseModel):
     limits and audit-sampling knobs don't dilute the password /
     captcha / 2FA settings.
 
-    ``enabled`` defaults to ``False`` for the v1 ship. Operators
-    flip it on per environment once they've reviewed the audit
-    surface and the host app's permission slugs.
+    ``enabled`` defaults to ``True`` — fresh deploys ship with PATs
+    available. Operators who want to disable PATs opt out via
+    ``/admin/app-config``; the kill switch still applies post-incident.
     """
 
     enabled: bool = Field(
-        default=False,
+        default=True,
         description="Disable to turn off PATs entirely (kill switch).",
     )
     max_lifetime_days: int | None = Field(

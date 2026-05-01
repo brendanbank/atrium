@@ -273,6 +273,36 @@ FastAPI but emits a deprecation warning. **Use the migration form** unless
 you need runtime discovery — it sidesteps the lifespan-vs-events conflict
 and matches the schema-shaped nature of permissions.
 
+### Personal Access Tokens (PATs)
+
+PATs are enabled by default in atrium (`pats.enabled = True`). Host
+apps don't have to do anything to support them: your routes get the
+same `request.user` and the same `require_perm(...)` checks regardless
+of whether the caller authenticated via the cookie + 2FA flow or via a
+`Authorization: Bearer atr_pat_…` header. The PAT middleware mounts
+upstream of the route handlers and sets the same `Principal` on the
+request scope — `principal.auth_method` is `"pat"` (or
+`"service_account_pat"`) when you want to branch, but you usually
+shouldn't have to.
+
+PATs respect host-registered permissions automatically. Any permission
+seeded via `seed_permissions_sync` / `seed_permissions` (above) appears
+in the user's scope picker on **Profile → Tokens** as soon as the user
+holds it, and a super-admin granted `auth.pats.admin_read` sees every
+host permission show up in the **Admin → Tokens** filters. There's no
+host-side wiring step — registering the permission is the integration.
+
+The audit + rate-limit infrastructure is platform-owned too: PAT
+creation, rotation, revocation, and use are recorded in `audit_log`,
+with use-events sampled at the rate set by
+`pats.use_audit_sample_rate`. Per-token rate limits default to 600
+req/min and are tunable through `/admin/app-config`. PAT-authed
+requests are subject to maintenance mode like every other request —
+this is by design (see issue #112 §13). If a host app needs an
+automated caller to keep working during maintenance, add the path to
+`MaintenanceMiddleware`'s allow-list rather than working around the
+PAT layer.
+
 ---
 
 ## Frontend extension contract

@@ -300,6 +300,26 @@ shows the setup picker to unenrolled users — the distinct code lets
 the UI surface a clearer "your account requires 2FA" hint. Empty
 list (the default) = no enforcement.
 
+## Personal Access Tokens
+
+Long-lived bearer tokens that let scripts, MCP sidecars, CI jobs, and
+other non-interactive callers act as a user without driving the cookie
++ 2FA login flow. A PAT carries a subset of its issuing user's
+permissions and is checked against the user's *current* permissions on
+every request — losing a permission silently drops the matching scope
+from every token the user holds. Tokens are revocable, expirable, and
+auditable; the wire format is GitHub-style (`atr_pat_…`) so leaks are
+detectable by secret scanners and the structlog redactor masks the
+secret portion in any log line that captures it.
+
+Users manage their own tokens at **Profile → Tokens**; super-admins
+see every token across all users at **Admin → Tokens** and can also
+mint service-account users that exist only to hold PATs. PATs are
+enabled by default; flip `pats.enabled` off via `/admin/app-config` if
+a tenant needs to disable programmatic auth wholesale. Full design
+spec: [issue #112](https://github.com/brendanbank/atrium/issues/112).
+Host-app integration notes: [`docs/published-images.md`](docs/published-images.md).
+
 ## CAPTCHA (optional)
 
 Atrium can gate the unauthenticated auth endpoints (login + forgot
