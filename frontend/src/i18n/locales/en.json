@@ -422,6 +422,124 @@
     "view": "View",
     "payloadHint": "Raw payload for this notification. Host apps register per-kind rendering; until then this is the fallback view."
   },
+  "tokens": {
+    "notAllowed": "You don't have permission to manage personal access tokens.",
+    "never": "Never",
+    "neverUsed": "Never used",
+    "status": {
+      "active": "Active",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    },
+    "cols": {
+      "name": "Name",
+      "prefix": "Prefix",
+      "user": "User",
+      "scopes": "Scopes",
+      "lastUsed": "Last used",
+      "created": "Created",
+      "expires": "Expires",
+      "status": "Status"
+    },
+    "actions": {
+      "rotate": "Rotate",
+      "revoke": "Revoke",
+      "audit": "Audit trail"
+    },
+    "filters": {
+      "userPlaceholder": "Filter by user (name or email)",
+      "status": {
+        "all": "All",
+        "active": "Active",
+        "expired": "Expired",
+        "revoked": "Revoked"
+      }
+    },
+    "create": {
+      "title": "New personal access token",
+      "name": "Name",
+      "nameHelp": "Operator-readable label, e.g. \"MCP sidecar\" or \"Backup script\".",
+      "nameRequired": "Name is required",
+      "description": "Description",
+      "descriptionHelp": "Optional internal notes. Never shown to anyone but you.",
+      "scopes": "Scopes",
+      "scopesHelp": "Permissions the token is allowed to use. The intersection with your current permissions applies on every request.",
+      "scopesPlaceholder": "Pick the permissions this token can use…",
+      "scopesRequired": "Pick at least one scope",
+      "expiry": "Expires after",
+      "expiryHelp": "Tokens never expire by default. Operator policy may cap the maximum lifetime.",
+      "expiryDays": "{{days}} days",
+      "expiryDays_30": "30 days",
+      "expiryDays_90": "90 days",
+      "expiryDays_365": "1 year",
+      "expiryNever": "Never",
+      "submit": "Create token"
+    },
+    "reveal": {
+      "title": "Copy your new token",
+      "warningTitle": "This is the only time the token is shown",
+      "warningBody": "Store it in a secret manager now. Once you dismiss this dialog, atrium has no way to retrieve the token again — only the prefix and metadata are kept.",
+      "nameLabel": "Token",
+      "tokenLabel": "Bearer token",
+      "copy": "Copy token",
+      "copied": "Copied",
+      "dismiss": "I've copied it"
+    },
+    "rotate": {
+      "confirm": "Issue a new token to replace \"{{name}}\"? The old token is revoked immediately."
+    },
+    "revoke": {
+      "title": "Revoke token",
+      "confirm": "Revoke \"{{name}}\"? Any client using this token will start getting 401 Unauthorized.",
+      "reasonLabel": "Reason",
+      "reasonHelp": "Required for the audit trail. Visible to the token's user.",
+      "submit": "Revoke",
+      "done": "Token revoked."
+    },
+    "errors": {
+      "scopeOverreach": "One of the picked scopes isn't held by your account.",
+      "maxPerUser": "You've reached the maximum number of active tokens.",
+      "scopeOverreachActor": "You can't grant a scope you don't currently hold.",
+      "scopeOverreachTarget": "Pick roles whose permissions cover every initial scope.",
+      "emailTaken": "A user with that email already exists.",
+      "rotateFailed": "Could not rotate the token. Try again.",
+      "revokeFailed": "Could not revoke the token. Try again.",
+      "unknown": "Something went wrong. Try again."
+    },
+    "profile": {
+      "title": "Personal access tokens",
+      "intro": "Long-lived bearer tokens for scripts, agents, or external systems. Each token's authority is the intersection of its scopes and your current permissions.",
+      "newToken": "New token",
+      "empty": "You haven't created any tokens yet.",
+      "cardTitle": "Personal access tokens",
+      "cardIntro": "Long-lived bearer tokens for scripts and integrations.",
+      "cardLink": "Manage tokens"
+    },
+    "admin": {
+      "tab": "Tokens",
+      "title": "Personal access tokens",
+      "intro": "Cross-user view for incident response. Revoke tokens, audit usage, and provision service accounts.",
+      "newServiceAccount": "New service account",
+      "empty": "No tokens match the current filter.",
+      "shownTotal": "Showing {{shown}} of {{total}}",
+      "serviceAccountsTitle": "Service accounts",
+      "serviceAccountsEmpty": "No service accounts have been created yet.",
+      "auditTitle": "Audit trail — {{name}}",
+      "auditEmpty": "No audit entries for this token yet."
+    },
+    "serviceAccount": {
+      "title": "New service account",
+      "name": "Display name",
+      "nameHelp": "Human-readable label that shows up alongside tokens and audit entries.",
+      "email": "Email",
+      "emailHelp": "Used as the unique identifier. Service accounts can never log in with this email.",
+      "roles": "Roles",
+      "rolesHelp": "RBAC roles the service account holds. The initial token's scopes must be a subset of the union of these roles' permissions.",
+      "rolesPlaceholder": "Pick roles…",
+      "scopesHelp": "Scopes the initial token carries. Must be a subset of the roles you picked AND a subset of your own permissions.",
+      "submit": "Create"
+    }
+  },
   "translations": {
     "tab": "Translations",
     "title": "Translations",

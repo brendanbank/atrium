@@ -402,6 +402,124 @@
     "view": "Afficher",
     "payloadHint": "Données brutes de cette notification. Les applications hôtes définissent un rendu par type ; en attendant, voici la vue de repli."
   },
+  "tokens": {
+    "notAllowed": "Vous n'avez pas l'autorisation de gérer les jetons d'accès personnels.",
+    "never": "Jamais",
+    "neverUsed": "Jamais utilisé",
+    "status": {
+      "active": "Actif",
+      "expired": "Expiré",
+      "revoked": "Révoqué"
+    },
+    "cols": {
+      "name": "Nom",
+      "prefix": "Préfixe",
+      "user": "Utilisateur",
+      "scopes": "Permissions",
+      "lastUsed": "Dernière utilisation",
+      "created": "Créé",
+      "expires": "Expire",
+      "status": "Statut"
+    },
+    "actions": {
+      "rotate": "Renouveler",
+      "revoke": "Révoquer",
+      "audit": "Journal d'audit"
+    },
+    "filters": {
+      "userPlaceholder": "Filtrer par utilisateur (nom ou e-mail)",
+      "status": {
+        "all": "Tous",
+        "active": "Actifs",
+        "expired": "Expirés",
+        "revoked": "Révoqués"
+      }
+    },
+    "create": {
+      "title": "Nouveau jeton d'accès personnel",
+      "name": "Nom",
+      "nameHelp": "Étiquette lisible pour vous, par exemple « MCP sidecar » ou « Script de sauvegarde ».",
+      "nameRequired": "Le nom est requis",
+      "description": "Description",
+      "descriptionHelp": "Notes optionnelles pour vous-même. Jamais visibles ailleurs.",
+      "scopes": "Permissions",
+      "scopesHelp": "Permissions que le jeton peut utiliser. À chaque requête, l'intersection avec vos permissions actuelles s'applique.",
+      "scopesPlaceholder": "Choisissez les permissions de ce jeton…",
+      "scopesRequired": "Choisissez au moins une permission",
+      "expiry": "Expire après",
+      "expiryHelp": "Par défaut, les jetons n'expirent pas. La politique de l'opérateur peut imposer une durée de vie maximale.",
+      "expiryDays": "{{days}} jours",
+      "expiryDays_30": "30 jours",
+      "expiryDays_90": "90 jours",
+      "expiryDays_365": "1 an",
+      "expiryNever": "Jamais",
+      "submit": "Créer le jeton"
+    },
+    "reveal": {
+      "title": "Copiez votre nouveau jeton",
+      "warningTitle": "C'est la seule fois où le jeton est affiché",
+      "warningBody": "Stockez-le dans un gestionnaire de secrets dès maintenant. Une fois cette boîte fermée, atrium ne pourra plus retrouver le jeton — seuls le préfixe et les métadonnées sont conservés.",
+      "nameLabel": "Jeton",
+      "tokenLabel": "Jeton bearer",
+      "copy": "Copier le jeton",
+      "copied": "Copié",
+      "dismiss": "Je l'ai copié"
+    },
+    "rotate": {
+      "confirm": "Émettre un nouveau jeton pour remplacer « {{name}} » ? L'ancien jeton est immédiatement révoqué."
+    },
+    "revoke": {
+      "title": "Révoquer le jeton",
+      "confirm": "Révoquer « {{name}} » ? Tout client utilisant ce jeton recevra immédiatement 401 Unauthorized.",
+      "reasonLabel": "Raison",
+      "reasonHelp": "Requise pour le journal d'audit. Visible par l'utilisateur du jeton.",
+      "submit": "Révoquer",
+      "done": "Jeton révoqué."
+    },
+    "errors": {
+      "scopeOverreach": "Une des permissions choisies n'est pas détenue par votre compte.",
+      "maxPerUser": "Vous avez atteint le nombre maximum de jetons actifs.",
+      "scopeOverreachActor": "Vous ne pouvez pas accorder une permission que vous ne détenez pas.",
+      "scopeOverreachTarget": "Choisissez des rôles dont les permissions couvrent chaque permission demandée.",
+      "emailTaken": "Un utilisateur avec cet e-mail existe déjà.",
+      "rotateFailed": "Impossible de renouveler le jeton. Réessayez.",
+      "revokeFailed": "Impossible de révoquer le jeton. Réessayez.",
+      "unknown": "Quelque chose a échoué. Réessayez."
+    },
+    "profile": {
+      "title": "Jetons d'accès personnels",
+      "intro": "Jetons bearer à longue durée pour scripts, agents et systèmes externes. Les droits d'un jeton sont l'intersection de ses permissions et de vos permissions actuelles.",
+      "newToken": "Nouveau jeton",
+      "empty": "Vous n'avez encore créé aucun jeton.",
+      "cardTitle": "Jetons d'accès personnels",
+      "cardIntro": "Jetons bearer à longue durée pour scripts et intégrations.",
+      "cardLink": "Gérer les jetons"
+    },
+    "admin": {
+      "tab": "Jetons",
+      "title": "Jetons d'accès personnels",
+      "intro": "Vue inter-utilisateurs pour la réponse aux incidents. Révoquez des jetons, consultez l'historique et créez des comptes de service.",
+      "newServiceAccount": "Nouveau compte de service",
+      "empty": "Aucun jeton ne correspond au filtre actuel.",
+      "shownTotal": "{{shown}} sur {{total}} affichés",
+      "serviceAccountsTitle": "Comptes de service",
+      "serviceAccountsEmpty": "Aucun compte de service n'a encore été créé.",
+      "auditTitle": "Journal d'audit — {{name}}",
+      "auditEmpty": "Aucune entrée d'audit pour ce jeton pour l'instant."
+    },
+    "serviceAccount": {
+      "title": "Nouveau compte de service",
+      "name": "Nom affiché",
+      "nameHelp": "Étiquette lisible affichée à côté des jetons et des entrées d'audit.",
+      "email": "E-mail",
+      "emailHelp": "Utilisé comme identifiant unique. Les comptes de service ne peuvent jamais se connecter avec cet e-mail.",
+      "roles": "Rôles",
+      "rolesHelp": "Rôles RBAC du compte de service. Les permissions du premier jeton doivent être un sous-ensemble de l'union de ces rôles.",
+      "rolesPlaceholder": "Choisir des rôles…",
+      "scopesHelp": "Permissions que portera le premier jeton. Doivent être un sous-ensemble des rôles choisis ET de vos propres permissions.",
+      "submit": "Créer"
+    }
+  },
   "translations": {
     "tab": "Traductions",
     "title": "Traductions",

@@ -402,6 +402,124 @@
     "view": "Bekijken",
     "payloadHint": "Ruwe payload van deze melding. Host-apps registreren weergaven per soort; tot dat moment is dit de fallback-weergave."
   },
+  "tokens": {
+    "notAllowed": "Je hebt geen rechten om persoonlijke toegangstokens te beheren.",
+    "never": "Nooit",
+    "neverUsed": "Nooit gebruikt",
+    "status": {
+      "active": "Actief",
+      "expired": "Verlopen",
+      "revoked": "Ingetrokken"
+    },
+    "cols": {
+      "name": "Naam",
+      "prefix": "Prefix",
+      "user": "Gebruiker",
+      "scopes": "Rechten",
+      "lastUsed": "Laatst gebruikt",
+      "created": "Aangemaakt",
+      "expires": "Verloopt",
+      "status": "Status"
+    },
+    "actions": {
+      "rotate": "Roteren",
+      "revoke": "Intrekken",
+      "audit": "Auditspoor"
+    },
+    "filters": {
+      "userPlaceholder": "Filter op gebruiker (naam of e-mail)",
+      "status": {
+        "all": "Alle",
+        "active": "Actief",
+        "expired": "Verlopen",
+        "revoked": "Ingetrokken"
+      }
+    },
+    "create": {
+      "title": "Nieuw persoonlijk toegangstoken",
+      "name": "Naam",
+      "nameHelp": "Leesbaar label voor jezelf, bijvoorbeeld \"MCP-sidecar\" of \"Backupscript\".",
+      "nameRequired": "Naam is verplicht",
+      "description": "Beschrijving",
+      "descriptionHelp": "Optionele notities voor jezelf. Niet zichtbaar voor anderen.",
+      "scopes": "Rechten",
+      "scopesHelp": "Permissies die het token mag gebruiken. Bij elk verzoek wordt de doorsnede met je huidige permissies toegepast.",
+      "scopesPlaceholder": "Kies de permissies die dit token mag gebruiken…",
+      "scopesRequired": "Kies ten minste één recht",
+      "expiry": "Verloopt na",
+      "expiryHelp": "Tokens verlopen standaard niet. Het beleid van de operator kan een maximale levensduur instellen.",
+      "expiryDays": "{{days}} dagen",
+      "expiryDays_30": "30 dagen",
+      "expiryDays_90": "90 dagen",
+      "expiryDays_365": "1 jaar",
+      "expiryNever": "Nooit",
+      "submit": "Token aanmaken"
+    },
+    "reveal": {
+      "title": "Kopieer je nieuwe token",
+      "warningTitle": "Dit is de enige keer dat het token wordt getoond",
+      "warningBody": "Bewaar het nu in een wachtwoordkluis. Zodra je dit dialoogvenster sluit, kan atrium het token niet meer ophalen — alleen de prefix en metadata blijven bewaard.",
+      "nameLabel": "Token",
+      "tokenLabel": "Bearer-token",
+      "copy": "Token kopiëren",
+      "copied": "Gekopieerd",
+      "dismiss": "Ik heb het gekopieerd"
+    },
+    "rotate": {
+      "confirm": "Een nieuw token uitgeven ter vervanging van \"{{name}}\"? Het oude token wordt direct ingetrokken."
+    },
+    "revoke": {
+      "title": "Token intrekken",
+      "confirm": "\"{{name}}\" intrekken? Elke client die dit token gebruikt krijgt direct 401 Unauthorized.",
+      "reasonLabel": "Reden",
+      "reasonHelp": "Verplicht voor het auditspoor. Zichtbaar voor de eigenaar van het token.",
+      "submit": "Intrekken",
+      "done": "Token ingetrokken."
+    },
+    "errors": {
+      "scopeOverreach": "Een van de gekozen rechten heeft jouw account niet.",
+      "maxPerUser": "Je hebt het maximum aantal actieve tokens bereikt.",
+      "scopeOverreachActor": "Je kunt geen recht uitgeven dat je zelf niet hebt.",
+      "scopeOverreachTarget": "Kies rollen waarvan de permissies elk gevraagd recht dekken.",
+      "emailTaken": "Er bestaat al een gebruiker met dit e-mailadres.",
+      "rotateFailed": "Kon het token niet roteren. Probeer opnieuw.",
+      "revokeFailed": "Kon het token niet intrekken. Probeer opnieuw.",
+      "unknown": "Er is iets misgegaan. Probeer opnieuw."
+    },
+    "profile": {
+      "title": "Persoonlijke toegangstokens",
+      "intro": "Langlopende bearer-tokens voor scripts, agents of externe systemen. De rechten van een token zijn de doorsnede van zijn scopes en je huidige permissies.",
+      "newToken": "Nieuw token",
+      "empty": "Je hebt nog geen tokens aangemaakt.",
+      "cardTitle": "Persoonlijke toegangstokens",
+      "cardIntro": "Langlopende bearer-tokens voor scripts en integraties.",
+      "cardLink": "Tokens beheren"
+    },
+    "admin": {
+      "tab": "Tokens",
+      "title": "Persoonlijke toegangstokens",
+      "intro": "Overzicht over alle gebruikers heen voor incident response. Trek tokens in, bekijk auditgebruik en maak service-accounts aan.",
+      "newServiceAccount": "Nieuw service-account",
+      "empty": "Geen tokens gevonden voor het huidige filter.",
+      "shownTotal": "{{shown}} van de {{total}} getoond",
+      "serviceAccountsTitle": "Service-accounts",
+      "serviceAccountsEmpty": "Er zijn nog geen service-accounts aangemaakt.",
+      "auditTitle": "Auditspoor — {{name}}",
+      "auditEmpty": "Nog geen auditregels voor dit token."
+    },
+    "serviceAccount": {
+      "title": "Nieuw service-account",
+      "name": "Weergavenaam",
+      "nameHelp": "Leesbaar label dat naast tokens en auditregels verschijnt.",
+      "email": "E-mail",
+      "emailHelp": "Wordt gebruikt als unieke identificatie. Service-accounts kunnen niet inloggen met dit e-mailadres.",
+      "roles": "Rollen",
+      "rolesHelp": "RBAC-rollen die het service-account heeft. De rechten van het eerste token moeten binnen de unie van deze rollen vallen.",
+      "rolesPlaceholder": "Kies rollen…",
+      "scopesHelp": "Rechten die het eerste token meekrijgt. Moeten binnen de gekozen rollen ÉN binnen je eigen permissies vallen.",
+      "submit": "Aanmaken"
+    }
+  },
   "translations": {
     "tab": "Vertalingen",
     "title": "Vertalingen",

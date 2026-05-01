@@ -22,7 +22,7 @@ import { useForm } from '@mantine/form';
 import { notifications } from '@mantine/notifications';
 import { useTranslation } from 'react-i18next';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import { TwoFactorSetupModal } from '@/components/TwoFactorSetupModal';
 import { useSelfDelete } from '@/hooks/useAccountDeletion';
@@ -443,6 +443,8 @@ export function ProfilePage() {
 
       <RolesSummary roles={me.roles} />
 
+      <TokensCard />
+
       {renderSlot('after-roles')}
 
       <Paper withBorder p="sm" radius="md">
@@ -635,6 +637,35 @@ function InlineField({
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
     </div>
+  );
+}
+
+
+/** Built-in profile card linking to /profile/tokens. The full
+ *  management UX (table + create + reveal) is on its own route so
+ *  the modal stack doesn't fight with the rest of the profile page. */
+function TokensCard() {
+  const { t } = useTranslation();
+  return (
+    <Paper withBorder p="sm" radius="md">
+      <Group justify="space-between" wrap="nowrap" align="flex-start">
+        <Stack gap={2}>
+          <Title order={5}>{t('tokens.profile.cardTitle')}</Title>
+          <Text size="sm" c="dimmed">
+            {t('tokens.profile.cardIntro')}
+          </Text>
+        </Stack>
+        <Button
+          component={Link}
+          to="/profile/tokens"
+          variant="light"
+          size="xs"
+          data-testid="profile-tokens-link"
+        >
+          {t('tokens.profile.cardLink')}
+        </Button>
+      </Group>
+    </Paper>
   );
 }
 

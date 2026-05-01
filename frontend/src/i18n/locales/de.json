@@ -402,6 +402,124 @@
     "view": "Anzeigen",
     "payloadHint": "Rohdaten dieser Benachrichtigung. Host-Apps registrieren je nach Art eigene Darstellungen; bis dahin ist dies die Fallback-Ansicht."
   },
+  "tokens": {
+    "notAllowed": "Sie haben keine Berechtigung, persönliche Zugriffstoken zu verwalten.",
+    "never": "Nie",
+    "neverUsed": "Noch nicht benutzt",
+    "status": {
+      "active": "Aktiv",
+      "expired": "Abgelaufen",
+      "revoked": "Widerrufen"
+    },
+    "cols": {
+      "name": "Name",
+      "prefix": "Präfix",
+      "user": "Benutzer",
+      "scopes": "Berechtigungen",
+      "lastUsed": "Zuletzt benutzt",
+      "created": "Erstellt",
+      "expires": "Läuft ab",
+      "status": "Status"
+    },
+    "actions": {
+      "rotate": "Rotieren",
+      "revoke": "Widerrufen",
+      "audit": "Audit-Verlauf"
+    },
+    "filters": {
+      "userPlaceholder": "Nach Benutzer filtern (Name oder E-Mail)",
+      "status": {
+        "all": "Alle",
+        "active": "Aktiv",
+        "expired": "Abgelaufen",
+        "revoked": "Widerrufen"
+      }
+    },
+    "create": {
+      "title": "Neues persönliches Zugriffstoken",
+      "name": "Name",
+      "nameHelp": "Lesbares Etikett für Sie selbst, z. B. \"MCP-Sidecar\" oder \"Backup-Skript\".",
+      "nameRequired": "Name ist erforderlich",
+      "description": "Beschreibung",
+      "descriptionHelp": "Optionale Notizen für Sie selbst. Nicht für andere sichtbar.",
+      "scopes": "Berechtigungen",
+      "scopesHelp": "Berechtigungen, die das Token nutzen darf. Bei jeder Anfrage wird die Schnittmenge mit Ihren aktuellen Rechten angewendet.",
+      "scopesPlaceholder": "Wählen Sie die Berechtigungen für dieses Token …",
+      "scopesRequired": "Wählen Sie mindestens eine Berechtigung",
+      "expiry": "Läuft ab nach",
+      "expiryHelp": "Standardmäßig laufen Token nicht ab. Die Operator-Richtlinie kann eine maximale Lebensdauer vorgeben.",
+      "expiryDays": "{{days}} Tage",
+      "expiryDays_30": "30 Tage",
+      "expiryDays_90": "90 Tage",
+      "expiryDays_365": "1 Jahr",
+      "expiryNever": "Nie",
+      "submit": "Token erstellen"
+    },
+    "reveal": {
+      "title": "Kopieren Sie Ihr neues Token",
+      "warningTitle": "Dies ist die einzige Anzeige des Tokens",
+      "warningBody": "Speichern Sie es jetzt in einem Passwort-Manager. Sobald Sie diesen Dialog schließen, kann atrium das Token nicht mehr abrufen — nur Präfix und Metadaten bleiben erhalten.",
+      "nameLabel": "Token",
+      "tokenLabel": "Bearer-Token",
+      "copy": "Token kopieren",
+      "copied": "Kopiert",
+      "dismiss": "Ich habe es kopiert"
+    },
+    "rotate": {
+      "confirm": "Ein neues Token als Ersatz für \"{{name}}\" ausstellen? Das alte Token wird sofort widerrufen."
+    },
+    "revoke": {
+      "title": "Token widerrufen",
+      "confirm": "\"{{name}}\" widerrufen? Jeder Client, der dieses Token verwendet, erhält ab sofort 401 Unauthorized.",
+      "reasonLabel": "Grund",
+      "reasonHelp": "Erforderlich für den Audit-Verlauf. Sichtbar für den Token-Inhaber.",
+      "submit": "Widerrufen",
+      "done": "Token widerrufen."
+    },
+    "errors": {
+      "scopeOverreach": "Eine der gewählten Berechtigungen besitzt Ihr Konto nicht.",
+      "maxPerUser": "Sie haben die maximale Anzahl aktiver Tokens erreicht.",
+      "scopeOverreachActor": "Sie können keine Berechtigung erteilen, die Sie selbst nicht besitzen.",
+      "scopeOverreachTarget": "Wählen Sie Rollen, deren Berechtigungen alle gewünschten Scopes abdecken.",
+      "emailTaken": "Es existiert bereits ein Benutzer mit dieser E-Mail-Adresse.",
+      "rotateFailed": "Token konnte nicht rotiert werden. Versuchen Sie es erneut.",
+      "revokeFailed": "Token konnte nicht widerrufen werden. Versuchen Sie es erneut.",
+      "unknown": "Etwas ist schiefgelaufen. Versuchen Sie es erneut."
+    },
+    "profile": {
+      "title": "Persönliche Zugriffstoken",
+      "intro": "Langlebige Bearer-Token für Skripte, Agenten und externe Systeme. Die Rechte eines Tokens sind die Schnittmenge seiner Scopes mit Ihren aktuellen Berechtigungen.",
+      "newToken": "Neues Token",
+      "empty": "Sie haben noch keine Tokens erstellt.",
+      "cardTitle": "Persönliche Zugriffstoken",
+      "cardIntro": "Langlebige Bearer-Token für Skripte und Integrationen.",
+      "cardLink": "Tokens verwalten"
+    },
+    "admin": {
+      "tab": "Tokens",
+      "title": "Persönliche Zugriffstoken",
+      "intro": "Übersicht über alle Benutzer für die Reaktion auf Vorfälle. Tokens widerrufen, Nutzung prüfen, Service-Accounts anlegen.",
+      "newServiceAccount": "Neuer Service-Account",
+      "empty": "Keine Tokens für den aktuellen Filter gefunden.",
+      "shownTotal": "{{shown}} von {{total}} angezeigt",
+      "serviceAccountsTitle": "Service-Accounts",
+      "serviceAccountsEmpty": "Es wurden noch keine Service-Accounts angelegt.",
+      "auditTitle": "Audit-Verlauf — {{name}}",
+      "auditEmpty": "Noch keine Audit-Einträge für dieses Token."
+    },
+    "serviceAccount": {
+      "title": "Neuer Service-Account",
+      "name": "Anzeigename",
+      "nameHelp": "Lesbares Etikett, das neben Tokens und Audit-Einträgen erscheint.",
+      "email": "E-Mail",
+      "emailHelp": "Wird als eindeutige Kennung verwendet. Service-Accounts können sich mit dieser E-Mail nie anmelden.",
+      "roles": "Rollen",
+      "rolesHelp": "RBAC-Rollen, die der Service-Account besitzt. Die Scopes des ersten Tokens müssen Teilmenge der Vereinigung dieser Rollen sein.",
+      "rolesPlaceholder": "Rollen wählen …",
+      "scopesHelp": "Scopes, die das erste Token erhält. Müssen Teilmenge der gewählten Rollen UND Ihrer eigenen Berechtigungen sein.",
+      "submit": "Anlegen"
+    }
+  },
   "translations": {
     "tab": "Übersetzungen",
     "title": "Übersetzungen",
