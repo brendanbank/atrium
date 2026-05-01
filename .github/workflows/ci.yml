@@ -65,7 +65,7 @@ jobs:
 
   # Backend pytest is sharded for parallel CI. ``backend-core`` runs
   # unit + integration + healthz (~41 tests) and ruff. ``backend-api``
-  # runs the HTTP / fastapi-users flows (~154 tests) split across an
+  # runs the HTTP / fastapi-users flows (~225 tests) split across an
   # N-way pytest-split matrix that auto-balances by stored test
   # durations (``backend/.test_durations``). All shards use the same
   # MySQL service and the same conftest — the session-scoped
@@ -129,11 +129,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 2-way split today. Bumping to N requires updating ``splits``
+        # 3-way split. Bumping to N requires updating ``splits``
         # everywhere ``--splits`` appears below; ``group`` is whatever
-        # 1..N range matches.
-        group: [1, 2]
-    name: backend-api (${{ matrix.group }}/2)
+        # 1..N range matches. Phase 2 PATs grew the api suite from
+        # ~49 s to ~96 s; the third shard halves the per-shard wall
+        # time and keeps the longest shard under ~35 s.
+        group: [1, 2, 3]
+    name: backend-api (${{ matrix.group }}/3)
     defaults:
       run:
         working-directory: backend
@@ -169,16 +171,17 @@ jobs:
       - name: Sync deps
         run: uv sync
 
-      - name: Pytest (api, group ${{ matrix.group }}/2)
+      - name: Pytest (api, group ${{ matrix.group }}/3)
         env:
           DATABASE_URL: mysql+aiomysql://casa:casa@127.0.0.1:3306/casa_test
           APP_SECRET_KEY: test-secret
           JWT_SECRET: test-secret
-        # ``--splits 2 --group N`` is pytest-split's contract: each
-        # shard skips the ~half of tests it doesn't own. Coverage is
-        # per-shard (no combine step) — ``--cov-fail-under`` would
-        # need the combine, and we're not enforcing a threshold.
-        run: uv run pytest tests/api --splits 2 --group ${{ matrix.group }} --cov=app --cov-report=term-missing
+        # ``--splits 3 --group N`` is pytest-split's contract: each
+        # shard skips the ~two-thirds of tests it doesn't own.
+        # Coverage is per-shard (no combine step) —
+        # ``--cov-fail-under`` would need the combine, and we're not
+        # enforcing a threshold.
+        run: uv run pytest tests/api --splits 3 --group ${{ matrix.group }} --cov=app --cov-report=term-missing
 
   frontend:
     runs-on: ubuntu-latest
