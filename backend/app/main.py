@@ -36,6 +36,7 @@ from app.api.totp import admin_router as totp_admin_router
 from app.api.totp import router as totp_router
 from app.api.webauthn import router as webauthn_router
 from app.auth.backend import auth_backend
+from app.auth.pat_middleware import PATAuthMiddleware
 from app.auth.schemas import UserRead, UserUpdate
 from app.auth.users import fastapi_users
 from app.logging import configure_logging, log
@@ -103,6 +104,14 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
     app.add_middleware(ImpersonationAuditMiddleware)
+    # PAT auth slots in here — after impersonation-audit (so a PAT
+    # request can never be confused with an impersonated cookie
+    # session) but before rate-limit and captcha (so a PAT-authed
+    # request still pays its rate-limit budget and the captcha
+    # gate is a no-op for it). Maintenance still runs *outside*
+    # PAT auth: the kill switch applies to programmatic callers
+    # too, by design (issue #112 §13).
+    app.add_middleware(PATAuthMiddleware)
     app.add_middleware(AuthRateLimitMiddleware)
     # CaptchaLoginMiddleware sits between rate-limit and maintenance:
     # rate-limits still apply to a request that fails the captcha

@@ -66,6 +66,16 @@ class User(Base, TimestampMixin):
         DateTime(timezone=False), nullable=True
     )
 
+    # Service accounts hold PATs but never log in interactively.
+    # Excluded from password login + reset + 2FA enrolment routes.
+    # ``hashed_password`` stays a non-empty string at creation
+    # (an empty-string sentinel that bcrypt cannot match) so the
+    # column constraint stays NOT NULL — matches the soft-delete
+    # convention. The flag is the actual gate.
+    is_service_account: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+
 
 class UserInvite(Base, TimestampMixin):
     """Invitation to create an account. No public signup."""

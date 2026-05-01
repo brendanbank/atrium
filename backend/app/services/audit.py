@@ -34,6 +34,13 @@ from app.models.ops import AuditLog
 _impersonator_user_id: ContextVar[int | None] = ContextVar(
     "atrium_audit_impersonator_user_id", default=None
 )
+# Set by ``PATAuthMiddleware`` for the duration of a PAT-authed request
+# so ``record(...)`` can attribute the row to the issuing token without
+# every audit call site needing a new kwarg. Same shape as the
+# impersonator var: middleware sets, middleware clears.
+_token_id: ContextVar[int | None] = ContextVar(
+    "atrium_audit_token_id", default=None
+)
 
 
 def set_impersonator(user_id: int | None) -> None:
@@ -44,6 +51,16 @@ def set_impersonator(user_id: int | None) -> None:
 
 def get_impersonator() -> int | None:
     return _impersonator_user_id.get()
+
+
+def set_token_id(token_id: int | None) -> None:
+    """Middleware-only entry point: pin the active PAT id for the
+    current request. Cleared after the response."""
+    _token_id.set(token_id)
+
+
+def get_token_id() -> int | None:
+    return _token_id.get()
 
 
 def _json_safe(value: Any) -> Any:
@@ -75,6 +92,7 @@ async def record(
     entity_id: int,
     action: str,
     diff: dict[str, Any] | None = None,
+    token_id: int | None = None,
 ) -> None:
     safe_diff: dict[str, Any] | None = (
         _json_safe(diff) if diff is not None else None
@@ -83,6 +101,7 @@ async def record(
         AuditLog(
             actor_user_id=actor_user_id,
             impersonator_user_id=_impersonator_user_id.get(),
+            token_id=token_id if token_id is not None else _token_id.get(),
             entity=entity,
             entity_id=entity_id,
             action=action,

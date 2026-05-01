@@ -127,6 +127,59 @@ class SystemConfig(BaseModel):
     host_bundle_url: str | None = Field(default=None, max_length=2000)
 
 
+class PatsConfig(BaseModel):
+    """Personal Access Token policy. Admin-only namespace.
+
+    Operational rather than user-facing — keeping it separate from
+    ``AuthConfig`` (which has its own sprawl already) so the rate
+    limits and audit-sampling knobs don't dilute the password /
+    captcha / 2FA settings.
+
+    ``enabled`` defaults to ``False`` for the v1 ship. Operators
+    flip it on per environment once they've reviewed the audit
+    surface and the host app's permission slugs.
+    """
+
+    enabled: bool = Field(
+        default=False,
+        description="Disable to turn off PATs entirely (kill switch).",
+    )
+    max_lifetime_days: int | None = Field(
+        default=None,
+        description="Cap on per-token expires_in_days; None = unlimited.",
+    )
+    max_per_user: int = Field(
+        default=50,
+        ge=1,
+        le=10_000,
+        description="Hard cap on active tokens per user.",
+    )
+    default_rate_limit_per_minute: int = Field(
+        default=600,
+        ge=1,
+        le=100_000,
+        description="Per-token request rate limit.",
+    )
+    use_audit_sample_rate: float = Field(
+        default=0.02,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Fraction of pat_used events that get an audit log row "
+            "(first use is always logged regardless)."
+        ),
+    )
+    dormant_warning_days: int = Field(
+        default=90,
+        ge=1,
+        le=3650,
+        description=(
+            "Token-suddenly-used-after-N-days-of-dormancy alert "
+            "threshold."
+        ),
+    )
+
+
 class AuthConfig(BaseModel):
     """Auth-policy toggles. Phase 7 ships only the self-deletion knobs;
     later phases extend this same model (signup, password policy,
@@ -273,3 +326,4 @@ async def get_all_admin_config(session: AsyncSession) -> dict[str, dict]:
 
 
 register_namespace("auth", AuthConfig, public=False)
+register_namespace("pats", PatsConfig, public=False)

@@ -44,11 +44,24 @@ class UserManager(IntegerIDMixin, BaseUserManager[User, int]):
         gotcha #4) — collapsing both into one error keeps the
         attacker's view ambiguous.
 
-        We log a clear ``user.login_refused.unverified`` line so an
-        operator can grep for legitimate users hitting this gate.
+        Service accounts (``is_service_account=True``) are refused
+        unconditionally: they exist to hold PATs, never to log in
+        interactively. Same 400 bucket as other refusals so an
+        attacker can't use the response to discriminate
+        service-account emails from human ones.
+
+        We log a clear ``user.login_refused.*`` line so an
+        operator can grep for legitimate users hitting these gates.
         """
         user = await super().authenticate(credentials)
         if user is None:
+            return None
+        if user.is_service_account:
+            log.info(
+                "user.login_refused.service_account",
+                user_id=user.id,
+                email=user.email,
+            )
             return None
 
         # Lazy import keeps the auth namespace cost off the hot path
