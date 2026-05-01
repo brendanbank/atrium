@@ -204,7 +204,7 @@ Two-stage build: node-builder for the SPA, then `FROM ${ATRIUM_IMAGE}`
 to install the host package and copy the bundle into the static dir:
 
 ```dockerfile
-ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.22
+ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.23
 FROM node:25-alpine AS frontend-builder
 WORKDIR /app
 RUN npm install -g pnpm@10.33.1

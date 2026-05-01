@@ -37,7 +37,7 @@ const TEMPLATE_DIR = resolve(__dirname, '..', 'template');
 // The atrium image + SDK packages version in lockstep. Bump this when
 // cutting a new atrium release so freshly scaffolded hosts pin against
 // the right line.
-const DEFAULT_ATRIUM_VERSION = '0.22';
+const DEFAULT_ATRIUM_VERSION = '0.23';
 
 const HELP = `
 ${kleur.bold('create-atrium-host')} — scaffold a new atrium host extension

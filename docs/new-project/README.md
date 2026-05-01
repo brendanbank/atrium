@@ -776,7 +776,7 @@ into the wrapper).
 ## Step 5 - Dockerfile
 
 ```dockerfile
-ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.22
+ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.23
 
 # ---- frontend-builder ----
 FROM node:25-alpine AS frontend-builder
@@ -929,7 +929,7 @@ MAIL_FROM=no-reply@example.com
 
 # Pin the atrium base image. X.Y for patch uptake; X.Y.Z for fully
 # deterministic deploys.
-ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.22
+ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.23
 ```
 
 For the full env-var surface (CAPTCHA secret, SMTP host/port/user, etc.)
