@@ -2,6 +2,17 @@
  * SPDX-License-Identifier: BSD-2-Clause
  */
 
+/* iOS Safari rubber-bands the document and the dynamic toolbar
+ * collapses on scroll, which together cause the page to "jump up"
+ * when the user reaches the bottom — sometimes hiding content
+ * behind the address bar (issue #104). ``overscroll-behavior: none``
+ * disables the bounce on the root scroller without affecting any
+ * inner ScrollArea (those keep their default contain behaviour). */
+html,
+body {
+  overscroll-behavior-y: none;
+}
+
 /* iOS Safari auto-zooms on *editable* inputs whose computed font-size
  * is below 16px. Readonly inputs (e.g. Mantine's MonthPickerInput)
  * don't trigger the zoom, so leave those at their design size to
