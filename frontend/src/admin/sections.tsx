@@ -6,6 +6,7 @@ import {
   IconBrush,
   IconHistory,
   IconKey,
+  IconKeyOff,
   IconLanguage,
   IconLock,
   IconMail,
@@ -24,6 +25,7 @@ import { EmailTemplatesAdmin } from '@/components/admin/EmailTemplatesAdmin';
 import { RemindersAdmin } from '@/components/admin/RemindersAdmin';
 import { RolesAdmin } from '@/components/admin/RolesAdmin';
 import { SystemAdmin } from '@/components/admin/SystemAdmin';
+import { TokensAdmin } from '@/components/admin/TokensAdmin';
 import { TranslationsAdmin } from '@/components/admin/TranslationsAdmin';
 import { UsersAdmin } from '@/components/admin/UsersAdmin';
 import { useMe, usePerm } from '@/hooks/useAuth';
@@ -61,6 +63,7 @@ const ADMIN_ORDER = {
   users: 300,
   branding: 400,
   roles: 500,
+  tokens: 550,
   translations: 600,
   emails: 700,
   outbox: 750,
@@ -133,6 +136,7 @@ function useBuiltinDefs(): BuiltinDef[] {
   const canManageEmailTemplates = usePerm('email_template.manage');
   const canManageEmailOutbox = usePerm('email_outbox.manage');
   const canManageReminderRules = usePerm('reminder_rule.manage');
+  const canReadAdminTokens = usePerm('auth.pats.admin_read');
 
   const defs: BuiltinDef[] = [];
 
@@ -181,6 +185,16 @@ function useBuiltinDefs(): BuiltinDef[] {
       icon: <IconKey size={14} />,
       render: () => <RolesAdmin />,
       order: ADMIN_ORDER.roles,
+      defaultSection: 'admin',
+    });
+  }
+  if (canReadAdminTokens) {
+    defs.push({
+      key: 'tokens',
+      label: t('tokens.admin.tab'),
+      icon: <IconKeyOff size={14} />,
+      render: () => <TokensAdmin />,
+      order: ADMIN_ORDER.tokens,
       defaultSection: 'admin',
     });
   }

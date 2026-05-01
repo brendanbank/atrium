@@ -21,6 +21,7 @@ import { NotificationsPage } from './routes/NotificationsPage';
 import { ProfilePage } from './routes/ProfilePage';
 import { RegisterPage } from './routes/RegisterPage';
 import { ResetPasswordPage } from './routes/ResetPasswordPage';
+import { TokensPage } from './routes/TokensPage';
 import { TwoFactorPage } from './routes/TwoFactorPage';
 import { VerifyEmailPage } from './routes/VerifyEmailPage';
 
@@ -117,6 +118,7 @@ export default function App() {
             element={<SectionPage bucket="settings" />}
           />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/profile/tokens" element={<TokensPage />} />
           <Route path="/notifications" element={<NotificationsPage />} />
           {shellAuthRoutes.map((r) => (
             <Route
