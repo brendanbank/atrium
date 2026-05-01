@@ -186,6 +186,31 @@ def require_pat_scope(*scopes: str):
     return _dep
 
 
+async def require_cookie_auth(
+    principal: Principal = Depends(current_principal),
+) -> User:
+    """Refuse PAT-authenticated callers.
+
+    Add this alongside ``require_perm("...")`` on every PAT-management
+    route. A PAT must not be able to mint, revoke, or rotate other PATs
+    even if it (somehow) carries ``auth.pats.admin_revoke`` — the
+    issuance and revocation surface stays cookie-only so a leaked PAT
+    cannot bootstrap further tokens.
+
+    Doubles as the v1 step-up gate: ``current_user`` already enforces
+    ``auth_sessions.totp_passed=True`` on cookie callers, so any
+    request that reaches this dep has both a cookie *and* a full 2FA-
+    completed session. A real fresh-challenge primitive is descoped per
+    spec §13 — wire this here when one lands.
+    """
+    if principal.auth_method != "password":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"code": "cookie_auth_required"},
+        )
+    return principal.user
+
+
 async def assign_role(
     session: AsyncSession, *, user_id: int, role_code: str
 ) -> None:

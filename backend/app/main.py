@@ -12,11 +12,13 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.account_deletion import admin_router as account_deletion_admin_router
 from app.api.account_deletion import self_router as account_deletion_self_router
+from app.api.admin_auth_tokens import router as admin_auth_tokens_router
 from app.api.admin_roles import router as admin_roles_router
 from app.api.admin_users import router as admin_users_router
 from app.api.app_config import admin_router as app_config_admin_router
 from app.api.app_config import public_router as app_config_public_router
 from app.api.audit import router as audit_router
+from app.api.auth_tokens import router as auth_tokens_router
 from app.api.email_otp import router as email_otp_router
 from app.api.email_outbox import router as email_outbox_router
 from app.api.email_templates import router as email_templates_router
@@ -30,6 +32,7 @@ from app.api.invites import router as invites_router
 from app.api.me_context import router as me_context_router
 from app.api.notifications import router as notifications_router
 from app.api.reminder_rules import router as reminder_rules_router
+from app.api.service_accounts import router as service_accounts_router
 from app.api.sessions import router as sessions_router
 from app.api.signup import router as signup_router
 from app.api.totp import admin_router as totp_admin_router
@@ -176,6 +179,9 @@ def create_app() -> FastAPI:
     api_router.include_router(account_deletion_self_router)
     api_router.include_router(account_deletion_admin_router)
     api_router.include_router(signup_router)
+    api_router.include_router(auth_tokens_router)
+    api_router.include_router(admin_auth_tokens_router)
+    api_router.include_router(service_accounts_router)
 
     app.include_router(api_router, prefix="/api")
 

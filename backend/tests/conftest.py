@@ -78,15 +78,25 @@ async def _reseed_rbac(engine: AsyncEngine) -> None:
                 """
             )
         )
-        # admin → everything except user.impersonate. The privilege-
-        # escalation guard in admin_users.update prevents a plain admin
-        # from self-promoting to super_admin.
+        # admin → everything except the super-admin-only carve-outs.
+        # ``user.impersonate`` is the original (privilege-escalation
+        # guard in admin_users.update relies on it). The PAT-admin and
+        # service-account perms are subsequent additions kept off the
+        # admin role for the same reason: issuing or revoking another
+        # user's bearer credentials, or creating a non-human identity,
+        # is super-admin territory.
         await conn.execute(
             text(
                 """
                 INSERT INTO role_permissions (role_id, permission_code)
                 SELECT r.id, p.code FROM roles r, permissions p
-                WHERE r.code = 'admin' AND p.code != 'user.impersonate'
+                WHERE r.code = 'admin'
+                  AND p.code NOT IN (
+                      'user.impersonate',
+                      'auth.pats.admin_read',
+                      'auth.pats.admin_revoke',
+                      'auth.service_accounts.manage'
+                  )
                 """
             )
         )
