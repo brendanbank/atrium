@@ -70,18 +70,31 @@ async def current_user_permissions(
 
 
 def require_perm(code: str):
-    """Dependency factory: 403 unless the current user has ``code``."""
+    """Dependency factory: 403 unless the current principal has ``code``.
+
+    Now resolves through ``current_principal`` so PAT-authed and
+    cookie-authed requests share one gate. ``permissions`` for a
+    PAT request is the intersection of the token's scopes and the
+    user's current permissions; for a cookie request it's the
+    user's full permission set.
+
+    Returns the ``User`` so the existing call-site contract
+    (``_u: User = Depends(require_perm("..."))``) keeps working.
+    Routes that need the auth method or token id can depend on
+    ``current_principal`` directly.
+    """
+    # Imported lazily to break the rbac → principal → rbac cycle.
+    from app.auth.principal import Principal, current_principal
 
     async def _dep(
-        user: User = Depends(current_user),
-        perms: set[str] = Depends(current_user_permissions),
+        principal: Principal = Depends(current_principal),
     ) -> User:
-        if code not in perms:
+        if code not in principal.permissions:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"permission '{code}' required",
             )
-        return user
+        return principal.user
 
     return _dep
 

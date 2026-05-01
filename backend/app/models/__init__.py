@@ -6,6 +6,7 @@ before Alembic autogenerate and before any query runs."""
 
 from app.models.auth import User, UserInvite
 from app.models.auth_session import AuthSession
+from app.models.auth_token import AuthToken
 from app.models.email_otp import EmailOTPChallenge, UserEmailOTP
 from app.models.email_outbox import EmailOutbox
 from app.models.email_template import EmailTemplate
@@ -21,6 +22,7 @@ __all__ = [
     "AppSetting",
     "AuditLog",
     "AuthSession",
+    "AuthToken",
     "EmailLog",
     "EmailOTPChallenge",
     "EmailOutbox",

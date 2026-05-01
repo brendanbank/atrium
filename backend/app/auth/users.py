@@ -39,6 +39,13 @@ fastapi_users = FastAPIUsers[User, int](get_user_manager, [auth_backend])
 # that must work during enrollment / challenge.
 current_user_partial = fastapi_users.current_user(active=True)
 
+# Optional variant of the base dep. Returns ``None`` instead of
+# raising on missing / inactive auth — used by ``current_user`` to
+# allow PAT-authenticated requests to slip past without a cookie
+# (the PAT middleware has already authenticated them and populated
+# the request scope slot).
+_current_user_or_none = fastapi_users.current_user(active=True, optional=True)
+
 ADMIN_ROLE_CODE = "admin"
 
 
@@ -57,7 +64,7 @@ def _sid_from_cookie(request: Request) -> str | None:
 
 async def current_user(
     request: Request,
-    user: User = Depends(current_user_partial),
+    user: User | None = Depends(_current_user_or_none),
     session: AsyncSession = Depends(get_session),
 ) -> User:
     """Authenticated user + passed-TOTP gate. Default for all domain
@@ -79,7 +86,25 @@ async def current_user(
     ``totp_passed=True`` for users with no factor and no enforced role,
     so the partial-session path here only fires for users who actually
     need to challenge or enrol.
+
+    PAT-authenticated requests short-circuit the cookie / TOTP path:
+    ``PATAuthMiddleware`` has already validated the bearer and
+    populated ``request.scope[principal.SCOPE_KEY]`` with the user
+    object. Returning that user immediately is correct because PATs
+    don't go through ``auth_sessions`` and so have no
+    ``totp_passed`` flag to gate on.
     """
+    # PAT short-circuit: middleware pre-authenticated the bearer
+    # and stashed the user object. Skip the cookie + TOTP gates.
+    from app.auth.principal import SCOPE_KEY
+    from app.auth.principal import Principal as _Principal
+
+    pat_principal = request.scope.get(SCOPE_KEY)
+    if pat_principal is not None and isinstance(pat_principal, _Principal):
+        return pat_principal.user
+
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)
     sid = _sid_from_cookie(request)
     if sid is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED)

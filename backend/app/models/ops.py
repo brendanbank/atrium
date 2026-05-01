@@ -101,6 +101,13 @@ class AuditLog(Base):
     impersonator_user_id: Mapped[int | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    # Set when the action was authenticated via a personal access
+    # token, so the per-token audit-trail view can filter without
+    # JSON spelunking. SET NULL on token delete so audit history
+    # outlives the token row.
+    token_id: Mapped[int | None] = mapped_column(
+        ForeignKey("auth_tokens.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     entity: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     entity_id: Mapped[int] = mapped_column(BigInteger, nullable=False, index=True)
     action: Mapped[str] = mapped_column(String(50), nullable=False)

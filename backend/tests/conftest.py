@@ -143,6 +143,7 @@ def _bind_middleware_to_test_engine(monkeypatch, engine, mysql_url):
     from sqlalchemy import create_engine
     from sqlalchemy.ext.asyncio import async_sessionmaker
 
+    from app.auth import pat_middleware as pat_middleware_module
     from app.services import captcha as captcha_module
     from app.services import maintenance as maintenance_module
 
@@ -155,6 +156,12 @@ def _bind_middleware_to_test_engine(monkeypatch, engine, mysql_url):
     # — repoint at the test engine so the lookup hits the test DB.
     monkeypatch.setattr(
         captcha_module, "get_session_factory", lambda: test_factory
+    )
+    # PAT middleware reads ``pats.enabled`` and the ``auth_tokens``
+    # rows directly through ``get_session_factory()`` — same pattern,
+    # same redirection.
+    monkeypatch.setattr(
+        pat_middleware_module, "get_session_factory", lambda: test_factory
     )
     maintenance_module.reset_cache()
     yield
@@ -169,7 +176,10 @@ def _bind_middleware_to_test_engine(monkeypatch, engine, mysql_url):
             # body; this teardown stops a stuck flag from poisoning the
             # rest of the suite.
             conn.execute(
-                text("DELETE FROM app_settings WHERE `key` IN ('system', 'auth')")
+                text(
+                    "DELETE FROM app_settings WHERE `key` IN "
+                    "('system', 'auth', 'pats')"
+                )
             )
     finally:
         sync_engine.dispose()
