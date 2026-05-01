@@ -129,6 +129,19 @@ test.describe('host-bundle slot system', () => {
       timeout: 10_000,
     });
 
+    // Once a host registers a home widget the atrium-shipped welcome
+    // chrome (greeting + intro + Profile/Notifications/Admin buttons)
+    // hides — the widget owns the page (issue #100). The Profile /
+    // Notifications / Admin nav still lives in the header avatar
+    // menu and the sidebar, so this is purely the orphan-chrome
+    // removal.
+    await expect(
+      page.getByRole('heading', { name: /Welcome/i }),
+    ).toBeHidden();
+    await expect(
+      page.getByRole('link', { name: /^Profile$/i }),
+    ).toBeHidden();
+
     // 2. Nav item appears in the sidebar (visible on widescreen
     // viewports; mobile drawer would need a Burger click first).
     await expect(

@@ -8,7 +8,8 @@
     "settings": "Einstellungen",
     "profile": "Profil",
     "logout": "Abmelden",
-    "notifications": "Benachrichtigungen"
+    "notifications": "Benachrichtigungen",
+    "toggle": "Navigation umschalten"
   },
   "home": {
     "welcome": "Willkommen",

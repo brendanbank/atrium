@@ -10,6 +10,7 @@ import {
   Image,
   Menu,
   NavLink,
+  ScrollArea,
   Select,
   Title,
 } from '@mantine/core';
@@ -23,7 +24,7 @@ import {
   IconLogout,
 } from '@tabler/icons-react';
 import type { ReactElement } from 'react';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 
@@ -52,6 +53,16 @@ export function AppLayout() {
   const location = useLocation();
   const adminItems = useAdminSectionItems();
   const settingsItems = useSettingsSectionItems();
+
+  // Controlled disclosure for the parent nav groups (Settings, Admin,
+  // any future host-registered group). Mantine v9's ``defaultOpened``
+  // is uncontrolled and desyncs on iOS WebKit when the user toggles
+  // parent A → parent B → parent A in quick succession: the chevron
+  // flips closed but the Collapse children stay rendered (issue #102).
+  // Driving ``opened`` from local state eliminates the desync.
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
+  const toggleGroup = (key: string) =>
+    setOpenGroups((s) => ({ ...s, [key]: !s[key] }));
 
   const initials = me?.full_name
     ? me.full_name
@@ -115,7 +126,13 @@ export function AppLayout() {
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group gap="sm">
-            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+            <Burger
+              opened={opened}
+              onClick={toggle}
+              hiddenFrom="sm"
+              size="sm"
+              aria-label={t('nav.toggle')}
+            />
             {brand?.logo_url && (
               <Link to="/" style={{ display: 'inline-flex' }} aria-label={t('app.title')}>
                 <Image
@@ -179,14 +196,24 @@ export function AppLayout() {
       </AppShell.Header>
 
       <AppShell.Navbar p="xs">
-        {buildNavLinks({
-          me: me ?? null,
-          adminItems,
-          settingsItems,
-          pathname: location.pathname,
-          onNavigate: close,
-          t,
-        })}
+        {/* ScrollArea wrap so when both Settings + Admin are expanded
+         *  on a small viewport the last items remain reachable instead
+         *  of being clipped below the fold (issue #103). On iOS Safari
+         *  the dynamic toolbar makes ``100vh`` overshoot, so without an
+         *  inner scroll container the bottom of the list is hidden
+         *  behind the Safari chrome. */}
+        <AppShell.Section grow component={ScrollArea} type="auto">
+          {buildNavLinks({
+            me: me ?? null,
+            adminItems,
+            settingsItems,
+            pathname: location.pathname,
+            onNavigate: close,
+            openGroups,
+            toggleGroup,
+            t,
+          })}
+        </AppShell.Section>
       </AppShell.Navbar>
 
       <AppShell.Main>
@@ -227,9 +254,20 @@ function buildNavLinks(args: {
   settingsItems: SectionItem[];
   pathname: string;
   onNavigate: () => void;
+  openGroups: Record<string, boolean>;
+  toggleGroup: (key: string) => void;
   t: ReturnType<typeof useTranslation>['t'];
 }) {
-  const { me, adminItems, settingsItems, pathname, onNavigate, t } = args;
+  const {
+    me,
+    adminItems,
+    settingsItems,
+    pathname,
+    onNavigate,
+    openGroups,
+    toggleGroup,
+    t,
+  } = args;
 
   type FlatItem = NavItem & { active: boolean };
   type GroupItem = SectionNavGroup & { active: boolean };
@@ -307,16 +345,20 @@ function buildNavLinks(args: {
 
   return entries.map((entry) => {
     if (isGroup(entry)) {
-      const opened = entry.active;
+      // Controlled opened state. Default to ``true`` for the active
+      // group so navigating into /settings or /admin auto-reveals the
+      // matching children on first paint; once the user has toggled
+      // explicitly, ``openGroups[key]`` overrides. An ``undefined``
+      // entry means "user has not toggled yet" → fall back to active.
+      const userToggled = openGroups[entry.key];
+      const opened = userToggled ?? entry.active;
       return (
         <NavLink
           key={entry.key}
           label={entry.label}
           leftSection={entry.icon}
-          // Default-open when we're already inside the group so the
-          // active child is visible without an extra click; users can
-          // still toggle it closed.
-          defaultOpened={opened}
+          opened={opened}
+          onClick={() => toggleGroup(entry.key)}
           // The parent itself isn't directly clickable — child links
           // own navigation. Marking it active when one of its children
           // is matches the highlight users expect from a sidebar.

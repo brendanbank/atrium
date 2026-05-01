@@ -18,12 +18,13 @@ import { getHomeWidgets } from '@/host/registry';
  *  out of the 680px column. The atrium-shipped welcome content stays
  *  in the narrow column.
  *
- *  Once any host widget is registered the greeting + intro read as
- *  orphan chrome above whatever the widget itself owns, so we hide
- *  both (issue #100). On a fresh starter with zero widgets the
- *  greeting + intro still render so the page is never blank. The
- *  action buttons stay either way — they're useful nav regardless
- *  of whether a host owns the page. */
+ *  Once any host widget is registered the greeting + intro + action
+ *  buttons read as orphan atrium chrome above whatever the widget
+ *  itself owns, so we hide all three (issue #100). On a fresh starter
+ *  with zero widgets the greeting + intro + buttons still render so
+ *  the page is never blank and the user has a way into Profile /
+ *  Notifications / Admin. Host apps that want a richer landing surface
+ *  add their own widgets / nav. */
 export function HomePage() {
   const { t } = useTranslation();
   const { data: me } = useMe();
@@ -33,48 +34,46 @@ export function HomePage() {
   return (
     <Stack gap="md">
       <HostHomeWidgets />
-      <Container size={680}>
-        <Stack gap="md">
-          {!hasHostWidgets && (
-            <>
-              <Title order={2}>
-                {me?.full_name
-                  ? t('home.welcomeNamed', { name: me.full_name })
-                  : t('home.welcome')}
-              </Title>
-              <Text c="dimmed">{t('home.intro')}</Text>
-            </>
-          )}
-          <Group>
-            <Button
-              component={Link}
-              to="/profile"
-              variant="light"
-              leftSection={<IconUser size={16} />}
-            >
-              {t('nav.profile')}
-            </Button>
-            <Button
-              component={Link}
-              to="/notifications"
-              variant="light"
-              leftSection={<IconBell size={16} />}
-            >
-              {t('nav.notifications')}
-            </Button>
-            {isAdmin && (
+      {!hasHostWidgets && (
+        <Container size={680}>
+          <Stack gap="md">
+            <Title order={2}>
+              {me?.full_name
+                ? t('home.welcomeNamed', { name: me.full_name })
+                : t('home.welcome')}
+            </Title>
+            <Text c="dimmed">{t('home.intro')}</Text>
+            <Group>
               <Button
                 component={Link}
-                to="/admin"
+                to="/profile"
                 variant="light"
-                leftSection={<IconSettings size={16} />}
+                leftSection={<IconUser size={16} />}
               >
-                {t('nav.admin')}
+                {t('nav.profile')}
               </Button>
-            )}
-          </Group>
-        </Stack>
-      </Container>
+              <Button
+                component={Link}
+                to="/notifications"
+                variant="light"
+                leftSection={<IconBell size={16} />}
+              >
+                {t('nav.notifications')}
+              </Button>
+              {isAdmin && (
+                <Button
+                  component={Link}
+                  to="/admin"
+                  variant="light"
+                  leftSection={<IconSettings size={16} />}
+                >
+                  {t('nav.admin')}
+                </Button>
+              )}
+            </Group>
+          </Stack>
+        </Container>
+      )}
     </Stack>
   );
 }

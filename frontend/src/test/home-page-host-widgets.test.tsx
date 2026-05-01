@@ -10,12 +10,14 @@
  * heading.
  *
  * The contract:
- *  - Empty registry: greeting + intro render (preserves the
- *    fresh-starter zero-widget experience).
- *  - Any host widget registered: both lines disappear; the widget's
- *    own content is the page.
- *  - The action buttons (Profile / Notifications / Admin) stay either
- *    way — they're nav, not chrome.
+ *  - Empty registry: greeting + intro + nav action buttons render
+ *    (preserves the fresh-starter zero-widget experience and gives
+ *    the user a way into Profile / Notifications / Admin).
+ *  - Any host widget registered: the entire welcome container drops
+ *    as a unit — greeting, intro, and the Profile / Notifications /
+ *    Admin buttons. The buttons read as orphan atrium chrome above
+ *    a host widget; Profile / Notifications / Admin are still
+ *    reachable from the navbar in either case (issue #100).
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
@@ -104,15 +106,32 @@ describe('HomePage — host-widget gate (#100)', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('keeps the nav action buttons even when a host widget is registered', () => {
+  it('drops the nav action buttons with the welcome container when a host widget is registered', () => {
     registerHomeWidget({
       key: 'host-card',
       render: () => <div>host</div>,
     });
     renderHome();
-    // Profile / Notifications are unconditional; Admin shows because
-    // the seeded user has the ``admin`` role. The buttons render as
-    // links via ``<Button component={Link}>`` so probe them by role.
+    // The welcome container ships greeting + intro + Profile /
+    // Notifications / Admin buttons together; once a host widget
+    // registers it drops as a unit so atrium chrome doesn't sit
+    // above the host's content. Profile / Notifications / Admin are
+    // still reachable from the navbar.
+    expect(
+      screen.queryByRole('link', { name: /profile/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /notifications/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /admin/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders the nav action buttons on a fresh starter (zero widgets)', () => {
+    renderHome();
+    // Empty-registry case: the buttons must still be there so a
+    // fresh starter has a way into the rest of the app.
     expect(screen.getByRole('link', { name: /profile/i })).toBeInTheDocument();
     expect(
       screen.getByRole('link', { name: /notifications/i }),
