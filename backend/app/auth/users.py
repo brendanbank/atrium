@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.backend import auth_backend
 from app.auth.manager import get_user_manager
+from app.auth.principal import SCOPE_KEY, Principal
 from app.auth.two_factor import (
     user_has_any_2fa,
     user_has_enforced_role,
@@ -96,11 +97,8 @@ async def current_user(
     """
     # PAT short-circuit: middleware pre-authenticated the bearer
     # and stashed the user object. Skip the cookie + TOTP gates.
-    from app.auth.principal import SCOPE_KEY
-    from app.auth.principal import Principal as _Principal
-
     pat_principal = request.scope.get(SCOPE_KEY)
-    if pat_principal is not None and isinstance(pat_principal, _Principal):
+    if pat_principal is not None and isinstance(pat_principal, Principal):
         return pat_principal.user
 
     if user is None:
