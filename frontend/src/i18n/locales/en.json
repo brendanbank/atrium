@@ -8,7 +8,8 @@
     "settings": "Settings",
     "profile": "Profile",
     "logout": "Log out",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "toggle": "Toggle navigation"
   },
   "home": {
     "welcome": "Welcome",

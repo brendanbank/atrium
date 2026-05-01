@@ -46,11 +46,11 @@ test('parent NavLink toggle closes its children on the second tap', async ({
   await expect(page).toHaveURL('/');
 
   // Open the burger menu.
-  await page.getByRole('button', { name: /toggle navigation|burger/i }).click();
+  await page.getByRole('button', { name: /toggle navigation/i }).click();
 
   // Scope to the navbar <aside> so we don't match the "Admin" button
   // on the home page card.
-  const navbar = page.locator('aside');
+  const navbar = page.getByRole('navigation');
   const adminToggle = navbar.getByText(/^Admin$/i);
   await expect(adminToggle).toBeVisible();
 
@@ -71,9 +71,9 @@ test('navbar is scrollable when content overflows the viewport', async ({
   await loginAndPassTOTP(page, email!, password!, totpSecret!);
   await expect(page).toHaveURL('/');
 
-  await page.getByRole('button', { name: /toggle navigation|burger/i }).click();
+  await page.getByRole('button', { name: /toggle navigation/i }).click();
 
-  const navbar = page.locator('aside');
+  const navbar = page.getByRole('navigation');
 
   // Expand the Admin group — atrium ships seven admin tabs which on a
   // 700px viewport pushes the bottom items below the fold.

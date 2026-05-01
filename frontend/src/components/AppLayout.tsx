@@ -126,7 +126,13 @@ export function AppLayout() {
       <AppShell.Header>
         <Group h="100%" px="md" justify="space-between">
           <Group gap="sm">
-            <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" />
+            <Burger
+              opened={opened}
+              onClick={toggle}
+              hiddenFrom="sm"
+              size="sm"
+              aria-label={t('nav.toggle')}
+            />
             {brand?.logo_url && (
               <Link to="/" style={{ display: 'inline-flex' }} aria-label={t('app.title')}>
                 <Image
