@@ -101,6 +101,11 @@ Create these files (full contents in [`README.md`](README.md), section
   description=...)` and APScheduler ticks via
   `host.scheduler.add_job(...)`. Either may be absent (atrium logs
   `host.init_app.absent`); both run loud if the module fails to import.
+  **Call `register_namespace(...)` at module top-level**, not inside
+  `init_app` — atrium imports `bootstrap.py` from both the api and the
+  worker process, but only the api calls `init_app`. A namespace
+  registered inside `init_app` is invisible to worker handlers and
+  every `get_namespace(session, "ns")` from there will `KeyError`.
 - `backend/src/<your_pkg>/models.py` — define `class HostBase(DeclarativeBase)`
   and your tables on it. **Never** parent host tables on `app.db.Base`.
 - `backend/src/<your_pkg>/router.py` — a normal FastAPI APIRouter.

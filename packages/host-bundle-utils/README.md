@@ -25,6 +25,20 @@ pnpm add @brendanbank/atrium-host-bundle-utils \
         @brendanbank/atrium-host-types
 ```
 
+If you use the Vite preset (the `./vite` subpath, see below), also add
+the optional peer dep as a devDependency:
+
+```bash
+pnpm add -D vite vite-plugin-css-injected-by-js
+```
+
+`vite` and `vite-plugin-css-injected-by-js` are declared optional so
+runtime-only consumers (host bundles imported into another build
+system, Vitest harnesses) don't pull them in, but
+`hostBundleConfig({ entry })` resolves the plugin at build time —
+without it, the first `pnpm build` fails with
+`Cannot find package 'vite-plugin-css-injected-by-js'`.
+
 The package is published on the public npm registry. No `.npmrc`,
 no auth token, no PAT. If you adopted atrium before v0.15.1 and
 have an `@brendanbank:registry=https://npm.pkg.github.com` line in

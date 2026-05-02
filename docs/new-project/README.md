@@ -169,16 +169,24 @@ from fastapi import FastAPI
 
 from app.host_sdk.worker import HostWorkerCtx
 
+# Optional: register an app_settings namespace at module-import time.
+# Atrium imports this bootstrap module from BOTH the api and the worker
+# process. `register_namespace` mutates a per-process dict in
+# `app.services.app_config`, so a call from inside `init_app` is only
+# visible to the api process — `init_worker`-registered code calling
+# `get_namespace(session, "your_ns")` would `KeyError`. Register at
+# module top-level so both processes pick it up on import.
+#
+# from app.services.app_config import register_namespace
+# from .config import YourConfig
+# register_namespace("your_ns", YourConfig, public=False)
+
 
 def init_app(app: FastAPI) -> None:
     """Called once during create_app(), after every atrium router is
     included and before the SPA static mount + ASGI start."""
     from .router import router
     app.include_router(router)
-    # Optional: register an app_settings namespace.
-    # from app.services.app_config import register_namespace
-    # from .config import YourConfig
-    # register_namespace("your_ns", YourConfig, public=False)
 
 
 def init_worker(host: HostWorkerCtx) -> None:
@@ -986,7 +994,7 @@ Adding an endpoint, a job, a UI fragment — the standard moves:
 | New permission                | A new alembic migration                                  | `seed_permissions_sync(op.get_bind(), [...], grants={...})`                |
 | Recurring tick                | `<your_pkg>/schedule.py` async function                  | `host.scheduler.add_job(fn, "interval", seconds=N, ...)` in `init_worker`  |
 | Durable async job             | A handler `(session, job, payload) -> None`              | `host.register_job_handler(kind="...", handler=..., description="...")` in `init_worker` |
-| Admin-tunable flag            | A Pydantic `BaseModel` config class                      | `register_namespace("ns", Model, public=False)` in `init_app`              |
+| Admin-tunable flag            | A Pydantic `BaseModel` config class                      | `register_namespace("ns", Model, public=False)` at module top-level of `bootstrap.py` (api + worker both import the module — calling from `init_app` only reaches the api) |
 | Per-user notification         | Inside the txn that mutated the row                      | `from app.services.notifications import notify_user`                       |
 | Outbound email (queued)       | A template row in `email_templates` + a callsite         | `from app.email.sender import enqueue_and_log`                             |
 | Synchronous email             | Same template; for password-reset-style flows            | `from app.email.sender import send_and_log`                                |
