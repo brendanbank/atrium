@@ -13,6 +13,15 @@ npx @brendanbank/create-atrium-host casa-del-leone
 cd casa-del-leone && cp .env.example .env && make dev-bootstrap
 ```
 
+`make dev-bootstrap` here is the **host's own** target (emitted by the
+scaffolder: clean + up + migrate + seed admin + seed bundle, no
+1Password dependency). Atrium parent's `Makefile` happens to define a
+target with the same name as an operator-laptop convenience for
+working on atrium itself; it's not intended for host repos and pulls
+secrets from a `1Password atrium dev` vault item that hosts won't
+have. Same name, different contracts — run it from the host repo
+directory.
+
 The scaffolder ([`packages/create-atrium-host`](../packages/create-atrium-host/))
 emits a working repo wired against the published image and the host SDK
 packages. Use it for any vanilla host shape; drop down to the manual
@@ -217,7 +226,13 @@ Through the registries atrium already exposes:
   routers — the host owns its full path.
 - **App-config namespaces** — `register_namespace("my_ns", MyModel, public=False)`
   from `app.services.app_config`. Reaches the admin UI at
-  `/admin/app-config` automatically.
+  `/admin/app-config` automatically. **Call this at module-import
+  time** (top-level of `bootstrap.py`), not inside `init_app`:
+  atrium's worker process also imports the bootstrap module but
+  doesn't run `init_app`, and `NAMESPACES` lives in a module-level
+  dict that's per-process. A namespace registered inside `init_app`
+  raises `KeyError` from any `get_namespace(session, "my_ns")` in
+  worker-registered handlers.
 - **Job handlers** — `host.register_job_handler(kind="my_kind",
   handler=handler, description="...")` from `init_worker(host)`. The
   runner dispatches `scheduled_jobs` rows to registered handlers;
@@ -499,6 +514,13 @@ The factory returns a complete library-mode config: emits a single
 and defines `process.env.NODE_ENV` so the externalised React +
 TanStack Query references resolve. Pass `extraConfig` to layer
 plugins on top.
+
+`vite-plugin-css-injected-by-js` is an optional peer dep of
+`@brendanbank/atrium-host-bundle-utils` — install it as a
+devDependency in the host's `frontend/package.json`. The
+scaffolder-emitted template lists it; a fresh `vite.config.ts` that
+imports `hostBundleConfig` without it fails the first `pnpm build`
+with `Cannot find package 'vite-plugin-css-injected-by-js'`.
 
 **Bundle entry — ~10 lines of registration calls:**
 
