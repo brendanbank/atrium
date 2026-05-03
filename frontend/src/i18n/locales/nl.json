@@ -215,6 +215,8 @@
     "require2faForRoles": "2FA verplichten voor deze rollen",
     "require2faForRolesHelp": "Een gehouden rol activeert de 2FA-aanmeldgate. Worden de factoren halverwege een sessie gewist, dan komt de gebruiker bij de volgende request weer op /2fa terecht.",
     "require2faPlaceholder": "Kies rollen…",
+    "idleTimeout": "Time-out bij inactiviteit (seconden)",
+    "idleTimeoutHelp": "Log een sessie uit waarvan het tabblad langer dan deze drempel niet is gebruikt. 0 schakelt het uit; 1800 = 30 minuten. Geldt voor elk geauthenticeerd verzoek. Maximaal 30 dagen.",
     "passwordTitle": "Wachtwoordbeleid",
     "passwordMinLength": "Minimumlengte",
     "passwordMinLengthHelp": "Begrensd op 6-128. Zes is de absolute ondergrens; 128 is het bcrypt-invoerplafond.",

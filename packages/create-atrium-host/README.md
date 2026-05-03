@@ -28,7 +28,7 @@ npx @brendanbank/create-atrium-host test-host --yes-defaults
 | `--yes-defaults`        | Skip prompts; derive everything from the project name |
 | `--no-git`              | Skip `git init` + initial commit                      |
 | `--out <dir>`           | Output directory (default: `./<name>`)                |
-| `--atrium <version>`    | Atrium image / SDK version pin (default: `0.23`)      |
+| `--atrium <version>`    | Atrium image / SDK version pin (default: `0.24`)      |
 | `-h`, `--help`          | Show help                                             |
 
 ## What it emits

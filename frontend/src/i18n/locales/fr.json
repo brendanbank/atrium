@@ -215,6 +215,8 @@
     "require2faForRoles": "Exiger 2FA pour ces rôles",
     "require2faForRolesHelp": "Posséder un de ces rôles déclenche le portail d'inscription 2FA. Si les facteurs sont effacés en cours de session, l'utilisateur est renvoyé sur /2fa à la requête suivante.",
     "require2faPlaceholder": "Choisir des rôles…",
+    "idleTimeout": "Délai d'inactivité (secondes)",
+    "idleTimeoutHelp": "Déconnecte une session dont l'onglet est resté inactif au-delà de ce seuil. 0 désactive ; 1800 = 30 minutes. S'applique à toute requête authentifiée. Plafonné à 30 jours.",
     "passwordTitle": "Politique de mot de passe",
     "passwordMinLength": "Longueur minimale",
     "passwordMinLengthHelp": "Borné entre 6 et 128. Six est le plancher absolu ; 128 correspond au plafond d'entrée de bcrypt.",

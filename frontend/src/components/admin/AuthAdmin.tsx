@@ -46,6 +46,7 @@ const EMPTY: AuthConfig = {
   require_2fa_for_roles: [],
   captcha_provider: 'none',
   captcha_site_key: null,
+  idle_timeout_seconds: 0,
 };
 
 export function AuthAdmin() {
@@ -146,6 +147,21 @@ export function AuthAdmin() {
             placeholder={t('authAdmin.require2faPlaceholder')}
             searchable
             clearable
+          />
+          <NumberInput
+            label={t('authAdmin.idleTimeout')}
+            description={t('authAdmin.idleTimeoutHelp')}
+            value={draft.idle_timeout_seconds}
+            onChange={(v) =>
+              setDraft({
+                ...draft,
+                idle_timeout_seconds:
+                  typeof v === 'number' ? v : Number(v) || 0,
+              })
+            }
+            min={0}
+            max={2_592_000}
+            step={60}
           />
         </Stack>
       </Paper>

@@ -61,6 +61,10 @@ export interface AuthConfig {
   require_2fa_for_roles: string[];
   captcha_provider: CaptchaProvider;
   captcha_site_key: string | null;
+  // Idle-session timeout in seconds. 0 disables; a positive value
+  // logs out a session whose tab has been unattended for longer than
+  // the threshold.
+  idle_timeout_seconds: number;
 }
 
 export interface PublicAppConfig {

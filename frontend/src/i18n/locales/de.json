@@ -215,6 +215,8 @@
     "require2faForRoles": "2FA-Pflicht für diese Rollen",
     "require2faForRolesHelp": "Eine gehaltene Rolle löst das 2FA-Setup-Gate aus. Werden die Faktoren mitten in der Sitzung entfernt, landet der Nutzer beim nächsten Request wieder auf /2fa.",
     "require2faPlaceholder": "Rollen wählen…",
+    "idleTimeout": "Inaktivitäts-Timeout (Sekunden)",
+    "idleTimeoutHelp": "Meldet eine Sitzung ab, deren Tab länger als die Schwelle unbeaufsichtigt war. 0 deaktiviert; 1800 = 30 Minuten. Gilt für jeden authentifizierten Request. Maximal 30 Tage.",
     "passwordTitle": "Passwortrichtlinie",
     "passwordMinLength": "Mindestlänge",
     "passwordMinLengthHelp": "Begrenzt auf 6-128. Sechs ist die absolute Untergrenze; 128 entspricht der bcrypt-Eingabeobergrenze.",

@@ -219,6 +219,15 @@ class AuthConfig(BaseModel):
     # KV row. ``none`` disables the gate entirely.
     captcha_provider: Literal["none", "turnstile", "hcaptcha"] = "none"
     captcha_site_key: str | None = Field(default=None, max_length=200)
+    # Idle-session timeout. ``0`` disables; a positive value (in seconds)
+    # makes ``DBSessionJWTStrategy.read_token`` reject any session whose
+    # ``last_seen_at`` is older than the threshold. The strategy refreshes
+    # ``last_seen_at`` on every successful read, so the watermark advances
+    # with normal activity and only freezes when a tab is left unattended.
+    # Capped at 30 days — the absolute lifetime of a session is still
+    # governed by the JWT ``expires_at``; this knob is about idle, not max
+    # session lifetime.
+    idle_timeout_seconds: int = Field(default=0, ge=0, le=2_592_000)
 
 
 class _Namespace(BaseModel):

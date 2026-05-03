@@ -40,7 +40,7 @@ describe('renderTemplate', () => {
           BRAND_NAME: 'Test Host',
           BRAND_PASCAL: 'TestHost',
           BRAND_PRIMARY: 'blue',
-          ATRIUM_VERSION: '0.23',
+          ATRIUM_VERSION: '0.24',
         },
       });
 
@@ -73,7 +73,7 @@ describe('renderTemplate', () => {
 
       // Composer + Dockerfile carry the atrium image pin.
       const compose = await ren('compose.yaml');
-      assert.ok(compose.includes('atrium:0.23'));
+      assert.ok(compose.includes('atrium:0.24'));
       assert.ok(compose.includes('test-host'));
       assert.ok(!compose.includes('__ATRIUM_VERSION__'));
 
@@ -98,7 +98,7 @@ describe('renderTemplate', () => {
           BRAND_NAME: 'Casa del Leone',
           BRAND_PASCAL: 'CasaDelLeone',
           BRAND_PRIMARY: 'teal',
-          ATRIUM_VERSION: '0.23',
+          ATRIUM_VERSION: '0.24',
         },
       });
 

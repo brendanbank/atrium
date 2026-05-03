@@ -44,6 +44,13 @@ class AuthSession(Base):
         DateTime, nullable=False, server_default=func.now()
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    # Updated by ``DBSessionJWTStrategy.read_token`` on every successful
+    # auth-cookie read. Drives the idle-session timeout enforced by
+    # ``AuthConfig.idle_timeout_seconds`` (0 disables; positive value
+    # rejects rows whose last-seen is older than the threshold).
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now(), index=True
+    )
     # Null = active. Set by /auth/jwt/logout (single session),
     # /auth/logout-all (all sessions for the user), and by an admin
     # revoke action in the future.

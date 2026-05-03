@@ -235,6 +235,8 @@
     "require2faForRoles": "Require 2FA for these roles",
     "require2faForRolesHelp": "A held role triggers the 2FA enrolment gate. If they wipe their factors mid-session, they're bounced to /2fa on the next request.",
     "require2faPlaceholder": "Pick roles…",
+    "idleTimeout": "Idle session timeout (seconds)",
+    "idleTimeoutHelp": "Log out a session whose tab has been unattended for longer than this. 0 disables; 1800 = 30 minutes. Affects every authenticated request, not just JSON APIs. Capped at 30 days.",
     "passwordTitle": "Password policy",
     "passwordMinLength": "Minimum length",
     "passwordMinLengthHelp": "Bounded to 6-128. Six is the absolute floor; 128 matches the bcrypt input ceiling.",

@@ -57,6 +57,26 @@ def _now_naive() -> datetime:
     return datetime.utcnow()
 
 
+async def _idle_timeout_seconds(session: AsyncSession) -> int:
+    """Resolve ``auth.idle_timeout_seconds`` from app_settings.
+
+    Imported lazily to dodge a startup import cycle (``app_config``
+    pulls in pydantic models that reference ``app.models``, which is
+    fine, but keeping the indirection here means the auth backend can
+    be unit-imported without dragging the namespace registry along).
+    Returns ``0`` (disabled) on any read error so a transient DB
+    blip never locks every session out — fail-open mirrors the HIBP /
+    captcha middlewares.
+    """
+    from app.services.app_config import get_namespace
+
+    try:
+        cfg = await get_namespace(session, "auth")
+    except Exception:
+        return 0
+    return int(getattr(cfg, "idle_timeout_seconds", 0) or 0)
+
+
 class DBSessionJWTStrategy(JWTStrategy[User, int]):
     """``JWTStrategy`` that writes a row per issued token and rejects
     tokens whose row is missing / revoked / expired.
@@ -146,8 +166,42 @@ class DBSessionJWTStrategy(JWTStrategy[User, int]):
             return None
         if row.revoked_at is not None:
             return None
-        if row.expires_at <= _now_naive():
+        now = _now_naive()
+        if row.expires_at <= now:
             return None
+
+        # Idle-session timeout. ``auth.idle_timeout_seconds == 0`` is the
+        # disable sentinel; any positive value rejects sessions whose
+        # ``last_seen_at`` watermark is older than the threshold. Read
+        # the namespace inline — one extra cached SELECT on the hot
+        # path, but it keeps the gate honest when the admin flips the
+        # knob mid-session.
+        idle_limit = await _idle_timeout_seconds(self._session)
+        if idle_limit > 0 and row.last_seen_at is not None:
+            idle_for = (now - row.last_seen_at).total_seconds()
+            if idle_for > idle_limit:
+                # Mark the row revoked so a follow-up logout-all /
+                # active-sessions list doesn't keep showing it as
+                # alive. Self-heals state without waiting for a
+                # background sweep.
+                await self._session.execute(
+                    update(AuthSession)
+                    .where(AuthSession.id == row.id)
+                    .values(revoked_at=now)
+                )
+                await self._session.commit()
+                return None
+
+        # Touch the watermark so the next request resets the idle clock.
+        # Done unconditionally (even when the timeout is disabled) so an
+        # operator who flips the knob on later starts with a fresh,
+        # accurate watermark on every active session.
+        await self._session.execute(
+            update(AuthSession)
+            .where(AuthSession.id == row.id)
+            .values(last_seen_at=now)
+        )
+        await self._session.commit()
 
         try:
             parsed_id = user_manager.parse_id(user_id)

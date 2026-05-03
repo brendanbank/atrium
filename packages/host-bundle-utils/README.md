@@ -111,8 +111,8 @@ or hosts that want axios-shaped retry).
 
 ## Versioning
 
-The package version tracks atrium's image version. Pin `^0.23` for
-"compatible with atrium 0.23.x"; bump together with the atrium image
+The package version tracks atrium's image version. Pin `^0.24` for
+"compatible with atrium 0.24.x"; bump together with the atrium image
 to pick up new registry slots and SDK helpers.
 
 ## See also
