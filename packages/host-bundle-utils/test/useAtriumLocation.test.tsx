@@ -264,6 +264,63 @@ describe('useAtriumLocation', () => {
     window.history.replaceState({}, '', origin + '/');
   });
 
+  test('native popstate refreshes the snapshot from window.location (#134)', () => {
+    // Browser back/forward does not go through `useAtriumNavigate`, so
+    // no `atrium:locationchange` fires. Without a popstate listener the
+    // module-level cache would stay pinned to whatever the previous
+    // atrium-mediated nav set, causing host bundles that derive route
+    // state from `useAtriumLocation().pathname` to render the previous
+    // URL's content (e.g. `/people/7` instead of `/people/6` after a
+    // back-then-click).
+    const origin = window.location.origin;
+    render(<LocationProbe id="loc" />);
+
+    // Seed a known cache value via a well-formed atrium event.
+    act(() => {
+      dispatchAtriumLocation({
+        pathname: '/people/7',
+        search: '',
+        hash: '',
+      });
+    });
+    expect(screen.getByTestId('loc').textContent).toBe('/people/7||');
+
+    // Simulate browser back: rewrite window.location directly (bypassing
+    // useAtriumNavigate so no atrium:locationchange fires) and dispatch
+    // a native popstate. The hook must re-read window.location.
+    act(() => {
+      window.history.replaceState({}, '', `${origin}/people`);
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    expect(screen.getByTestId('loc').textContent).toBe('/people||');
+
+    // Restore for later tests.
+    window.history.replaceState({}, '', `${origin}/`);
+  });
+
+  test('atrium event detail wins over window.location when both fire (#134)', () => {
+    // Sanity-check the listener ordering: an atrium:locationchange that
+    // arrives with a structured detail (the normal nav path) must use
+    // the detail, not fall back to window.location. This is the
+    // existing contract; the popstate listener addition must not break
+    // it.
+    const origin = window.location.origin;
+    render(<LocationProbe id="loc" />);
+
+    act(() => {
+      // Window.location says /raw, but atrium's detail says /detail.
+      window.history.replaceState({}, '', `${origin}/raw`);
+      dispatchAtriumLocation({
+        pathname: '/detail',
+        search: '?from=event',
+        hash: '',
+      });
+    });
+    expect(screen.getByTestId('loc').textContent).toBe('/detail|?from=event|');
+
+    window.history.replaceState({}, '', `${origin}/`);
+  });
+
   test('unsubscribes on unmount', () => {
     const { unmount } = render(<LocationProbe id="loc" />);
     unmount();

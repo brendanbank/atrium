@@ -223,8 +223,9 @@ const SSR_LOCATION: AtriumLocation = {
 // Module-level cache so `useSyncExternalStore.getSnapshot` returns a
 // referentially-stable object across renders — re-creating it every
 // call would cause React to tear-loop the subscriber. The cache is
-// refreshed only when an `atrium:locationchange` event lands or, on
-// the first read, lazily from `window.location`.
+// refreshed when an `atrium:locationchange` event lands, when a
+// native `popstate` fires (browser back/forward), or, on the first
+// read, lazily from `window.location`.
 let cachedLocation: AtriumLocation | null = null;
 
 function readWindowLocation(): AtriumLocation {
@@ -250,7 +251,7 @@ function getServerLocationSnapshot(): AtriumLocation {
 
 function subscribeLocation(onChange: () => void): () => void {
   if (typeof window === 'undefined') return () => {};
-  const handler = (e: Event) => {
+  const onAtrium = (e: Event) => {
     const detail = (e as CustomEvent<Partial<AtriumLocation> | undefined>)
       .detail;
     if (
@@ -273,8 +274,23 @@ function subscribeLocation(onChange: () => void): () => void {
     }
     onChange();
   };
-  window.addEventListener(ATRIUM_LOCATION_EVENT, handler);
-  return () => window.removeEventListener(ATRIUM_LOCATION_EVENT, handler);
+  // ``popstate`` fires after ``window.location`` has already been
+  // updated, so reading pathname/search/hash from it here is safe.
+  // This catches browser back/forward and any other history change
+  // that doesn't go through ``useAtriumNavigate`` (which dispatches
+  // its own ``atrium:locationchange``). Without this listener the
+  // module-level cache would stay pinned to the previous URL until
+  // the next atrium-mediated nav (issue #134).
+  const onPopstate = () => {
+    cachedLocation = readWindowLocation();
+    onChange();
+  };
+  window.addEventListener(ATRIUM_LOCATION_EVENT, onAtrium);
+  window.addEventListener('popstate', onPopstate);
+  return () => {
+    window.removeEventListener(ATRIUM_LOCATION_EVENT, onAtrium);
+    window.removeEventListener('popstate', onPopstate);
+  };
 }
 
 /** Subscribe to atrium's react-router location changes from inside a
