@@ -438,7 +438,10 @@ toggles) take effect without a restart.
 > [`SKILL.md`](docs/new-project/SKILL.md) for AI agents). Once the
 > skeleton is up, [`docs/host-dev-recipe.md`](docs/host-dev-recipe.md)
 > covers the live-reload / GHCR access / security-CI configuration the
-> walkthroughs leave to the integrator.
+> walkthroughs leave to the integrator, and
+> [`docs/host-integration-patterns.md`](docs/host-integration-patterns.md)
+> indexes "I want X — which API gives me that?" across every host
+> extension point.
 
 The starter ships *only* the platform layer. To add your domain:
 

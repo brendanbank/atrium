@@ -233,6 +233,29 @@ gh pr view <N> --json state,mergedAt,mergeCommit \
 
 Note the merge SHA — the next step tags it directly.
 
+### 6a. Post a `Shipped:` comment when the AC offered options or moved
+
+The `Closes #N` trailer on the squash-merge auto-closes the issue,
+but the closed-issue page still shows the *as-filed* AC. Future
+follow-up issues that reference the parent will be written against
+that AC unless the maintainer leaves a one-liner stating what
+actually shipped.
+
+When the closed issue's AC offered alternatives (`option A OR option
+B`), or when the implementation diverged from the AC (smaller
+surface, deferred sub-feature, slightly different API shape), post a
+`Shipped:` comment on the issue immediately after merge:
+
+```bash
+gh issue comment <N> --body "Shipped: chose option A (typed sub-object on /admin/users). Did **not** ship the sibling endpoint variant — defer to a follow-up if a host needs it. AC item *bulk role assignment* is partial; multi-role works on create but the edit form still drives a single role at a time (filed #NN)."
+```
+
+Skip the comment when the issue is small and shipped exactly as
+written; it's specifically for the cases where someone reading the
+issue six months later would otherwise have to diff the AC against
+the merge to find out what's real. Issue #132 documents the
+motivation in detail.
+
 ## 7. Tag
 
 **Conductor gotcha.** If you're working in a Conductor workspace, the
@@ -311,6 +334,16 @@ Structure (match the v0.11.2 / v0.11.3 reference):
   visible behaviour, then the technical detail. Code blocks for any
   new API surface. Inline `(closes #NN)` or `(PR #NN)` at the end of
   the section so future readers can find the diff.
+- **## Host bundle impact.** A 1-3 sentence paragraph aimed at host-
+  bundle authors: which registries / SDK exports / config namespaces
+  / env vars moved this release, and whether a host should re-skim
+  the contract docs. This is the one section in the release notes
+  *every* host author reads top-to-bottom on every upgrade, so make
+  it stand alone — link the relevant
+  [`compat-matrix.md`](docs/compat-matrix.md) row, name the affected
+  hooks, call out the SDK-package version they should pin to.
+  Write **"No host-facing changes."** verbatim when nothing moved —
+  that absence is itself the answer they were looking for.
 - **## Documentation.** What changed in `docs/` — even a one-liner.
   Hosts read this to know whether to re-skim the contract docs.
 - **## Image details.** The registry-tag table (`X.Y.Z`, `X.Y`, `X`,

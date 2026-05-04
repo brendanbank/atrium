@@ -34,6 +34,9 @@ walkthrough of standing up a fresh host project from nothing — including
 the retrofit playbook for moving an existing app onto atrium — see
 [`new-project/`](new-project/) ([`README.md`](new-project/README.md) for
 humans, [`SKILL.md`](new-project/SKILL.md) for AI agents). For the
+"I want X — which API gives me that?" map across every registry hook
+and backend extension point, see
+[`host-integration-patterns.md`](host-integration-patterns.md). For the
 live-reload, GHCR pull access, and security-CI configuration that
 host integrations converge on, see
 [`host-dev-recipe.md`](host-dev-recipe.md). For the per-release
