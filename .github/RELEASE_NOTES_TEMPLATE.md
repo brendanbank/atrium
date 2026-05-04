@@ -38,6 +38,19 @@
 
 <!-- {{ISSUE_SECTIONS}} -->
 
+## Host bundle impact
+
+<!--
+  1-3 sentences for host-bundle authors. Name every registry hook,
+  SDK export, config namespace, or env var that moved this release,
+  and link the v{{VERSION}} row in ``docs/compat-matrix.md``.
+  Pin recommendation: ``@brendanbank/atrium-host-{types,bundle-utils,test-utils}@^{{VERSION}}``.
+
+  Write **"No host-facing changes."** verbatim when nothing on the
+  host extension contract moved — that absence is the answer host
+  authors are scanning for.
+-->
+
 ## Documentation
 
 <!--
