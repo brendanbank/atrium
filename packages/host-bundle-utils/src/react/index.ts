@@ -251,6 +251,19 @@ function getServerLocationSnapshot(): AtriumLocation {
 
 function subscribeLocation(onChange: () => void): () => void {
   if (typeof window === 'undefined') return () => {};
+  // Refresh on subscribe so a fresh subscriber always reads the current
+  // `window.location`. Hosts whose route tree mounts/unmounts components
+  // per route can have brief windows with no subscriber attached: the
+  // previous detail page unmounts on browser-back (popstate refresh
+  // fires, listeners are torn down), then a click navigates to a new
+  // detail page. The intervening `atrium:locationchange` lands while no
+  // listener is attached, so the module-level cache stays pinned to the
+  // last URL. Reading `window.location` here closes that gap (#137).
+  // `onChange` is intentionally NOT called: `useSyncExternalStore`
+  // invokes `getSnapshot` after `subscribe` and re-renders if the result
+  // differs from the previous snapshot.
+  cachedLocation = readWindowLocation();
+
   const onAtrium = (e: Event) => {
     const detail = (e as CustomEvent<Partial<AtriumLocation> | undefined>)
       .detail;
