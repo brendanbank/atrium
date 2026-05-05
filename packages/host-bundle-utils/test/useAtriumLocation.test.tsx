@@ -321,6 +321,77 @@ describe('useAtriumLocation', () => {
     window.history.replaceState({}, '', `${origin}/`);
   });
 
+  test('fresh subscriber after a subscriber-less window reads current window.location, not the stale cache (#137)', () => {
+    // Repro: detail-page A mounts → subscribes → cache holds /people/7.
+    // Browser-back unmounts A and the popstate refresh leaves the cache
+    // at /people. A click then navigates to /people/6 via
+    // useAtriumNavigate, which dispatches atrium:locationchange — but no
+    // host-side subscriber is attached during that window, so the cache
+    // stays at /people. Detail-page B mounts; without the subscribe-time
+    // refresh it would read /people from the cache and render the wrong
+    // id.
+    const origin = window.location.origin;
+
+    // Step 1: page A subscribes and the cache holds /people/7.
+    const a = render(<LocationProbe id="a" />);
+    act(() => {
+      dispatchAtriumLocation({
+        pathname: '/people/7',
+        search: '',
+        hash: '',
+      });
+    });
+    expect(screen.getByTestId('a').textContent).toBe('/people/7||');
+
+    // Step 2: page A unmounts (subscriber-less from here).
+    a.unmount();
+
+    // Step 3: window.location changes to /people/6 while no subscriber
+    // is attached. We rewrite directly to simulate a navigation that the
+    // host bundle missed (the atrium:locationchange detail or popstate
+    // fired into the void).
+    window.history.replaceState({}, '', `${origin}/people/6`);
+
+    // Step 4: page B mounts and must observe /people/6, not the stale
+    // /people/7 the cache still holds.
+    render(<LocationProbe id="b" />);
+    expect(screen.getByTestId('b').textContent).toBe('/people/6||');
+
+    window.history.replaceState({}, '', `${origin}/`);
+  });
+
+  test('subscribe-time refresh also covers a missed atrium:locationchange (no popstate)', () => {
+    // Same as above but the missed event was an atrium:locationchange
+    // dispatched by useAtriumNavigate while no subscriber was attached.
+    // We can't dispatch the event into a void and have it move
+    // window.location (jsdom doesn't intercept the synthesized popstate
+    // the way a real browser would), so we emulate the post-conditions:
+    // window.location moved, and the cache still holds the previous URL
+    // because the listener wasn't attached.
+    const origin = window.location.origin;
+
+    // Seed cache to a known stale value via a well-formed event.
+    const a = render(<LocationProbe id="a" />);
+    act(() => {
+      dispatchAtriumLocation({
+        pathname: '/people',
+        search: '',
+        hash: '',
+      });
+    });
+    expect(screen.getByTestId('a').textContent).toBe('/people||');
+    a.unmount();
+
+    // While no subscriber is attached, navigation lands the URL at
+    // /people/6. (popstate did not fire — this is the navigate path.)
+    window.history.replaceState({}, '', `${origin}/people/6`);
+
+    render(<LocationProbe id="b" />);
+    expect(screen.getByTestId('b').textContent).toBe('/people/6||');
+
+    window.history.replaceState({}, '', `${origin}/`);
+  });
+
   test('unsubscribes on unmount', () => {
     const { unmount } = render(<LocationProbe id="loc" />);
     unmount();
