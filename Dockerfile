@@ -11,7 +11,7 @@
 #
 # Stages:
 #   frontend-builder — node + pnpm, runs `pnpm build` → /app/dist
-#   backend-base     — python:3.14-slim + apt deps + uv
+#   backend-base     — python:3.13-slim + apt deps + uv
 #   backend-builder  — uv sync --no-dev into /opt/venv
 #   dev              — uv sync with dev deps; expects bind-mounted source
 #   runtime          — final image: venv + backend src + built dist
@@ -49,7 +49,7 @@ ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \
 RUN pnpm build
 
 # ---- backend-base ----
-FROM python:3.14-slim AS backend-base
+FROM python:3.13-slim AS backend-base
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -82,7 +82,7 @@ EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # ---- runtime ----
-FROM python:3.14-slim AS runtime
+FROM python:3.13-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PATH="/opt/venv/bin:$PATH" \
