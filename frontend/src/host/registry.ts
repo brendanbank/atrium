@@ -5,10 +5,10 @@
  * Atrium host-extension registry.
  *
  * Atrium ships only the platform shell. Host applications inject their
- * own UI fragments via six registries — home widgets, routes, nav
- * items, admin tabs, profile items, and notification renderers —
- * populated at SPA boot from a runtime-loaded host bundle (see
- * ``main.tsx`` and ``system.host_bundle_url``).
+ * own UI fragments via seven registries — home widgets, routes, nav
+ * items, nav groups, admin tabs, profile items, and notification
+ * renderers — populated at SPA boot from a runtime-loaded host bundle
+ * (see ``main.tsx`` and ``system.host_bundle_url``).
  *
  * Alongside the render-time registries the same surface exposes
  * ``subscribeEvent(kind, handler)`` — a tap into atrium's single
@@ -100,6 +100,47 @@ export type NavItem = {
    *  interleave with them — e.g. ``order: 250`` to land between
    *  Notifications and Admin. */
   order?: number;
+};
+
+/** A leaf entry inside a host-registered ``NavGroup``. Carries a
+ *  ``to`` because group children navigate directly; the host's route
+ *  is registered separately via ``registerRoute``. */
+export type NavGroupChild = {
+  key: string;
+  label: string;
+  to: string;
+  icon?: ReactElement;
+  /** Per-child visibility predicate. Same shape as ``NavItem.condition``.
+   *  A group whose children are all gated out hides entirely. */
+  condition?: (ctx: { me: CurrentUser | null }) => boolean;
+  order?: number;
+};
+
+/** Host-registered collapsible top-level nav group. Renders as a
+ *  parent ``NavLink`` in the main sidebar — sibling of the Home /
+ *  Notifications / Settings / Admin entries — whose children are the
+ *  entries in ``children``. Use when a host wants to bundle several
+ *  non-admin / non-settings routes under one expandable label (e.g.
+ *  "Reports" → Daily / Weekly / Monthly).
+ *
+ *  Empty groups (``children`` empty, or every child gated out by
+ *  ``condition`` / the group's own ``condition``) hide entirely. The
+ *  group itself is navigation-only; the children's ``to`` paths must
+ *  resolve to routes the host has registered. Available since atrium
+ *  0.26. */
+export type NavGroup = {
+  key: string;
+  label: string;
+  icon?: ReactElement;
+  /** Visibility predicate for the whole group. When it returns false
+   *  the group + every child are hidden in one shot, so a host
+   *  doesn't have to repeat the predicate on every child. */
+  condition?: (ctx: { me: CurrentUser | null }) => boolean;
+  /** Sort key in the top-level sidebar. Same semantics as
+   *  ``NavItem.order`` — interleaves with the built-ins at
+   *  100 (Home), 200 (Notifications), 250 (Settings), 300 (Admin). */
+  order?: number;
+  children: NavGroupChild[];
 };
 
 /** Sidebar bucket an admin tab lives in. ``admin`` is the default and
@@ -270,6 +311,7 @@ export type LocaleOverlay = {
 const homeWidgets: HomeWidget[] = [];
 const routes: RouteEntry[] = [];
 const navItems: NavItem[] = [];
+const navGroups: NavGroup[] = [];
 const adminTabs: AdminTab[] = [];
 const settingsGroups: SettingsGroup[] = [];
 const profileItems: ProfileItem[] = [];
@@ -345,6 +387,25 @@ function registerNavItem(item: NavItem): void {
     navItems.splice(idx, 1);
   }
   navItems.push(item);
+}
+
+function registerNavGroup(group: NavGroup): void {
+  if (!Array.isArray(group.children)) {
+    console.warn(
+      `[atrium-registry] registerNavGroup({ key: "${group.key}" }) ` +
+        `requires \`children\` to be an array; registration ignored`,
+    );
+    return;
+  }
+  if (navGroups.some((g) => g.key === group.key)) {
+    console.warn(
+      `[atrium-registry] duplicate nav group key "${group.key}"; ` +
+        `last registration wins`,
+    );
+    const idx = navGroups.findIndex((g) => g.key === group.key);
+    navGroups.splice(idx, 1);
+  }
+  navGroups.push(group);
 }
 
 function registerAdminTab(tab: AdminTab): void {
@@ -457,6 +518,7 @@ const baseRegistry = {
   registerHomeWidget,
   registerRoute,
   registerNavItem,
+  registerNavGroup,
   registerAdminTab,
   registerSettingsGroup,
   setBuiltinAdminTabSection,
@@ -533,6 +595,10 @@ export function getNavItems(): readonly NavItem[] {
   return sortByOrder(navItems);
 }
 
+export function getNavGroups(): readonly NavGroup[] {
+  return sortByOrder(navGroups);
+}
+
 export function getAdminTabs(): readonly AdminTab[] {
   return sortByOrder(adminTabs);
 }
@@ -593,6 +659,7 @@ export function __resetRegistryForTests(): void {
   homeWidgets.length = 0;
   routes.length = 0;
   navItems.length = 0;
+  navGroups.length = 0;
   adminTabs.length = 0;
   settingsGroups.length = 0;
   builtinAdminTabOverrides.clear();
@@ -620,6 +687,7 @@ export {
   registerHomeWidget,
   registerRoute,
   registerNavItem,
+  registerNavGroup,
   registerAdminTab,
   registerSettingsGroup,
   setBuiltinAdminTabSection,

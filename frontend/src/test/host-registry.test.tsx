@@ -28,6 +28,7 @@ import {
   getBuiltinAdminTabOverride,
   getHomeWidgets,
   getLocaleOverlays,
+  getNavGroups,
   getNavItems,
   getNotificationRenderers,
   getProfileItems,
@@ -37,6 +38,7 @@ import {
   registerAdminTab,
   registerHomeWidget,
   registerLocale,
+  registerNavGroup,
   registerNavItem,
   registerNotificationKind,
   registerProfileItem,
@@ -367,6 +369,106 @@ describe('host registry', () => {
       children: [{ key: 'one', label: 'One', to: '/global/one' }],
     });
     expect(getSettingsGroups().map((g) => g.key)).toContain('global');
+  });
+
+  it('registerNavGroup records groups with children, condition, and order', () => {
+    registerNavGroup({
+      key: 'reports',
+      label: 'Reports',
+      order: 275,
+      condition: ({ me }) => me?.email === 'ok@example.com',
+      children: [
+        { key: 'daily', label: 'Daily', to: '/reports/daily' },
+        { key: 'weekly', label: 'Weekly', to: '/reports/weekly' },
+      ],
+    });
+    const groups = getNavGroups();
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.key).toBe('reports');
+    expect(groups[0]?.order).toBe(275);
+    expect(groups[0]?.children.map((c) => c.key)).toEqual([
+      'daily',
+      'weekly',
+    ]);
+    expect(
+      groups[0]?.condition?.({
+        me: { email: 'ok@example.com' } as never,
+      }),
+    ).toBe(true);
+    expect(groups[0]?.condition?.({ me: null })).toBe(false);
+  });
+
+  it('registerNavGroup replaces on duplicate key with a warning', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      registerNavGroup({
+        key: 'reports',
+        label: 'Reports v1',
+        children: [{ key: 'a', label: 'A', to: '/reports/a' }],
+      });
+      registerNavGroup({
+        key: 'reports',
+        label: 'Reports v2',
+        children: [{ key: 'b', label: 'B', to: '/reports/b' }],
+      });
+      const groups = getNavGroups();
+      expect(groups).toHaveLength(1);
+      expect(groups[0]?.label).toBe('Reports v2');
+      expect(groups[0]?.children[0]?.key).toBe('b');
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('registerNavGroup drops registrations with non-array children', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      registerNavGroup({
+        key: 'broken',
+        label: 'Broken',
+        children: undefined as unknown as never,
+      });
+      expect(getNavGroups()).toHaveLength(0);
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('getNavGroups returns groups sorted by optional order', () => {
+    registerNavGroup({
+      key: 'b',
+      label: 'B',
+      order: 400,
+      children: [{ key: 'b1', label: 'B1', to: '/b/1' }],
+    });
+    registerNavGroup({
+      key: 'no-order',
+      label: 'No order',
+      children: [{ key: 'n1', label: 'N1', to: '/n/1' }],
+    });
+    registerNavGroup({
+      key: 'a',
+      label: 'A',
+      order: 275,
+      children: [{ key: 'a1', label: 'A1', to: '/a/1' }],
+    });
+    expect(getNavGroups().map((g) => g.key)).toEqual([
+      'a',
+      'b',
+      'no-order',
+    ]);
+  });
+
+  it('registerNavGroup is reachable through window.__ATRIUM_REGISTRY__', () => {
+    const reg = window.__ATRIUM_REGISTRY__!;
+    reg.registerNavGroup?.({
+      key: 'global-nav',
+      label: 'Global Nav',
+      children: [{ key: 'one', label: 'One', to: '/global-nav/one' }],
+    });
+    expect(getNavGroups().map((g) => g.key)).toContain('global-nav');
   });
 
   it('registerProfileItem appends in registration order', () => {

@@ -12,7 +12,7 @@
  * (`window.React`, exposed by atrium for host bundles) is used only
  * for hooks-free SVG icons that don't need the wrapper trick.
  */
-import { IconHandStop } from '@tabler/icons-react';
+import { IconHandStop, IconStack2 } from '@tabler/icons-react';
 
 import {
   type AtriumRegistry,
@@ -51,6 +51,48 @@ if (!reg || !AtriumReact) {
     label: 'Hello World',
     to: '/hello',
     icon: AtriumReact.createElement(IconHandStop, { size: 18 }),
+  });
+  // NavGroup + child routes — demonstrates collapsible top-level
+  // grouping (the non-admin/non-settings counterpart of
+  // `registerSettingsGroup`). The two child pages are intentionally
+  // trivial plain-HTML stubs so they render without a MantineProvider
+  // ancestor (the wrapper element atrium mounts isn't inside the host's
+  // provider tree). A real host would mirror HelloPage's pattern and
+  // wrap richer content in `<MantineProvider>` + `<QueryClientProvider>`.
+  reg.registerRoute({
+    key: 'hello-hub-news',
+    path: '/hello/hub/news',
+    render: () =>
+      makeWrapperElement(
+        <div data-testid="hello-hub-news-body">
+          <h2>Hello hub — News</h2>
+          <p>Child route registered alongside a nav group.</p>
+        </div>,
+      ),
+  });
+  reg.registerRoute({
+    key: 'hello-hub-about',
+    path: '/hello/hub/about',
+    render: () =>
+      makeWrapperElement(
+        <div data-testid="hello-hub-about-body">
+          <h2>Hello hub — About</h2>
+          <p>Second child route under the Hello hub group.</p>
+        </div>,
+      ),
+  });
+  reg.registerNavGroup?.({
+    key: 'hello-hub',
+    label: 'Hello hub',
+    icon: AtriumReact.createElement(IconStack2, { size: 18 }),
+    // Slot after Admin (300) so the group lands at the bottom of the
+    // top-level sidebar; a host with multiple groups would interleave
+    // them with the built-in ordering.
+    order: 350,
+    children: [
+      { key: 'news', label: 'News', to: '/hello/hub/news' },
+      { key: 'about', label: 'About', to: '/hello/hub/about' },
+    ],
   });
   reg.registerAdminTab({
     key: 'hello',

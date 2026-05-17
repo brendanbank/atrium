@@ -34,7 +34,8 @@ async function patchSystem(
 
 /**
  * B1 verification — every host-extension registry slot reaches its
- * consumer. Covers home widgets, routes, nav items, and admin tabs.
+ * consumer. Covers home widgets, routes, nav items, nav groups, and
+ * admin tabs.
  *
  * Setup is contained to two tweaks:
  *   1. PUT ``system.host_bundle_url`` to a synthetic same-origin path.
@@ -75,6 +76,26 @@ if (reg && R) {
     key: 'test-nav',
     label: 'host-nav-marker',
     to: '/__test_route',
+  });
+  reg.registerRoute({
+    key: 'test-nav-group-child-a',
+    path: '/__test_group/a',
+    element: R.createElement('div', { 'data-testid': 'host-group-child-a' },
+      'host-group-child-a-marker'),
+  });
+  reg.registerRoute({
+    key: 'test-nav-group-child-b',
+    path: '/__test_group/b',
+    element: R.createElement('div', { 'data-testid': 'host-group-child-b' },
+      'host-group-child-b-marker'),
+  });
+  reg.registerNavGroup?.({
+    key: 'test-nav-group',
+    label: 'host-nav-group-marker',
+    children: [
+      { key: 'a', label: 'host-group-child-a-link', to: '/__test_group/a' },
+      { key: 'b', label: 'host-group-child-b-link', to: '/__test_group/b' },
+    ],
   });
   reg.registerAdminTab({
     key: 'test-admin-tab',
@@ -151,6 +172,29 @@ test.describe('host-bundle slot system', () => {
     // 3. Visiting the registered route renders the registered element.
     await page.goto('/__test_route');
     await expect(page.getByTestId('host-route')).toBeVisible();
+
+    // 3a. Nav group renders as a collapsible parent in the main
+    // sidebar with both child links reachable. The group itself is
+    // navigation-only — clicking the parent toggles its open state but
+    // doesn't navigate; the children carry the ``to`` paths the host
+    // registered separately. Scope to the navbar so we don't pick up
+    // any home-page card with a matching label.
+    const navbar = page.getByRole('navigation');
+    const groupParent = navbar.getByText('host-nav-group-marker');
+    await expect(groupParent).toBeVisible();
+    // Collapsed by default — expand before the children become visible.
+    await groupParent.click();
+    const childA = navbar.getByRole('link', {
+      name: 'host-group-child-a-link',
+    });
+    const childB = navbar.getByRole('link', {
+      name: 'host-group-child-b-link',
+    });
+    await expect(childA).toBeVisible();
+    await expect(childB).toBeVisible();
+    await childA.click();
+    await expect(page).toHaveURL('/__test_group/a');
+    await expect(page.getByTestId('host-group-child-a')).toBeVisible();
 
     // 4. Admin tab appears as a child of the Admin sidebar group and
     // renders its component when navigated to. The test bundle didn't

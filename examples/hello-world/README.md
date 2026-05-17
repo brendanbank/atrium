@@ -17,6 +17,7 @@ is lying.
 | `registerHomeWidget`           | Card on the home page                                |
 | `registerRoute`                | Dedicated `/hello` page                              |
 | `registerNavItem`              | Sidebar link                                         |
+| `registerNavGroup`             | Collapsible "Hello hub" parent with two child routes |
 | `registerAdminTab`             | Admin tab gated by `hello.toggle`                    |
 | `registerProfileItem`          | Toggle card on `/profile`                            |
 | `registerNotificationKind`     | Bell + inbox renderer for `hello.toggled`            |

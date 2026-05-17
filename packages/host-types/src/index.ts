@@ -181,6 +181,47 @@ export interface NavItem {
   order?: number;
 }
 
+/** Nav-only leaf inside a host-registered top-level `NavGroup`. Carries
+ *  a `to` because group children navigate directly; the host registers
+ *  the route separately via `registerRoute`. Available since atrium
+ *  0.26. */
+export interface NavGroupChild {
+  key: string;
+  label: string;
+  to: string;
+  icon?: ReactElement;
+  /** Per-child visibility predicate; same shape as `NavItem.condition`.
+   *  A group whose children are all gated out hides entirely. */
+  condition?: (ctx: { me: UserContext | null }) => boolean;
+  order?: number;
+}
+
+/** Host-registered collapsible top-level nav group. Renders as a parent
+ *  NavLink in the main sidebar — sibling of Home / Notifications /
+ *  Settings / Admin — whose entries are the items in `children`. Use
+ *  when a host wants to bundle several non-admin / non-settings routes
+ *  under one expandable label (e.g. "Reports" → Daily / Weekly /
+ *  Monthly).
+ *
+ *  Hides entirely when `condition` returns false or every child is
+ *  gated out. Group children are nav-only; their content lives at the
+ *  host-registered routes their `to` paths point at. Available since
+ *  atrium 0.26. */
+export interface NavGroup {
+  key: string;
+  label: string;
+  icon?: ReactElement;
+  /** Visibility predicate for the whole group. Returning false hides
+   *  the group + every child in one shot, so a host doesn't have to
+   *  repeat the predicate on every child. */
+  condition?: (ctx: { me: UserContext | null }) => boolean;
+  /** Sort key in the top-level sidebar. Same semantics as
+   *  `NavItem.order` — interleaves with the built-ins at 100 (Home),
+   *  200 (Notifications), 250 (Settings), 300 (Admin). */
+  order?: number;
+  children: NavGroupChild[];
+}
+
 /** Sidebar bucket an admin tab lives in. `admin` is the default and
  *  groups every atrium-shipped admin surface plus host admin tooling.
  *  `settings` is a parallel sibling group above Admin reserved for
@@ -329,6 +370,12 @@ export interface AtriumRegistry {
   registerHomeWidget: (widget: HomeWidget) => void;
   registerRoute: (route: RouteEntry) => void;
   registerNavItem: (item: NavItem) => void;
+  /** Register a collapsible top-level nav group whose children are leaf
+   *  links. Sibling of Home / Notifications / Settings / Admin in the
+   *  main sidebar — for grouping outside the Admin/Settings buckets
+   *  (which is what `registerSettingsGroup` is for). Available since
+   *  atrium 0.26. */
+  registerNavGroup?: (group: NavGroup) => void;
   registerAdminTab: (tab: AdminTab) => void;
   /** Relocate one of atrium's built-in admin tabs into a different
    *  sidebar group, and optionally re-rank it within that group. Pass

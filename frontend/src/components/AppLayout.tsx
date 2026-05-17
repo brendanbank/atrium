@@ -35,7 +35,13 @@ import {
 } from '@/admin/sections';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useMe, useLogout } from '@/hooks/useAuth';
-import { getNavItems, type NavItem } from '@/host/registry';
+import {
+  getNavGroups,
+  getNavItems,
+  type NavGroup,
+  type NavGroupChild,
+  type NavItem,
+} from '@/host/registry';
 import type { CurrentUser } from '@/lib/auth';
 
 import { AnnouncementBanner } from './AnnouncementBanner';
@@ -271,10 +277,21 @@ function buildNavLinks(args: {
 
   type FlatItem = NavItem & { active: boolean };
   type GroupItem = SectionNavGroup & { active: boolean };
-  type Entry = FlatItem | GroupItem;
+  type HostGroupItem = {
+    kind: 'host-group';
+    key: string;
+    label: string;
+    icon?: ReactElement;
+    order?: number;
+    children: NavGroupChild[];
+    active: boolean;
+  };
+  type Entry = FlatItem | GroupItem | HostGroupItem;
 
-  const isGroup = (entry: Entry): entry is GroupItem =>
+  const isSectionGroup = (entry: Entry): entry is GroupItem =>
     (entry as GroupItem).items !== undefined;
+  const isHostGroup = (entry: Entry): entry is HostGroupItem =>
+    (entry as HostGroupItem).kind === 'host-group';
 
   const entries: Entry[] = [
     {
@@ -351,6 +368,42 @@ function buildNavLinks(args: {
     );
   entries.push(...hostItems);
 
+  // Host-registered top-level nav groups. The group itself can carry
+  // a coarse ``condition``; each child can carry its own. A group
+  // whose children are all gated out (or whose own ``condition``
+  // returns false) hides entirely — same shape as ``SettingsGroup``.
+  const hostGroups: HostGroupItem[] = [];
+  for (const group of getNavGroups() as readonly NavGroup[]) {
+    if (group.condition && !group.condition({ me })) continue;
+    const visibleChildren = group.children
+      .filter((child) =>
+        child.condition ? child.condition({ me }) : true,
+      )
+      .slice()
+      .sort((a, b) => {
+        const ao = a.order;
+        const bo = b.order;
+        if (ao === undefined && bo === undefined) return 0;
+        if (ao === undefined) return 1;
+        if (bo === undefined) return -1;
+        return ao - bo;
+      });
+    if (visibleChildren.length === 0) continue;
+    const item: HostGroupItem = {
+      kind: 'host-group',
+      key: group.key,
+      label: group.label,
+      children: visibleChildren,
+      active: visibleChildren.some(
+        (c) => pathname === c.to || pathname.startsWith(`${c.to}/`),
+      ),
+    };
+    if (group.icon) item.icon = group.icon;
+    if (group.order !== undefined) item.order = group.order;
+    hostGroups.push(item);
+  }
+  entries.push(...hostGroups);
+
   // Stable sort: items with order come first; same-key falls back to
   // insertion order (Array.prototype.sort is stable in ES2019+).
   entries.sort((a, b) => {
@@ -363,7 +416,37 @@ function buildNavLinks(args: {
   });
 
   return entries.map((entry) => {
-    if (isGroup(entry)) {
+    if (isHostGroup(entry)) {
+      const userToggled = openGroups[entry.key];
+      const opened = userToggled ?? entry.active;
+      return (
+        <NavLink
+          key={entry.key}
+          label={entry.label}
+          leftSection={entry.icon}
+          opened={opened}
+          onClick={() => toggleGroup(entry.key)}
+          active={entry.active}
+          childrenOffset={28}
+        >
+          {entry.children.map((child) => (
+            <NavLink
+              key={child.key}
+              component={Link}
+              to={child.to}
+              label={child.label}
+              leftSection={child.icon}
+              active={
+                pathname === child.to ||
+                pathname.startsWith(`${child.to}/`)
+              }
+              onClick={onNavigate}
+            />
+          ))}
+        </NavLink>
+      );
+    }
+    if (isSectionGroup(entry)) {
       // Controlled opened state. Default to ``true`` for the active
       // group so navigating into /settings or /admin auto-reveals the
       // matching children on first paint; once the user has toggled

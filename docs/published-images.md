@@ -351,13 +351,17 @@ container serves it at `/host/...` (same origin as the SPA, so no CORS).
 ### The registries
 
 ```ts
-// All six render-time registries plus the SSE event tap, exposed
+// All seven render-time registries plus the SSE event tap, exposed
 // on window.__ATRIUM_REGISTRY__:
 registerHomeWidget({ key, render })           // Card on the home page.
 registerRoute({ key, path, element,           // Adds a <Route> in the
                 requireAuth?, layout? })       //   app router.
 registerNavItem({ key, label, to, icon?,      // Sidebar link.
                   condition? })
+registerNavGroup({ key, label, icon?,         // Collapsible top-level
+                   condition?, order?,        //   sidebar parent (sibling
+                   children })                //   of Home / Notifications /
+                                              //   Settings / Admin).
 registerAdminTab({ key, label, icon?,         // Sidebar entry inside
                    perm?, section?,           //   the Admin (default)
                    order?, render })          //   or Settings group.
@@ -376,6 +380,16 @@ subscribeEvent(kind, handler)                 // Tap into atrium's
 - `registerNavItem`'s `condition: ({ me }) => boolean` lets host nav items
   appear conditionally (e.g. only for users holding a particular
   permission).
+- `registerNavGroup` bundles several top-level routes under one
+  collapsible parent in the main sidebar — sibling of Home /
+  Notifications / Settings / Admin. Each child is a nav-only leaf
+  `{ key, label, to, icon?, condition?, order? }` whose route is
+  registered separately via `registerRoute`. The group itself accepts
+  an optional `condition` that hides the whole group + every child in
+  one shot. Empty groups (children empty, or all gated out) hide
+  themselves. Available since atrium 0.26. For grouping admin/settings
+  tabs *inside* the Admin/Settings buckets use `registerSettingsGroup`
+  instead.
 - `registerAdminTab`'s `perm` filters the tab on `me.permissions` — users
   who lack the code never see the tab in the markup. The optional
   `section: 'admin' | 'settings'` (default `'admin'`) picks which

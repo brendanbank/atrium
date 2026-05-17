@@ -94,6 +94,7 @@ the atrium repo's `CLAUDE.md` for the contract.
 | Home widget                   | A React component in `frontend/src/`                 | `reg.registerHomeWidget({ key, render })`                                  |
 | Dedicated route               | A page component                                     | `reg.registerRoute({ key, path, element, layout? })`                       |
 | Sidebar link                  | A label + path                                       | `reg.registerNavItem({ key, label, to, icon? })`                           |
+| Sidebar nav group             | A collapsible top-level parent with nav-only children| `reg.registerNavGroup({ key, label, icon?, condition?, order?, children })` |
 | Admin tab                     | A component, gated by a permission                   | `reg.registerAdminTab({ key, label, icon?, perm, element })`               |
 | Profile-page card             | A component                                          | `reg.registerProfileItem({ key, slot?, render, condition? })`              |
 

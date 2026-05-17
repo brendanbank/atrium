@@ -12,11 +12,13 @@
  *  3. /hello route renders the dedicated page
  *  4. admin tab renders + permission-gates (visible to admin, hidden
  *     for the seeded non-admin)
- *  5. toggle on -> counter ticks within the worker drain margin
- *  6. a scheduled_jobs row of kind=hello_count exists in done state
- *  7. toggle off -> counter stops
- *  8. API /hello/toggle returns 403 for a non-admin caller
- *  9. permission seeding is idempotent across container restarts
+ *  5. nav group renders as a collapsible parent in the sidebar with
+ *     two child links that navigate to the host-registered sub-routes
+ *  6. toggle on -> counter ticks within the worker drain margin
+ *  7. a scheduled_jobs row of kind=hello_count exists in done state
+ *  8. toggle off -> counter stops
+ *  9. API /hello/toggle returns 403 for a non-admin caller
+ * 10. permission seeding is idempotent across container restarts
  *
  * Set HELLO_TICK_SECONDS=2 in the compose overlay so the timing
  * assertions land in seconds rather than the 30-second default.
@@ -170,6 +172,39 @@ test.describe('hello-world example', () => {
     await expect(
       page.getByRole('link', { name: 'Hello World' }),
     ).toHaveCount(1);
+  });
+
+  test('nav group renders with collapsible children that navigate', async ({
+    page,
+  }) => {
+    // The hello-world bundle registers a "Hello hub" nav group with
+    // two children (News + About) pointing at host-owned routes under
+    // /hello/hub/*. Verifies the parent toggles open, both children
+    // render, and clicking one lands on the correct route with its
+    // body content rendered.
+    await loginAsSuperAdmin(page);
+    await page.goto('/');
+
+    // Scope to the navbar so we don't pick up an accidental match in
+    // a home-page card.
+    const navbar = page.getByRole('navigation');
+    const groupParent = navbar.getByText(/^Hello hub$/);
+    await expect(groupParent).toBeVisible();
+
+    // Children are collapsed until the parent is clicked.
+    await groupParent.click();
+    const newsLink = navbar.getByRole('link', { name: /^News$/ });
+    const aboutLink = navbar.getByRole('link', { name: /^About$/ });
+    await expect(newsLink).toBeVisible();
+    await expect(aboutLink).toBeVisible();
+
+    await newsLink.click();
+    await expect(page).toHaveURL('/hello/hub/news');
+    await expect(page.getByTestId('hello-hub-news-body')).toBeVisible();
+
+    await aboutLink.click();
+    await expect(page).toHaveURL('/hello/hub/about');
+    await expect(page.getByTestId('hello-hub-about-body')).toBeVisible();
   });
 
   test('toggle on starts the tick, toggle off stops it', async ({ page }) => {

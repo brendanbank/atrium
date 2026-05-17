@@ -21,6 +21,7 @@ particular [`frontend/src/main.tsx`](../examples/hello-world/frontend/src/main.t
 | I want to...                                        | Use this                                                                       |
 | --------------------------------------------------- | ------------------------------------------------------------------------------ |
 | Add a sidebar nav item                              | [`registerNavItem`](#sidebar-nav-item)                                         |
+| Group several top-level sidebar nav items           | [`registerNavGroup`](#top-level-nav-group)                                     |
 | Add a custom page (any URL)                         | [`registerRoute`](#custom-page)                                                |
 | Add a card on the home page                         | [`registerHomeWidget`](#home-page-widget)                                      |
 | Add an admin tab under `/admin/...`                 | [`registerAdminTab({ section: 'admin' })`](#admin-tab)                         |
@@ -46,7 +47,7 @@ the API; older hosts can detect availability at runtime through
 
 ## Frontend registry hooks
 
-All seven `register*` functions plus `subscribeEvent` and
+All eight `register*` functions plus `subscribeEvent` and
 `setBuiltinAdminTabSection` are exposed two ways:
 
 - as named exports of `@brendanbank/atrium-host-types` (typed,
@@ -81,6 +82,39 @@ rendered by [`AppLayout.tsx`](../frontend/src/components/AppLayout.tsx).
 Atrium's built-in nav uses `order: 100/200/300` (Home / Notifications /
 Admin) so a host slot at `order: 250` lands between Notifications and
 Admin. Available since atrium 0.9.
+
+### Top-level nav group
+<a id="top-level-nav-group"></a>
+
+When a host wants to bundle several related top-level routes under one
+expandable parent in the main sidebar - sibling of Home / Notifications /
+Settings / Admin, NOT nested inside Admin/Settings (that's
+[`registerSettingsGroup`](#nested-collapsible-group)):
+
+```ts
+registerRoute({ key: 'reports-daily',   path: '/reports/daily',   render: () => <Daily /> });
+registerRoute({ key: 'reports-weekly',  path: '/reports/weekly',  render: () => <Weekly /> });
+
+registerNavGroup({
+  key: 'reports',
+  label: 'Reports',
+  icon: <IconChartBar size={18} />,
+  order: 275,                                // between Settings (250) and Admin (300)
+  condition: ({ me }) => me?.is_active ?? false,  // optional — hides the whole group
+  children: [
+    { key: 'daily',  label: 'Daily',  to: '/reports/daily'  },
+    { key: 'weekly', label: 'Weekly', to: '/reports/weekly' },
+  ],
+});
+```
+
+Children are nav-only; their actual content comes from the routes the
+host registered separately. Each child can carry its own `condition`,
+and a group whose children are all gated out (or whose own `condition`
+returns false) hides itself entirely. Defined in
+[`registry.ts`](../frontend/src/host/registry.ts); rendered by
+[`AppLayout.tsx`](../frontend/src/components/AppLayout.tsx). Available
+since atrium 0.26.
 
 ### Custom page
 <a id="custom-page"></a>

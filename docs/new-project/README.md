@@ -1002,6 +1002,7 @@ Adding an endpoint, a job, a UI fragment — the standard moves:
 | Home widget                   | A React component in `frontend/src/`                     | `reg.registerHomeWidget({ key, render })`                                  |
 | Dedicated route               | A page component                                         | `reg.registerRoute({ key, path, element, layout? })`                       |
 | Sidebar link                  | A label + path                                           | `reg.registerNavItem({ key, label, to, icon?, condition? })`               |
+| Sidebar nav group             | A collapsible top-level parent with nav-only children    | `reg.registerNavGroup({ key, label, icon?, condition?, order?, children })` |
 | Admin / Settings tab          | A component, gated by a permission                       | `reg.registerAdminTab({ key, label, icon?, perm, section?, order?, render })` |
 | Profile-page card             | A component                                              | `reg.registerProfileItem({ key, slot?, render, condition? })`              |
 | Bell / inbox per-kind UI      | Title + (optional) detail-modal element                  | `reg.registerNotificationKind({ kind, render, title?, href? })`            |

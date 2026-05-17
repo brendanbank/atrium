@@ -39,6 +39,8 @@ export type {
   HomeWidget,
   HomeWidgetWidth,
   LocaleOverlay,
+  NavGroup,
+  NavGroupChild,
   NavItem,
   NotificationKindRenderer,
   ProfileItem,

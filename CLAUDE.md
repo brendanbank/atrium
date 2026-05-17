@@ -662,14 +662,23 @@ System tab) and the `audit_prune` job will DELETE older rows daily.
   stripped server-side anyway.
 - Host bundles inject UI fragments via the registry in
   `src/host/registry.ts`: `registerHomeWidget`, `registerRoute`,
-  `registerNavItem`, `registerAdminTab`, `registerSettingsGroup`,
-  `registerProfileItem`. All must be called at import-time before
-  React mounts (see `loadHostBundle` in `src/main.tsx`).
-  `registerProfileItem` takes an optional `slot` (`after-profile` /
-  `after-password` / `after-2fa` / `after-roles` (default) /
-  `after-sessions` / `before-delete`) and an optional
+  `registerNavItem`, `registerNavGroup`, `registerAdminTab`,
+  `registerSettingsGroup`, `registerProfileItem`. All must be called
+  at import-time before React mounts (see `loadHostBundle` in
+  `src/main.tsx`). `registerProfileItem` takes an optional `slot`
+  (`after-profile` / `after-password` / `after-2fa` / `after-roles`
+  (default) / `after-sessions` / `before-delete`) and an optional
   `condition({ me })` predicate; the host owns the card chrome (no
   auto-wrapping in a `Paper`).
+- `registerNavGroup({ key, label, icon?, condition?, order?, children })`
+  bundles several top-level routes under one collapsible parent in the
+  main sidebar — sibling of Home / Notifications / Settings / Admin
+  (not nested inside the Admin/Settings buckets, which is what
+  `registerSettingsGroup` is for). Each child is a nav-only leaf
+  `{ key, label, to, icon?, condition?, order? }` whose route is
+  registered separately via `registerRoute`. The group hides entirely
+  when its `condition` returns false or every child is gated out.
+  Available since atrium 0.26.
 - The admin shell has two sibling left-sidebar groups: **Settings**
   (above) and **Admin** (below). Each is an expandable Mantine
   `NavLink` parent whose children are the registered admin tabs for
