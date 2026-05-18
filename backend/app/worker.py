@@ -10,7 +10,12 @@ of truth so the UI can see/cancel pending work.
 
 Running a single worker keeps things simple; multiple workers would
 also be safe because ``next_due_job`` uses SELECT ... FOR UPDATE SKIP
-LOCKED to claim exactly one row at a time.
+LOCKED to claim exactly one row at a time. The engine runs at READ
+COMMITTED (see ``app/db.py``) so the claim only takes a record lock
+on the chosen row — under the default REPEATABLE READ, gap locks
+on the surrounding index would persist for the entire handler and
+deadlock against unrelated API endpoints that touch
+``scheduled_jobs``.
 """
 from __future__ import annotations
 

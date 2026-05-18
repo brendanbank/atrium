@@ -30,6 +30,16 @@ def get_engine() -> AsyncEngine:
             settings.database_url,
             pool_pre_ping=True,
             pool_recycle=3600,
+            # READ COMMITTED drops InnoDB's gap / next-key locks so the
+            # worker's ``SELECT ... FOR UPDATE SKIP LOCKED`` claim on
+            # ``scheduled_jobs`` only holds a record lock on the claimed
+            # row, not supremum gap locks on the surrounding index. Under
+            # the default REPEATABLE READ, those gap locks live for the
+            # entire transaction — i.e. for the full duration of the job
+            # handler — and deadlock with any API request that inserts
+            # into ``scheduled_jobs`` while holding other locks
+            # (issue #152).
+            isolation_level="READ COMMITTED",
             echo=False,
         )
     return _engine
