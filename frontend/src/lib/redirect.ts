@@ -33,3 +33,30 @@ export function sanitizeRedirect(
   if (value.startsWith('//')) return null;
   return value;
 }
+
+/**
+ * Does this same-origin path point at a server route rather than an
+ * SPA route?
+ *
+ * React Router's `navigate(...)` only resolves against the `<Routes>`
+ * tree — any target that isn't a registered SPA route falls through
+ * to the catch-all `<Navigate to="/" />` and the server never sees
+ * the request. For host-registered server endpoints (atrium-pa's
+ * `/oauth/authorize`, `/api/*` JSON routes that 302'd a browser
+ * here, RFC `/.well-known/*` endpoints) the post-login redirect has
+ * to be a full-page navigation via `window.location` so the browser
+ * actually hits the server.
+ *
+ * Caller must pass a value already cleared by `sanitizeRedirect`
+ * (starts with a single `/`, no scheme, no `//`).
+ */
+export function isServerRoute(value: string): boolean {
+  return (
+    value.startsWith('/api/') ||
+    value === '/api' ||
+    value.startsWith('/oauth/') ||
+    value === '/oauth' ||
+    value.startsWith('/.well-known/') ||
+    value === '/.well-known'
+  );
+}
