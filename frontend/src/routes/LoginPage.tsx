@@ -25,6 +25,7 @@ import { useAppConfig } from '@/hooks/useAppConfig';
 import { ME_QUERY_KEY } from '@/hooks/useAuth';
 import { CaptchaWidget } from '@/components/CaptchaWidget';
 import type { TOTPState } from '@/hooks/useTOTP';
+import { sanitizeRedirect } from '@/lib/redirect';
 
 export function LoginPage() {
   const { t } = useTranslation();
@@ -46,8 +47,22 @@ export function LoginPage() {
     },
   });
 
-  const redirectTo =
-    (location.state as { from?: string } | null)?.from ?? '/';
+  // Honour `from` from two sources, in priority order:
+  // 1. React Router state — set by <RequireAuth> when an in-SPA
+  //    navigation hits a protected route.
+  // 2. URL query string ?from=… — set by `api.ts`'s hard-redirect on
+  //    401 and by any server-side handler that bounces the browser
+  //    here (e.g. atrium-pa's /oauth/authorize, which 302s unauth
+  //    visitors to /login?from=/oauth/authorize?…). Without the query
+  //    fallback the SPA dropped the destination and landed every
+  //    post-login redirect on `/`.
+  // Both sources are constrained to a same-origin relative path
+  // (must start with `/`, must NOT start with `//`, no scheme) to
+  // close the open-redirect surface — `?from=https://evil.example`
+  // would otherwise let a phishing email bounce the user post-login.
+  const fromFromState = (location.state as { from?: string } | null)?.from;
+  const fromFromQuery = new URLSearchParams(location.search).get('from');
+  const redirectTo = sanitizeRedirect(fromFromState ?? fromFromQuery) ?? '/';
 
   const handleSubmit = form.onSubmit(async ({ email, password }) => {
     setError(null);

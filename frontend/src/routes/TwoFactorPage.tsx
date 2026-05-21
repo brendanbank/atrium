@@ -35,6 +35,7 @@ import {
   useWebAuthnAuthenticate,
   useWebAuthnRegister,
 } from '@/hooks/useWebAuthn';
+import { sanitizeRedirect } from '@/lib/redirect';
 
 /**
  * /2fa page — hosts both enrollment and returning-user challenge.
@@ -49,7 +50,11 @@ export function TwoFactorPage() {
   const location = useLocation();
   const { data: state, isLoading, isFetching, refetch } = useTOTPState();
 
-  const from = new URLSearchParams(location.search).get('from') ?? '/';
+  // Sanitise — see lib/redirect.ts. Without this, `?from=//evil.example`
+  // could phish a fresh post-2FA session into an attacker origin.
+  const from = sanitizeRedirect(
+    new URLSearchParams(location.search).get('from'),
+  ) ?? '/';
 
   useEffect(() => {
     // Wait for the background refetch before trusting `session_passed`:
