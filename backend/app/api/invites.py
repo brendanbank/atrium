@@ -217,6 +217,11 @@ async def accept_invite(
             is_verified=True,  # invite recipient is verified by possession of token
         )
     )
+    # Stamp the canonical verification timestamp. ``is_verified`` above is
+    # the legacy fastapi-users flag the login gate still honours as a
+    # fallback; ``email_verified_at`` is the primary signal and the only
+    # one a future cleanup of that fallback would keep reading.
+    user.email_verified_at = now
     # Grant every RBAC role the invite carried.
     for role_code in invite.role_codes:
         await assign_role(session, user_id=user.id, role_code=role_code)

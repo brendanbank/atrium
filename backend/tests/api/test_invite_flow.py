@@ -306,3 +306,9 @@ async def test_accept_creates_user_via_user_manager(client, engine):
         assert u.hashed_password != "Real-Pw-12345!"
         assert u.hashed_password.startswith(("$argon2", "$2b$", "$2a$"))
         assert u.is_verified is True
+        # Both verification signals stamped: ``is_verified`` is the legacy
+        # fastapi-users flag the login gate still falls back to, but
+        # ``email_verified_at`` is the canonical column. If only the
+        # legacy flag were set, a future cleanup of the fallback in
+        # ``auth/manager.py`` would lock every invite-accepted user out.
+        assert u.email_verified_at is not None
