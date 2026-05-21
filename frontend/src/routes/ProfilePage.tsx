@@ -146,10 +146,12 @@ export function ProfilePage() {
         color: 'teal',
         message: t('profile.savedPassword'),
       });
-    } catch {
+    } catch (err) {
+      const resp = (err as { response?: { data?: { detail?: string } } })
+        .response;
       notifications.show({
         color: 'red',
-        message: t('profile.saveFailed'),
+        message: resp?.data?.detail ?? t('profile.saveFailed'),
       });
     } finally {
       setChangingPassword(false);
