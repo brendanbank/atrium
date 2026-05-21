@@ -3,7 +3,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { sanitizeRedirect } from './redirect';
+import { isServerRoute, sanitizeRedirect } from './redirect';
 
 describe('sanitizeRedirect', () => {
   it('returns null for nullish / empty values', () => {
@@ -48,5 +48,34 @@ describe('sanitizeRedirect', () => {
     const from =
       '/oauth/authorize?client_id=abc&redirect_uri=https://claude.ai/cb';
     expect(sanitizeRedirect(from)).toBe(from);
+  });
+});
+
+describe('isServerRoute', () => {
+  it('recognises known server prefixes', () => {
+    expect(isServerRoute('/oauth/authorize')).toBe(true);
+    expect(isServerRoute('/oauth/authorize?client_id=x')).toBe(true);
+    expect(isServerRoute('/api/users/me')).toBe(true);
+    expect(isServerRoute('/.well-known/oauth-authorization-server')).toBe(true);
+  });
+
+  it('treats bare prefix segments as server routes too', () => {
+    expect(isServerRoute('/oauth')).toBe(true);
+    expect(isServerRoute('/api')).toBe(true);
+    expect(isServerRoute('/.well-known')).toBe(true);
+  });
+
+  it('treats SPA routes as non-server', () => {
+    expect(isServerRoute('/')).toBe(false);
+    expect(isServerRoute('/admin')).toBe(false);
+    expect(isServerRoute('/admin/audit')).toBe(false);
+    expect(isServerRoute('/profile')).toBe(false);
+    expect(isServerRoute('/2fa?from=%2F')).toBe(false);
+  });
+
+  it('does not match unrelated paths that merely contain the prefix', () => {
+    // /apiary is not /api/* — should resolve as an SPA route.
+    expect(isServerRoute('/apiary')).toBe(false);
+    expect(isServerRoute('/oauthorize')).toBe(false);
   });
 });

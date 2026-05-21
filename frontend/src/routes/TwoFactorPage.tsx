@@ -35,7 +35,7 @@ import {
   useWebAuthnAuthenticate,
   useWebAuthnRegister,
 } from '@/hooks/useWebAuthn';
-import { sanitizeRedirect } from '@/lib/redirect';
+import { isServerRoute, sanitizeRedirect } from '@/lib/redirect';
 
 /**
  * /2fa page — hosts both enrollment and returning-user challenge.
@@ -62,7 +62,17 @@ export function TwoFactorPage() {
     // session's `true`, and bouncing to `from` with a partial session
     // would just redirect back here via the 403/totp_required path.
     if (isFetching) return;
-    if (state?.session_passed) navigate(from, { replace: true });
+    if (state?.session_passed) {
+      // `navigate(...)` only resolves SPA routes; targets like
+      // `/oauth/authorize` (host-registered server route) need a hard
+      // navigation so the browser actually hits the server. See
+      // isServerRoute() in lib/redirect.ts.
+      if (isServerRoute(from)) {
+        window.location.replace(from);
+      } else {
+        navigate(from, { replace: true });
+      }
+    }
   }, [state, isFetching, navigate, from]);
 
   if (isLoading || !state) {

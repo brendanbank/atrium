@@ -25,7 +25,7 @@ import { useAppConfig } from '@/hooks/useAppConfig';
 import { ME_QUERY_KEY } from '@/hooks/useAuth';
 import { CaptchaWidget } from '@/components/CaptchaWidget';
 import type { TOTPState } from '@/hooks/useTOTP';
-import { sanitizeRedirect } from '@/lib/redirect';
+import { isServerRoute, sanitizeRedirect } from '@/lib/redirect';
 
 export function LoginPage() {
   const { t } = useTranslation();
@@ -87,7 +87,15 @@ export function LoginPage() {
       // before we navigate — otherwise the cached `null` from the pre-login
       // probe bounces us back to /login.
       await qc.refetchQueries({ queryKey: ME_QUERY_KEY });
-      navigate(redirectTo, { replace: true });
+      // `navigate(...)` only resolves SPA routes; targets like
+      // `/oauth/authorize` (host-registered server route) need a hard
+      // navigation so the browser actually hits the server. See
+      // isServerRoute() in lib/redirect.ts.
+      if (isServerRoute(redirectTo)) {
+        window.location.replace(redirectTo);
+      } else {
+        navigate(redirectTo, { replace: true });
+      }
     } catch (err) {
       const resp = (err as { response?: { status?: number; data?: { detail?: string } } })
         .response;
