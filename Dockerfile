@@ -89,13 +89,40 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     ATRIUM_STATIC_DIR=/opt/atrium/static
 WORKDIR /app
 
+# Apply Debian security updates on every build so the published image
+# picks up deb13 point releases (krb5, systemd, libcap, libnghttp2,
+# etc.) without waiting for the base ``python:3.13-slim`` tag to
+# refresh. Trivy on this repo and on downstream consumers
+# (atrium-pa, etc.) was firing on every published image until this
+# was added — see milestone "Security alerts (May 2026)".
 RUN apt-get update \
+ && apt-get -y upgrade \
  && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/* \
  && groupadd --system --gid 1000 app \
  && useradd --system --uid 1000 --gid app --create-home --home-dir /home/app app
 
 COPY --from=backend-builder --chown=app:app /opt/venv /opt/venv
+# Strip pip + setuptools from the project venv AND from the system
+# Python that ``python:3.13-slim`` ships. Neither is needed at
+# runtime (uv produces the venv, uvicorn runs from it) and both were
+# the source of recurring Trivy alerts:
+#   CVE-2026-3219 + CVE-2026-6357  (pip pre-26.1)
+#   CVE-2025-47273                 (setuptools pre-78.1.1)
+# Direct ``rm`` is more reliable than ``pip uninstall pip`` — the
+# latter is fragile when pip is removing itself.
+RUN rm -rf /opt/venv/lib/python*/site-packages/pip* \
+           /opt/venv/lib/python*/site-packages/setuptools* \
+           /opt/venv/lib/python*/site-packages/pkg_resources* \
+           /opt/venv/lib/python*/site-packages/_distutils_hack* \
+           /opt/venv/lib/python*/site-packages/distutils-precedence.pth \
+           /opt/venv/bin/pip* \
+           /usr/local/lib/python*/site-packages/pip* \
+           /usr/local/lib/python*/site-packages/setuptools* \
+           /usr/local/lib/python*/site-packages/pkg_resources* \
+           /usr/local/lib/python*/site-packages/_distutils_hack* \
+           /usr/local/lib/python*/site-packages/distutils-precedence.pth \
+           /usr/local/bin/pip*
 COPY --chown=app:app backend/ .
 # Built SPA dist — FastAPI mounts this at / via SPAStaticFiles.
 COPY --from=frontend-builder --chown=app:app /app/dist /opt/atrium/static
