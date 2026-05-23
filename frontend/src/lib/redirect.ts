@@ -22,8 +22,15 @@
  *
  * Rejects (returns `null`): empty / null, anything not starting with
  * `/`, anything starting with `//` (protocol-relative), anything with
- * a scheme like `javascript:`. The caller falls through to its own
+ * a scheme like `javascript:`, anything whose resolved origin differs
+ * from the document origin. The caller falls through to its own
  * default ('/').
+ *
+ * The two-stage check (string prefix → URL constructor → origin
+ * equality → reconstruction from `pathname + search + hash`) is the
+ * shape CodeQL's `js/client-side-unvalidated-url-redirection` query
+ * recognises as a sanitizer. A simpler `startsWith` check passes the
+ * same tests but the analyzer flags it as an unsanitised flow.
  */
 export function sanitizeRedirect(
   value: string | null | undefined,
@@ -31,7 +38,31 @@ export function sanitizeRedirect(
   if (!value) return null;
   if (!value.startsWith('/')) return null;
   if (value.startsWith('//')) return null;
-  return value;
+
+  // Fall back to a synthetic base for non-browser callers (vitest's
+  // jsdom env does set ``window.location``, but server-rendered or
+  // ssr-probe contexts may not). The base is only used to resolve
+  // the parsed URL — its scheme/host never escape this function.
+  const base =
+    typeof window !== 'undefined' && window.location?.origin
+      ? window.location.origin
+      : 'http://localhost';
+
+  let url: URL;
+  try {
+    url = new URL(value, base);
+  } catch {
+    return null;
+  }
+
+  // Origin equality is the gate the analyzer keys on. Any scheme,
+  // host, or port drift fails closed.
+  if (url.origin !== base) return null;
+
+  // Reconstruct from validated components rather than returning the
+  // input verbatim — this is the "rebuild from trusted parts"
+  // sanitizer pattern.
+  return `${url.pathname}${url.search}${url.hash}`;
 }
 
 /**
