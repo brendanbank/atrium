@@ -17,10 +17,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.auth.principal import SCOPE_KEY, Principal
 from app.auth.rbac import require_perm
+from app.auth.users import _current_user_or_none
 from app.db import get_session
 from app.models.auth import User
 from app.services import app_config as app_config_service
@@ -32,9 +34,20 @@ admin_router = APIRouter(prefix="/admin/app-config", tags=["admin"])
 
 @public_router.get("/app-config")
 async def get_public(
+    request: Request,
+    user: User | None = Depends(_current_user_or_none),
     session: AsyncSession = Depends(get_session),
 ) -> dict[str, Any]:
-    return await app_config_service.get_public_config(session)
+    # The bundle stays anonymous-readable (brand / i18n / system / the
+    # auth carve-out), but the backend ``version`` is only handed to an
+    # authenticated caller so it can't be used to fingerprint the
+    # deployment pre-login (issue #179). A cookie session (even partial,
+    # pre-2FA) or a PAT-authed request both count as authenticated.
+    pat_principal = request.scope.get(SCOPE_KEY)
+    authenticated = user is not None or isinstance(pat_principal, Principal)
+    return await app_config_service.get_public_config(
+        session, include_version=authenticated
+    )
 
 
 @admin_router.get("")
