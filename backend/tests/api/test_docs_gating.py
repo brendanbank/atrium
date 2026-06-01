@@ -21,12 +21,31 @@ import contextlib
 
 import httpx
 import pytest
+import pytest_asyncio
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.db import get_session
 from app.main import create_app
 from app.settings import get_settings
 from tests.helpers import seed_admin, seed_user
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _truncate_seeded_users(engine):
+    """These tests seed users directly through ``engine`` and drive
+    logins, but build their own app instead of using the ``client`` /
+    ``session`` fixtures — so nothing truncates ``users`` etc. on
+    teardown. Without this, a seeded ``admin@example.com`` leaks into
+    the next test in the xdist shard and collides on its own
+    ``seed_admin`` (a 1062 duplicate-key IntegrityError). Mirror the
+    conftest cleanup for just the tables these tests touch."""
+    yield
+    async with engine.begin() as conn:
+        await conn.execute(text("SET FOREIGN_KEY_CHECKS=0"))
+        for table in ("auth_sessions", "user_roles", "users"):
+            await conn.execute(text(f"TRUNCATE TABLE `{table}`"))
+        await conn.execute(text("SET FOREIGN_KEY_CHECKS=1"))
 
 
 @contextlib.asynccontextmanager
