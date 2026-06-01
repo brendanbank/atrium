@@ -294,15 +294,22 @@ async def put_namespace(
     return validated
 
 
-async def get_public_config(session: AsyncSession) -> dict[str, Any]:
+async def get_public_config(
+    session: AsyncSession, *, include_version: bool = False
+) -> dict[str, Any]:
     """Bundle every public namespace into one response — the frontend
     hits this once at boot and feeds it to MantineProvider/i18n/etc.
 
     Top-level ``version`` carries the running backend's version so the
     SPA can mirror it to ``window.__ATRIUM_VERSION__`` for host-bundle
-    feature detection (issue #43).
+    feature detection (issue #43). It's only included when the caller is
+    authenticated (``include_version=True``): an unauthenticated version
+    string lets a black-box scanner fingerprint exact dependency
+    versions for CVE-matching, so it stays behind auth (issue #179).
     """
-    out: dict[str, Any] = {"version": _atrium_version()}
+    out: dict[str, Any] = {}
+    if include_version:
+        out["version"] = _atrium_version()
     for ns in NAMESPACES.values():
         if not ns.public:
             continue

@@ -34,10 +34,34 @@ async def _wipe_app_config(engine, *keys: str) -> None:
         await s.commit()
 
 
+def _expected_version() -> str:
+    import tomllib
+    from pathlib import Path
+
+    pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+    with pyproject.open("rb") as fh:
+        return tomllib.load(fh)["project"]["version"]
+
+
 @pytest.mark.asyncio
-async def test_public_endpoint_includes_version(client, engine):
+async def test_public_endpoint_hides_version_when_anonymous(client, engine):
+    """Issue #179 — the backend ``version`` lets a black-box scanner
+    fingerprint exact dependency versions for CVE-matching, so it must
+    NOT appear in the unauthenticated bundle. The rest of the public
+    config (brand / i18n / system / auth carve-out) stays anonymous."""
+    r = await client.get("/app-config")
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "version" not in body, body
+    # The anonymous bundle is still useful — brand etc. are present.
+    assert "brand" in body, body
+
+
+@pytest.mark.asyncio
+async def test_public_endpoint_includes_version_when_authenticated(client, engine):
     """Issue #43 — top-level ``version`` lets host bundles mirror the
-    running atrium release onto ``window.__ATRIUM_VERSION__``.
+    running atrium release onto ``window.__ATRIUM_VERSION__``. Now gated
+    behind auth (issue #179), so an authenticated session still gets it.
 
     Issue #57 — the published runtime image doesn't install
     ``atrium-backend`` as a distribution, so ``importlib.metadata``
@@ -45,12 +69,10 @@ async def test_public_endpoint_includes_version(client, engine):
     value against ``pyproject.toml`` so any future dist-metadata
     breakage shows up in CI instead of in production.
     """
-    import tomllib
-    from pathlib import Path
+    expected = _expected_version()
 
-    pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
-    with pyproject.open("rb") as fh:
-        expected = tomllib.load(fh)["project"]["version"]
+    user = await seed_user(engine)
+    await login(client, user.email, "user-pw-123", engine=engine)
 
     r = await client.get("/app-config")
     assert r.status_code == 200, r.text

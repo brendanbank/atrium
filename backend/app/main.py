@@ -6,8 +6,10 @@ import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import APIRouter, FastAPI, Request
+from fastapi import APIRouter, Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.responses import HTMLResponse, JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.account_deletion import admin_router as account_deletion_admin_router
@@ -41,8 +43,9 @@ from app.api.webauthn import router as webauthn_router
 from app.auth.backend import auth_backend
 from app.auth.pat_middleware import PATAuthMiddleware
 from app.auth.schemas import UserRead, UserUpdate
-from app.auth.users import fastapi_users
+from app.auth.users import fastapi_users, require_admin
 from app.logging import configure_logging, log
+from app.models.auth import User
 from app.services.audit import set_impersonator
 from app.services.captcha import CaptchaLoginMiddleware
 from app.services.maintenance import MaintenanceMiddleware
@@ -83,6 +86,41 @@ class ImpersonationAuditMiddleware(BaseHTTPMiddleware):
         return response
 
 
+def _mount_protected_docs(app: FastAPI) -> None:
+    """Re-serve the OpenAPI schema + Swagger/ReDoc UIs behind the admin
+    gate.
+
+    In prod the app is constructed with ``docs_url``/``redoc_url``/
+    ``openapi_url`` set to ``None`` so an anonymous caller can't pull the
+    full internal route map from ``/openapi.json`` (issue #178 — a
+    black-box scan enumerated 228 endpoints, including every admin
+    route, for free). These replacements serve the same content but
+    require the ``admin`` role, keeping the docs available to operators
+    without handing the API surface to the internet. ``require_admin``
+    chains through ``current_user``, so the full-2FA session gate applies
+    too. Registered before the SPA catch-all mount so they win the match.
+    """
+    docs_gate = Depends(require_admin)
+
+    @app.get("/openapi.json", include_in_schema=False)
+    async def protected_openapi(_: User = docs_gate) -> JSONResponse:
+        return JSONResponse(app.openapi())
+
+    @app.get("/docs", include_in_schema=False)
+    async def protected_swagger(_: User = docs_gate) -> HTMLResponse:
+        return get_swagger_ui_html(
+            openapi_url="/openapi.json",
+            title=f"{app.title} - Swagger UI",
+        )
+
+    @app.get("/redoc", include_in_schema=False)
+    async def protected_redoc(_: User = docs_gate) -> HTMLResponse:
+        return get_redoc_html(
+            openapi_url="/openapi.json",
+            title=f"{app.title} - ReDoc",
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     configure_logging()
@@ -93,10 +131,17 @@ async def lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    is_prod = settings.environment == "prod"
     app = FastAPI(
         title="Atrium API",
         version="0.1.0",
         lifespan=lifespan,
+        # In prod the unauthenticated docs + schema are suppressed and
+        # re-mounted behind an admin gate below (issue #178). Dev keeps
+        # the open Swagger/ReDoc/OpenAPI endpoints for DX.
+        docs_url=None if is_prod else "/docs",
+        redoc_url=None if is_prod else "/redoc",
+        openapi_url=None if is_prod else "/openapi.json",
     )
 
     app.add_middleware(
@@ -201,6 +246,12 @@ def create_app() -> FastAPI:
             log.info(
                 "host.init_app.absent", module=host_module
             )
+
+    # In prod, re-expose the docs + OpenAPI schema behind require_admin.
+    # Added before the SPA catch-all mount so the explicit routes match
+    # first (issue #178).
+    if is_prod:
+        _mount_protected_docs(app)
 
     # Mount the built SPA last so it acts as the catch-all. Conditional
     # on the directory existing so a dev tree without ``pnpm build``
