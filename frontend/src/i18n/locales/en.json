@@ -103,6 +103,7 @@
     "setupIntro": "Scan this QR code with your authenticator app (Google Authenticator, 1Password, Bitwarden, Authy, …), then enter the 6-digit code it shows to finish enrollment.",
     "manualSecret": "Or enter this code manually",
     "enterFirstCode": "Enter the 6-digit code from the app",
+    "codeInputLabel": "One-time code",
     "confirmSubmit": "Confirm and continue",
     "setupSuccess": "Two-factor authentication enabled.",
     "challengeTitle": "Enter your code",

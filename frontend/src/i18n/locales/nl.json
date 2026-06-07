@@ -103,6 +103,7 @@
     "setupIntro": "Scan deze QR-code met je authenticator-app (Google Authenticator, 1Password, Bitwarden, Authy, …) en voer daarna de zescijferige code in om de aanmelding af te ronden.",
     "manualSecret": "Of voer deze code handmatig in",
     "enterFirstCode": "Voer de zescijferige code uit de app in",
+    "codeInputLabel": "Eenmalige code",
     "confirmSubmit": "Bevestigen en doorgaan",
     "setupSuccess": "Tweestapsverificatie ingeschakeld.",
     "challengeTitle": "Voer je code in",

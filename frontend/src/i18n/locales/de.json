@@ -103,6 +103,7 @@
     "setupIntro": "Scannen Sie diesen QR-Code mit Ihrer Authenticator-App (Google Authenticator, 1Password, Bitwarden, Authy, …) und geben Sie anschließend den sechsstelligen Code ein, um die Einrichtung abzuschließen.",
     "manualSecret": "Oder geben Sie diesen Code manuell ein",
     "enterFirstCode": "Geben Sie den sechsstelligen Code aus der App ein",
+    "codeInputLabel": "Einmalcode",
     "confirmSubmit": "Bestätigen und fortfahren",
     "setupSuccess": "Zwei-Faktor-Authentifizierung aktiviert.",
     "challengeTitle": "Geben Sie Ihren Code ein",

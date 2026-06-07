@@ -103,6 +103,7 @@
     "setupIntro": "Scannez ce QR code avec votre application d'authentification (Google Authenticator, 1Password, Bitwarden, Authy, …) puis saisissez le code à six chiffres affiché pour terminer l'inscription.",
     "manualSecret": "Ou saisissez ce code manuellement",
     "enterFirstCode": "Saisissez le code à six chiffres de l'application",
+    "codeInputLabel": "Code à usage unique",
     "confirmSubmit": "Confirmer et continuer",
     "setupSuccess": "Double authentification activée.",
     "challengeTitle": "Saisissez votre code",
