@@ -100,6 +100,19 @@ export async function hostBundleConfig(
   // dynamically-imported CSS plugin. The merged config is what Vite
   // actually consumes at build time.
   const base: Record<string, unknown> = {
+    // Force a single copy of each context-bearing singleton into the
+    // bundle. React and TanStack Query both key their context off the
+    // module instance, so two physical copies (e.g. the host's
+    // `@tanstack/react-query` vs the one `@brendanbank/atrium-host-bundle-utils`
+    // resolves from its own `node_modules` in a pnpm workspace) yield
+    // two distinct contexts: a `<QueryClientProvider>` from copy A and
+    // a `useQuery` from copy B throw "No QueryClient set" at runtime.
+    // `dedupe` makes Vite resolve every bare import of these to the
+    // copy nearest the host project root, immune to workspace version
+    // skew between the host and the SDK.
+    resolve: {
+      dedupe: ['react', 'react-dom', '@tanstack/react-query'],
+    },
     // Lib-mode builds don't auto-replace `process.env.NODE_ENV` the
     // way Vite's app-mode builds do, and several deps (React internals,
     // TanStack Query) reference it. Without these defines the bundle
