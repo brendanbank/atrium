@@ -10,7 +10,6 @@ import {
   Group,
   Loader,
   Modal,
-  PinInput,
   Stack,
   Text,
 } from '@mantine/core';
@@ -24,6 +23,7 @@ import {
   useTOTPConfirm,
   useTOTPSetup,
 } from '@/hooks/useTOTP';
+import { OtpInput } from '@/components/OtpInput';
 
 type Method = 'totp' | 'email';
 
@@ -141,7 +141,12 @@ function TOTPSetupInner({
           {t('twoFactor.enterFirstCode')}
         </Text>
         <Center>
-          <PinInput length={6} type="number" oneTimeCode value={code} onChange={setCode} autoFocus />
+          <OtpInput
+            value={code}
+            onChange={setCode}
+            autoFocus
+            aria-label={t('twoFactor.codeInputLabel')}
+          />
         </Center>
         {error && <Alert color="red">{error}</Alert>}
         <Group justify="flex-end">
@@ -206,7 +211,12 @@ function EmailOTPSetupInner({
           {sent ? t('twoFactor.emailSentIntro') : t('twoFactor.emailSending')}
         </Text>
         <Center>
-          <PinInput length={6} type="number" oneTimeCode value={code} onChange={setCode} autoFocus />
+          <OtpInput
+            value={code}
+            onChange={setCode}
+            autoFocus
+            aria-label={t('twoFactor.codeInputLabel')}
+          />
         </Center>
         {error && <Alert color="red">{error}</Alert>}
         <Group justify="flex-end">

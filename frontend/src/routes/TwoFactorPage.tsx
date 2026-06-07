@@ -11,7 +11,6 @@ import {
   Group,
   Loader,
   Paper,
-  PinInput,
   Stack,
   Text,
   Title,
@@ -36,6 +35,7 @@ import {
   useWebAuthnRegister,
 } from '@/hooks/useWebAuthn';
 import { isServerRoute, sanitizeRedirect } from '@/lib/redirect';
+import { OtpInput } from '@/components/OtpInput';
 
 /**
  * /2fa page — hosts both enrollment and returning-user challenge.
@@ -254,13 +254,11 @@ function TOTPSetupFlow({
                   {t('twoFactor.enterFirstCode')}
                 </Text>
                 <Center>
-                  <PinInput
-                    length={6}
-                    type="number"
-                    oneTimeCode
+                  <OtpInput
                     value={code}
                     onChange={setCode}
                     autoFocus
+                    aria-label={t('twoFactor.codeInputLabel')}
                   />
                 </Center>
                 {error && <Alert color="red">{error}</Alert>}
@@ -335,13 +333,11 @@ function EmailOTPSetupFlow({
                 {sent ? t('twoFactor.emailSentIntro') : t('twoFactor.emailSending')}
               </Text>
               <Center>
-                <PinInput
-                  length={6}
-                  type="number"
-                  oneTimeCode
+                <OtpInput
                   value={code}
                   onChange={setCode}
                   autoFocus
+                  aria-label={t('twoFactor.codeInputLabel')}
                 />
               </Center>
               {error && <Alert color="red">{error}</Alert>}
@@ -538,13 +534,11 @@ function TOTPChallengeForm({
                 {t('twoFactor.challengeIntro')}
               </Text>
               <Center>
-                <PinInput
-                  length={6}
-                  type="number"
-                  oneTimeCode
+                <OtpInput
                   value={code}
                   onChange={setCode}
                   autoFocus
+                  aria-label={t('twoFactor.codeInputLabel')}
                 />
               </Center>
               {error && <Alert color="red">{error}</Alert>}
@@ -619,13 +613,11 @@ function EmailOTPChallengeForm({
                 {sent ? t('twoFactor.emailSentIntro') : t('twoFactor.emailSending')}
               </Text>
               <Center>
-                <PinInput
-                  length={6}
-                  type="number"
-                  oneTimeCode
+                <OtpInput
                   value={code}
                   onChange={setCode}
                   autoFocus
+                  aria-label={t('twoFactor.codeInputLabel')}
                 />
               </Center>
               {error && <Alert color="red">{error}</Alert>}
