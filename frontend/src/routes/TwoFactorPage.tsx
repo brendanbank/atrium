@@ -36,6 +36,7 @@ import {
 } from '@/hooks/useWebAuthn';
 import { isServerRoute, sanitizeRedirect } from '@/lib/redirect';
 import { OtpInput } from '@/components/OtpInput';
+import { AutofillUsernameField } from '@/components/AutofillUsernameField';
 
 /**
  * /2fa page — hosts both enrollment and returning-user challenge.
@@ -48,6 +49,10 @@ import { OtpInput } from '@/components/OtpInput';
 export function TwoFactorPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  // Passed by LoginPage so the challenge forms can render a hidden
+  // autocomplete="username" field for password-manager account matching.
+  // Absent on a hard reload of /2fa — the field degrades to nothing.
+  const email = (location.state as { email?: string } | null)?.email;
   const { data: state, isLoading, isFetching, refetch } = useTOTPState();
 
   // Sanitise — see lib/redirect.ts. Without this, `?from=//evil.example`
@@ -88,7 +93,13 @@ export function TwoFactorPage() {
     state.email_otp_confirmed ||
     state.webauthn_credential_count > 0;
   if (anyConfirmed) {
-    return <TwoFactorChallenge state={state} onVerified={() => refetch()} />;
+    return (
+      <TwoFactorChallenge
+        state={state}
+        email={email}
+        onVerified={() => refetch()}
+      />
+    );
   }
   return <TwoFactorSetup state={state} onChange={() => refetch()} />;
 }
@@ -364,6 +375,7 @@ type ChallengePhase = 'webauthn' | 'picker' | 'totp' | 'email';
 
 function TwoFactorChallenge({
   state,
+  email,
   onVerified,
 }: {
   state: {
@@ -371,6 +383,7 @@ function TwoFactorChallenge({
     email_otp_confirmed: boolean;
     webauthn_credential_count: number;
   };
+  email?: string;
   onVerified: () => void;
 }) {
   const { t } = useTranslation();
@@ -491,18 +504,32 @@ function TwoFactorChallenge({
   const canGoBack = hasWebAuthn || fallbackMethods.length > 1;
   const backHandler = canGoBack ? () => setPhase('picker') : undefined;
   if (phase === 'totp') {
-    return <TOTPChallengeForm onVerified={onVerified} onBack={backHandler} />;
+    return (
+      <TOTPChallengeForm
+        onVerified={onVerified}
+        onBack={backHandler}
+        email={email}
+      />
+    );
   }
-  return <EmailOTPChallengeForm onVerified={onVerified} onBack={backHandler} />;
+  return (
+    <EmailOTPChallengeForm
+      onVerified={onVerified}
+      onBack={backHandler}
+      email={email}
+    />
+  );
 }
 
 
 function TOTPChallengeForm({
   onVerified,
   onBack,
+  email,
 }: {
   onVerified: () => void;
   onBack?: () => void;
+  email?: string;
 }) {
   const { t } = useTranslation();
   const verify = useTOTPVerify();
@@ -530,6 +557,7 @@ function TOTPChallengeForm({
         <Paper withBorder shadow="md" p="xl" radius="md">
           <form onSubmit={handleSubmit}>
             <Stack>
+              <AutofillUsernameField email={email} />
               <Text size="sm" c="dimmed" ta="center">
                 {t('twoFactor.challengeIntro')}
               </Text>
@@ -566,9 +594,11 @@ function TOTPChallengeForm({
 function EmailOTPChallengeForm({
   onVerified,
   onBack,
+  email,
 }: {
   onVerified: () => void;
   onBack?: () => void;
+  email?: string;
 }) {
   const { t } = useTranslation();
   const requestCode = useEmailOTPRequest();
@@ -609,6 +639,7 @@ function EmailOTPChallengeForm({
         <Paper withBorder shadow="md" p="xl" radius="md">
           <form onSubmit={handleSubmit}>
             <Stack>
+              <AutofillUsernameField email={email} />
               <Text size="sm" c="dimmed" ta="center">
                 {sent ? t('twoFactor.emailSentIntro') : t('twoFactor.emailSending')}
               </Text>

@@ -78,8 +78,13 @@ export function LoginPage() {
       // challenge screen (one or more methods enrolled).
       const { data: state } = await api.get<TOTPState>('/auth/totp/state');
       if (!state.session_passed) {
+        // Carry the email so /2fa can render a hidden autocomplete="username"
+        // field — without it password managers (1Password on iOS) match the
+        // domain but not the account on the OTP-only page, so they can't jump
+        // to the right login or fill the code inline.
         navigate(`/2fa?from=${encodeURIComponent(redirectTo)}`, {
           replace: true,
+          state: { email },
         });
         return;
       }
