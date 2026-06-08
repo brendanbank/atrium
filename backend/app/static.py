@@ -22,17 +22,25 @@ class SPAStaticFiles(StaticFiles):
     """
 
     async def get_response(self, path: str, scope: Scope):
+        served_spa_shell = path in ("", "index.html")
         try:
             response = await super().get_response(path, scope)
         except HTTPException as exc:
             if exc.status_code == 404 and scope.get("method") == "GET":
+                # Client-side route (e.g. /admin/audit) — fall back to the
+                # shell. ``path`` still names the original route here, so we
+                # track the shell-served case explicitly: without it the
+                # no-store header below never lands and browsers heuristically
+                # cache the shell, pinning the user to a stale asset bundle
+                # until a hard reload.
                 response = await super().get_response("index.html", scope)
+                served_spa_shell = True
             else:
                 raise
 
         if path.startswith("assets/"):
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-        elif path in ("", "index.html"):
+        elif served_spa_shell:
             response.headers["Cache-Control"] = "no-store"
 
         return response
