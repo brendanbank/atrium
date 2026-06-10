@@ -33,6 +33,7 @@ export function LoginPage() {
   const location = useLocation();
   const qc = useQueryClient();
   const { data: appConfig } = useAppConfig();
+  const brandName = appConfig?.brand?.name?.trim() || t('app.title');
   const allowSignup = appConfig?.auth?.allow_signup === true;
   const captchaProvider = appConfig?.auth?.captcha_provider ?? 'none';
   const [error, setError] = useState<string | null>(null);
@@ -122,7 +123,7 @@ export function LoginPage() {
     <Center h="100vh">
       <Container size={420} w="100%">
         <Title ta="center" mb="lg">
-          {t('app.title')}
+          {brandName}
         </Title>
         <Paper withBorder shadow="md" p="xl" radius="md">
           <form onSubmit={handleSubmit}>
