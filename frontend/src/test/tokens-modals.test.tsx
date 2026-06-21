@@ -192,9 +192,14 @@ describe('TokenCreateModal', () => {
       target: { value: 'CI sidecar' },
     });
 
-    // Open the MultiSelect dropdown and click the option.
+    // Open the MultiSelect dropdown and click the option. ``hidden: true``
+    // is required since Mantine v9.3: the Combobox renders its options
+    // inside a Popover dropdown that floating-ui positions on open, and
+    // jsdom never computes that layout, so the dropdown keeps its initial
+    // inline ``display: none`` and the options stay out of the
+    // accessibility tree. They are still in the DOM and clickable.
     fireEvent.click(dialog.querySelector('[data-testid="token-create-scopes"]')!);
-    fireEvent.click(await screen.findByRole('option', { name: 'user.manage' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'user.manage', hidden: true }));
 
     fireEvent.click(dialog.querySelector('[data-testid="token-create-submit"]')!);
 
@@ -235,7 +240,7 @@ describe('TokenCreateModal', () => {
       target: { value: 'overreach' },
     });
     fireEvent.click(dialog.querySelector('[data-testid="token-create-scopes"]')!);
-    fireEvent.click(await screen.findByRole('option', { name: 'user.manage' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'user.manage', hidden: true }));
     fireEvent.click(dialog.querySelector('[data-testid="token-create-submit"]')!);
 
     expect(await screen.findByText('Scope not held')).toBeInTheDocument();
@@ -257,7 +262,7 @@ describe('TokenCreateModal', () => {
     );
     const dialog = await screen.findByRole('dialog');
     fireEvent.click(dialog.querySelector('[data-testid="token-create-scopes"]')!);
-    fireEvent.click(await screen.findByRole('option', { name: 'user.manage' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'user.manage', hidden: true }));
     // Submit by dispatching the form-level event so jsdom routes it
     // through Mantine's ``onSubmit`` wrapper. Clicking the submit
     // button alone doesn't bubble up reliably in jsdom + Mantine v9
