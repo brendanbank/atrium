@@ -35,6 +35,14 @@ updates:
   # instead of one per directory. Without this, a vite bump in
   # /examples/hello-world/frontend opens its own PR even though
   # the same package lives in /frontend.
+  #
+  # Caveat this triggers: on a GROUPED multi-directory update
+  # Dependabot bumps the package.json files but leaves both pnpm
+  # lockfiles stale, failing `pnpm install --frozen-lockfile`. The
+  # pnpm-lock-refresh / pnpm-lock-commit workflow pair intercepts
+  # these PRs and regenerates the lockfiles; dependabot-auto-merge
+  # then merges patch/minor groups once CI is green. See
+  # docs/dependabot-automation.md.
   - package-ecosystem: "npm"
     directories:
       - "/frontend"

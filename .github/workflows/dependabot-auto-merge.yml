@@ -1,0 +1,132 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
+name: dependabot-auto-merge
+
+# Auto-merges Dependabot's grouped npm version bumps once CI is green,
+# so the weekly Mantine/Tiptap/etc. refresh stops needing manual
+# clicks. Two jobs, two triggers:
+#
+#   mark  (pull_request) — runs on the Dependabot PR, reads the update
+#         metadata, and labels the PR `npm-automerge` UNLESS the group
+#         contains a major-version bump (those still want human eyes).
+#
+#   merge (workflow_run: CI completed) — fires when a CI run finishes
+#         on a dependabot/npm_and_yarn/* branch; if that PR carries the
+#         `npm-automerge` label and CI passed on its current head, it
+#         squash-merges. master has no branch-protection required
+#         checks, so native auto-merge can't gate on CI — this
+#         workflow_run gate is the equivalent.
+#
+# The relock pair (pnpm-lock-refresh / pnpm-lock-commit) pushes the
+# corrected lockfiles with a PAT, which re-runs CI on the fixed commit;
+# this workflow then sees that green run and merges. Without the PAT,
+# the label is still applied but the merge waits for a CI run that
+# passes on the head commit.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  mark:
+    if: >
+      github.event_name == 'pull_request' &&
+      github.actor == 'dependabot[bot]' &&
+      startsWith(github.head_ref, 'dependabot/npm_and_yarn/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Fetch Dependabot metadata
+        id: meta
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98  # v3.1.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure the npm-automerge label exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        # Idempotent: --force creates it or updates it in place, so the
+        # later --add-label never fails on a missing label.
+        run: |
+          gh label create npm-automerge --repo "$REPO" --force \
+            --color 0e8a16 \
+            --description "Dependabot npm group is patch/minor; auto-merge once CI is green"
+
+      - name: Label patch/minor groups for auto-merge
+        # Group PRs report the highest semver bump in update-type, so a
+        # single major in the batch keeps the whole PR out of the
+        # auto-merge lane. CI (typecheck/lint/unit/build/e2e/scaffolder)
+        # is the actual safety gate; this just scopes WHICH PRs merge
+        # unattended.
+        if: >
+          steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+          steps.meta.outputs.update-type == 'version-update:semver-minor'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label npm-automerge
+
+  merge:
+    if: >
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'dependabot/npm_and_yarn/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Merge if labelled and CI is green on the head commit
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          CI_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -euo pipefail
+
+          [[ "$HEAD_BRANCH" =~ ^dependabot/npm_and_yarn/[A-Za-z0-9._/-]+$ ]] \
+            || { echo "unexpected branch name; skipping" >&2; exit 0; }
+
+          PR_JSON=$(gh pr list --repo "$REPO" --head "$HEAD_BRANCH" --state open \
+            --json number,headRefOid,labels,author --jq '.[0] // empty')
+          if [ -z "$PR_JSON" ]; then
+            echo "No open PR for $HEAD_BRANCH; nothing to merge."
+            exit 0
+          fi
+
+          NUMBER=$(jq -r '.number' <<<"$PR_JSON")
+          HEAD_OID=$(jq -r '.headRefOid' <<<"$PR_JSON")
+          HAS_LABEL=$(jq -r '[.labels[].name] | index("npm-automerge") != null' <<<"$PR_JSON")
+          IS_DEPENDABOT=$(jq -r '(.author.login // "") | test("dependabot")' <<<"$PR_JSON")
+
+          if [ "$HAS_LABEL" != "true" ]; then
+            echo "PR #$NUMBER not labelled npm-automerge (likely a major bump); leaving for review."
+            exit 0
+          fi
+          if [ "$IS_DEPENDABOT" != "true" ]; then
+            echo "PR #$NUMBER author is not Dependabot; refusing to auto-merge." >&2
+            exit 0
+          fi
+          # Only merge the exact commit CI just validated — guards
+          # against a newer push that hasn't been checked yet.
+          if [ "$HEAD_OID" != "$CI_SHA" ]; then
+            echo "PR head ($HEAD_OID) moved past the CI'd commit ($CI_SHA); waiting for its CI."
+            exit 0
+          fi
+
+          echo "Squash-merging PR #$NUMBER ($HEAD_BRANCH)."
+          gh pr merge "$NUMBER" --repo "$REPO" --squash --delete-branch

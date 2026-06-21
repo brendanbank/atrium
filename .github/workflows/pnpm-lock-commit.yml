@@ -1,0 +1,150 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
+name: pnpm-lock-commit
+
+# Privileged half of the pnpm-lock-refresh split (see that file for
+# context). Triggered when the unprivileged refresh finishes
+# successfully on a Dependabot PR; this one runs in the base-repo
+# context (default branch's YAML), holds contents: write, and never
+# checks out the PR branch — the lockfiles are written through the
+# GitHub Git Data API directly. That keeps every "untrusted-checkout"
+# anti-pattern out of the privileged path: no actions/checkout of a PR
+# ref, no run: block executing a script from PR content.
+#
+# Push token: PUSH_TOKEN prefers a fine-grained PAT (Dependabot can't
+# push to its own PRs, and a commit pushed with the default
+# GITHUB_TOKEN does NOT re-trigger pull_request workflows). With the
+# PAT, the relock commit re-runs CI on the corrected lockfiles so the
+# PR can go green and auto-merge. Without it, the workflow still
+# commits the lockfiles (via the fallback GITHUB_TOKEN) but CI won't
+# re-run automatically — see docs/dependabot-automation.md for the
+# one-time secret setup.
+#
+# The flow:
+#   1. Validate the originating workflow_run was a successful
+#      Dependabot pull_request event.
+#   2. Download the lockfiles + pr-meta artifacts from that run.
+#   3. Sanity-check the metadata before any of it touches the API.
+#   4. Build ONE atomic commit (Git Data API) updating whichever of
+#      the two lockfiles actually changed, fast-forward only.
+
+on:
+  workflow_run:
+    workflows: ["pnpm-lock-refresh"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: read
+  actions: read
+
+jobs:
+  push-locks:
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download lockfiles artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: pnpm-locks
+          path: artifact-locks
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download PR metadata
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: pr-meta
+          path: artifact-pr-meta
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Validate metadata and commit changed lockfiles
+        env:
+          # Prefer the PAT so the relock commit re-triggers CI; fall
+          # back to GITHUB_TOKEN (commits, but no re-trigger).
+          GH_TOKEN: ${{ secrets.DEPENDABOT_LOCKFILE_TOKEN || secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        # Whole step is bash with set -euo pipefail and explicit env
+        # vars — nothing comes from ${{ ... }} interpolation, nothing
+        # from the artifact is fed to a shell unquoted. Fails closed on
+        # any unexpected metadata shape.
+        run: |
+          set -euo pipefail
+
+          NUMBER=$(cat artifact-pr-meta/number)
+          HEAD_REF=$(cat artifact-pr-meta/head_ref)
+          HEAD_SHA=$(cat artifact-pr-meta/head_sha)
+
+          [[ "$NUMBER"   =~ ^[0-9]+$ ]]           || { echo "bad PR number" >&2; exit 1; }
+          [[ "$HEAD_SHA" =~ ^[0-9a-f]{40}$ ]]     || { echo "bad SHA"       >&2; exit 1; }
+          [[ "$HEAD_REF" =~ ^[A-Za-z0-9._/-]+$ ]] || { echo "bad ref"       >&2; exit 1; }
+
+          # The branch tip must still match the SHA the artifact was
+          # generated against. If it moved, abort rather than clobber a
+          # newer commit with a stale lockfile.
+          BRANCH_HEAD_SHA=$(gh api -H "Accept: application/vnd.github+json" \
+            "repos/$REPO/branches/$HEAD_REF" --jq '.commit.sha')
+          if [ "$BRANCH_HEAD_SHA" != "$HEAD_SHA" ]; then
+            echo "Branch moved (artifact=$HEAD_SHA, branch=$BRANCH_HEAD_SHA); skipping."
+            exit 0
+          fi
+
+          # Base tree = the tree of the current head commit.
+          BASE_TREE=$(gh api -H "Accept: application/vnd.github+json" \
+            "repos/$REPO/git/commits/$HEAD_SHA" --jq '.tree.sha')
+
+          # For each lockfile, create a blob only if it differs from
+          # what's on the branch; collect the changed ones into a tree.
+          TREE_ENTRIES='[]'
+          for PATH_REL in "pnpm-lock.yaml" "frontend/pnpm-lock.yaml"; do
+            NEW_FILE="artifact-locks/$PATH_REL"
+            [ -f "$NEW_FILE" ] || { echo "missing artifact $NEW_FILE" >&2; exit 1; }
+
+            CUR_B64=$(gh api -H "Accept: application/vnd.github+json" \
+              "repos/$REPO/contents/$PATH_REL?ref=$HEAD_REF" --jq '.content' | tr -d '\n')
+            NEW_B64=$(base64 -w0 < "$NEW_FILE" 2>/dev/null || base64 < "$NEW_FILE" | tr -d '\n')
+            CUR_NORM=$(printf '%s' "$CUR_B64" | base64 -d | sha256sum)
+            NEW_NORM=$(printf '%s' "$NEW_B64" | base64 -d | sha256sum)
+            if [ "$CUR_NORM" = "$NEW_NORM" ]; then
+              echo "$PATH_REL unchanged"
+              continue
+            fi
+
+            BLOB_SHA=$(jq -n --arg c "$NEW_B64" '{content:$c, encoding:"base64"}' \
+              | gh api -X POST -H "Accept: application/vnd.github+json" \
+                  "repos/$REPO/git/blobs" --input - --jq '.sha')
+            TREE_ENTRIES=$(jq -c \
+              --arg path "$PATH_REL" --arg sha "$BLOB_SHA" \
+              '. += [{path:$path, mode:"100644", type:"blob", sha:$sha}]' \
+              <<<"$TREE_ENTRIES")
+            echo "$PATH_REL changed -> blob $BLOB_SHA"
+          done
+
+          if [ "$TREE_ENTRIES" = "[]" ]; then
+            echo "Both lockfiles already current; nothing to commit."
+            exit 0
+          fi
+
+          NEW_TREE=$(jq -n --arg base "$BASE_TREE" --argjson tree "$TREE_ENTRIES" \
+            '{base_tree:$base, tree:$tree}' \
+            | gh api -X POST -H "Accept: application/vnd.github+json" \
+                "repos/$REPO/git/trees" --input - --jq '.sha')
+
+          NEW_COMMIT=$(jq -n \
+            --arg msg "Build(deps): refresh pnpm lockfiles after Dependabot bump" \
+            --arg tree "$NEW_TREE" --arg parent "$HEAD_SHA" \
+            '{message:$msg, tree:$tree, parents:[$parent]}' \
+            | gh api -X POST -H "Accept: application/vnd.github+json" \
+                "repos/$REPO/git/commits" --input - --jq '.sha')
+
+          # Fast-forward-only ref update: force=false so a concurrent
+          # push aborts us instead of being overwritten.
+          gh api -X PATCH -H "Accept: application/vnd.github+json" \
+            "repos/$REPO/git/refs/heads/$HEAD_REF" \
+            -f sha="$NEW_COMMIT" -F force=false > /dev/null
+          echo "Committed refreshed lockfiles to $HEAD_REF (PR #$NUMBER) as $NEW_COMMIT"
