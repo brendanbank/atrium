@@ -428,7 +428,7 @@ jobs:
           cache: pnpm
           cache-dependency-path: |
             frontend/pnpm-lock.yaml
-            examples/hello-world/frontend/pnpm-lock.yaml
+            pnpm-lock.yaml
 
       - name: Build atrium runtime image
         # Local atrium build instead of pulling from GHCR so PRs don't
@@ -520,7 +520,7 @@ jobs:
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae  # v5.0.5
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('examples/hello-world/frontend/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install Playwright browsers
         if: steps.hello-playwright-cache.outputs.cache-hit != 'true'
