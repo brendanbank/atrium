@@ -115,7 +115,7 @@ make typecheck       # tsc --noEmit on the host bundle
 against a specific release:
 
 ```bash
-ATRIUM_IMAGE=ghcr.io/brendanbank/atrium:0.26.8 make build up
+ATRIUM_IMAGE=ghcr.io/brendanbank/atrium:0.26.9 make build up
 ```
 
 The frontend SDK packages
