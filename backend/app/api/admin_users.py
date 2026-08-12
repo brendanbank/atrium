@@ -25,6 +25,7 @@ from app.auth.manager import UserManager, get_user_manager
 from app.auth.rbac import get_user_permissions, require_perm
 from app.auth.schemas import UserRead
 from app.db import get_session
+from app.host_sdk.user_deletion import run_pre_user_delete_hooks
 from app.logging import log
 from app.models.auth import User, UserInvite
 from app.models.rbac import Role, user_roles
@@ -332,6 +333,9 @@ async def delete_user_permanent(
       - can't delete anyone who issued invites (invited_by has RESTRICT)
 
     Cascades:
+      - host-registered pre-delete hooks run first (a host's own tables
+        may declare restricting FKs into ``users.id``, which the
+        platform cascade below can't clear)
       - notifications: deleted (CASCADE)
       - audit_log.actor_user_id: set null (entries kept, actor anonymised)
     """
@@ -366,5 +370,9 @@ async def delete_user_permanent(
         action="delete",
         diff={"email": target.email},
     )
+    # Let the host clear its own rows first. A hook that raises aborts
+    # the delete — see run_pre_user_delete_hooks for why that's the
+    # right failure mode.
+    await run_pre_user_delete_hooks(session, target.id)
     await session.delete(target)
     await session.commit()

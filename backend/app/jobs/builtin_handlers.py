@@ -25,6 +25,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.email.backend import EmailMessage, get_mail_backend
 from app.email.sender import render_template
+from app.host_sdk.user_deletion import run_pre_user_delete_hooks
 from app.jobs.runner import register_handler
 from app.logging import log
 from app.models.auth import User
@@ -218,10 +219,20 @@ async def account_hard_delete_handler(
 
     Soft-deleted users are anonymised the moment they request deletion;
     this handler completes the GDPR pipeline by deleting the row
-    outright once ``scheduled_hard_delete_at`` passes. Cascades fan out
-    via the FK definitions in 0001 (auth_sessions, notifications, etc.
-    are CASCADE; audit_log.actor_user_id is SET NULL so history is
+    outright once ``scheduled_hard_delete_at`` passes. Host-registered
+    pre-delete hooks run first (a host's tables may hold restricting
+    FKs into ``users.id``), then cascades fan out via the FK
+    definitions in 0001 (auth_sessions, notifications, etc. are
+    CASCADE; audit_log.actor_user_id is SET NULL so history is
     preserved with an anonymous actor).
+
+    Each user is deleted inside its own savepoint. One account that
+    can't be erased — a host hook that throws, a schema drift nobody
+    noticed — must not park every *other* pending erasure behind it:
+    this is the GDPR path, and head-of-line blocking here means
+    accounts silently outlive their deadline. A failure rolls back
+    that user alone, is logged at error level with the id, and the
+    next tick retries it.
     """
     del job, payload  # tick-driven, scans the whole table
 
@@ -238,10 +249,30 @@ async def account_hard_delete_handler(
         .scalars()
         .all()
     )
+    deleted = 0
+    failed = 0
     for user in targets:
-        await session.delete(user)
-    if targets:
-        log.info("account.hard_deleted", count=len(targets))
+        user_id = user.id
+        try:
+            async with session.begin_nested():
+                await run_pre_user_delete_hooks(session, user_id)
+                await session.delete(user)
+        except Exception as exc:
+            failed += 1
+            # Loud, and per-user: the previous behaviour was a single
+            # FAILED job row with no indication of which account or
+            # which subsystem refused.
+            log.error(
+                "account.hard_delete_failed",
+                user_id=user_id,
+                error=str(exc),
+            )
+        else:
+            deleted += 1
+    if deleted:
+        log.info("account.hard_deleted", count=deleted)
+    if failed:
+        log.warning("account.hard_delete_incomplete", count=failed)
 
 
 # ----- registration -----
