@@ -25,6 +25,10 @@ from sqlalchemy import delete, select
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from app.host_sdk.user_deletion import (
+    clear_pre_user_delete_hooks,
+    register_pre_user_delete,
+)
 from app.jobs.builtin_handlers import account_hard_delete_handler
 from app.models.auth import User
 from app.models.auth_session import AuthSession
@@ -222,3 +226,119 @@ async def test_hard_delete_handler_removes_expired_users(client, engine):
         ).scalar_one_or_none()
     assert gone is None
     assert kept is not None
+
+
+# --------------------------------------------------------------------------- #
+# #223 — host pre-delete hooks on both delete paths                            #
+# --------------------------------------------------------------------------- #
+
+
+@pytest.fixture
+def _clean_hook_registry():
+    """The hook registry is process-global — leaking one would change
+    every later test's delete behaviour."""
+    clear_pre_user_delete_hooks()
+    yield
+    clear_pre_user_delete_hooks()
+
+
+@pytest.mark.asyncio
+async def test_admin_permanent_delete_runs_host_hooks(
+    client, engine, _clean_hook_registry
+):
+    """The host gets to clear its rows before the account goes."""
+    admin = await seed_super_admin(engine)
+    victim = await seed_user(engine, email="victim@example.com")
+    await login(client, admin.email, "super-pw-123", engine=engine)
+
+    seen: list[int] = []
+
+    async def _hook(_session, user_id: int) -> None:
+        seen.append(user_id)
+
+    register_pre_user_delete("test-host", _hook)
+
+    r = await client.delete(f"/admin/users/{victim.id}/permanent")
+    assert r.status_code == 204, r.text
+    assert seen == [victim.id]
+
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as s:
+        gone = (
+            await s.execute(select(User).where(User.id == victim.id))
+        ).scalar_one_or_none()
+    assert gone is None
+
+
+@pytest.mark.asyncio
+async def test_admin_permanent_delete_aborts_when_a_hook_fails(
+    client, engine, _clean_hook_registry
+):
+    """A host that can't clear its rows must not lose the account.
+
+    This is the #223 production failure in miniature: atrium used to
+    delete the users row regardless, hit the host's restricting FK, and
+    500 with nothing naming the responsible subsystem.
+    """
+    admin = await seed_super_admin(engine)
+    victim = await seed_user(engine, email="victim2@example.com")
+    await login(client, admin.email, "super-pw-123", engine=engine)
+
+    async def _boom(_session, _user_id: int) -> None:
+        raise RuntimeError("host rows still present")
+
+    register_pre_user_delete("test-host", _boom)
+
+    with pytest.raises(RuntimeError, match="host rows still present"):
+        await client.delete(f"/admin/users/{victim.id}/permanent")
+
+    # The account survives — a failed cleanup leaves things as they were.
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    async with factory() as s:
+        still_here = (
+            await s.execute(select(User).where(User.id == victim.id))
+        ).scalar_one_or_none()
+    assert still_here is not None
+
+
+@pytest.mark.asyncio
+async def test_hard_delete_isolates_one_failing_account(
+    engine, _clean_hook_registry
+):
+    """One un-erasable account must not park every other erasure.
+
+    Head-of-line blocking on the GDPR path means accounts silently
+    outlive their deadline, so each user gets its own savepoint.
+    """
+    await _wipe_auth_config(engine)
+    poisoned = await seed_user(engine, email="poisoned@example.com")
+    healthy = await seed_user(engine, email="healthy@example.com")
+
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    past = datetime.now(UTC).replace(tzinfo=None) - timedelta(days=1)
+    async with factory() as s:
+        for uid in (poisoned.id, healthy.id):
+            u = await s.get(User, uid)
+            u.deleted_at = past
+            u.scheduled_hard_delete_at = past
+        await s.commit()
+
+    async def _selective_boom(_session, user_id: int) -> None:
+        if user_id == poisoned.id:
+            raise RuntimeError("host rows still present")
+
+    register_pre_user_delete("test-host", _selective_boom)
+
+    async with factory() as s:
+        await account_hard_delete_handler(s, job=None, payload={})  # type: ignore[arg-type]
+        await s.commit()
+
+    async with factory() as s:
+        stuck = (
+            await s.execute(select(User).where(User.id == poisoned.id))
+        ).scalar_one_or_none()
+        erased = (
+            await s.execute(select(User).where(User.id == healthy.id))
+        ).scalar_one_or_none()
+    assert stuck is not None, "the failing account should be retried next tick"
+    assert erased is None, "a healthy account must not be blocked behind it"
