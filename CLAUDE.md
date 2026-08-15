@@ -96,7 +96,7 @@ backend/
       signup.py            register_user + consume_verification
       totp.py              pyotp wrapper
     main.py, settings.py, worker.py
-  alembic/        Migration chain (head: 0005_email_template_per_locale)
+  alembic/        Migration chain (linear; head = last file in versions/)
   tests/          api/, integration/, unit/
 
 frontend/
@@ -606,6 +606,41 @@ write `app_settings['audit'] = {"retention_days": N}` (admin UI →
 System tab) and the `audit_prune` job will DELETE older rows daily.
 `N <= 0` is "retain forever".
 
+## Secrets at rest
+
+`app.host_sdk.crypto` is the only way a host stores a third-party
+secret (a provider API key, a non-OAuth password). Atrium itself has
+no encrypted columns — the primitive exists for host apps, the same
+way `HostForeignKey` does.
+
+```python
+api_key: Mapped[MaskedSecret] = mapped_column(
+    EncryptedText(purpose="llm_provider.api_key", scope="site")
+)
+```
+
+- **Wire format** is `ATR | version | scope | nonce | ct | tag`, the
+  5-byte header authenticated as AEAD associated data. Blobs are
+  self-describing so a future per-user scope can never be read as a
+  site-scope one. Do not change the header, the HKDF salt, or the
+  `"<scope>.<purpose>.<key_version>"` info string — every stored row
+  was written under them.
+- **`scope="user"` raises.** It is declared, not built: it needs a
+  request-scoped owner binding, the owner in the AEAD, and a wrap
+  record with shredding semantics. Do not store a per-user secret at
+  `scope="site"` as a workaround — `purpose` binds a ciphertext to a
+  column but not to a row.
+- **Reads return `MaskedSecret`, not `str`,** and it is deliberately
+  not a `str` subclass. `_json_safe` redacts it explicitly so a
+  credential can't ride into `audit_log` on a diff.
+- **Key** is `SECRET_ENCRYPTION_KEY` (64 hex chars), validated for
+  shape in every environment and refused at its dev default in prod.
+  Separate from `APP_SECRET_KEY` / `JWT_SECRET` so rotating a signing
+  secret doesn't destroy stored data.
+
+Rationale and the rejected alternatives are in
+`docs/adr/0003-secret-at-rest.md`.
+
 ## Backend conventions
 
 - Async everywhere. Never mix sync `Session` with async routes.
@@ -615,7 +650,10 @@ System tab) and the `audit_prune` job will DELETE older rows daily.
 - Add new Alembic migrations under
   `backend/alembic/versions/YYYY_MM_DD_NNNN-*.py`. Keep the chain
   linear (never branch) and include both upgrade and downgrade.
-  Current head: `0005_email_template_per_locale`.
+  The head moves with every migration — read it off
+  `ls backend/alembic/versions | tail -1` rather than trusting a
+  number written down here (at time of writing:
+  `0011_auth_session_last_seen`).
 - `B008` is silenced for `fastapi.Depends`, `fastapi.Query`, etc. via
   `extend-immutable-calls`. Don't refactor `Depends(...)` calls to
   dodge the lint.
@@ -850,6 +888,11 @@ Failure modes that still apply to atrium:
     first PUT. Don't write Alembic seed migrations for new
     namespaces — bump the model and let `model_validate` apply
     defaults on read.
+15. **Any test that builds prod `Settings` must set
+    `SECRET_ENCRYPTION_KEY`.** `_prod_sanity` refuses the dev default
+    alongside `APP_SECRET_KEY` / `JWT_SECRET`, so a test that only
+    sets those two now fails at `Settings()` construction rather than
+    at the assertion it cares about.
 
 ## Session expectations for an AI assistant
 

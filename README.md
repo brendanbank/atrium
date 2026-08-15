@@ -141,6 +141,7 @@ The minimum a fresh deploy needs (see `.env.example` for the rest):
 | `APP_SECRET_KEY`           | long random string                                      |
 | `APP_BASE_URL`             | public URL the browser hits (used in email links)        |
 | `JWT_SECRET`               | long random string                                      |
+| `SECRET_ENCRYPTION_KEY`    | `openssl rand -hex 32` — encrypts host secret columns. **Back it up outside the DB dump**: lose it and those columns are unrecoverable |
 | `MYSQL_*`, `DATABASE_URL`  | DB credentials + DSN                                     |
 | `WEBAUTHN_RP_ID`           | host the credential is bound to (no scheme/port)         |
 | `WEBAUTHN_ORIGIN`          | full origin the registration ceremony runs from          |

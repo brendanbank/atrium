@@ -29,6 +29,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.host_sdk.crypto import MaskedSecret
 from app.models.ops import AuditLog
 
 _impersonator_user_id: ContextVar[int | None] = ContextVar(
@@ -64,6 +65,12 @@ def get_token_id() -> int | None:
 
 
 def _json_safe(value: Any) -> Any:
+    # Before the str branch, and explicit rather than relying on
+    # MaskedSecret.__str__ via the fallthrough: an audit diff is the
+    # shortest path from a decrypted credential to a durable table with
+    # a retention policy. See docs/adr/0003-secret-at-rest.md.
+    if isinstance(value, MaskedSecret):
+        return "***"
     if value is None or isinstance(value, (bool, int, float, str)):
         return value
     if isinstance(value, datetime):

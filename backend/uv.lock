@@ -129,7 +129,7 @@ wheels = [
 
 [[package]]
 name = "atrium-backend"
-version = "0.26.12"
+version = "0.27.0"
 source = { virtual = "." }
 dependencies = [
     { name = "aiomysql" },
@@ -139,6 +139,7 @@ dependencies = [
     { name = "argon2-cffi" },
     { name = "bcrypt" },
     { name = "bleach" },
+    { name = "cryptography" },
     { name = "email-validator" },
     { name = "fastapi" },
     { name = "fastapi-users", extra = ["sqlalchemy"] },
@@ -177,6 +178,7 @@ requires-dist = [
     { name = "argon2-cffi", specifier = ">=23.1" },
     { name = "bcrypt", specifier = ">=4.2" },
     { name = "bleach", specifier = ">=6.4.0" },
+    { name = "cryptography", specifier = ">=50" },
     { name = "email-validator", specifier = ">=2.2" },
     { name = "fastapi", specifier = ">=0.115" },
     { name = "fastapi-users", extras = ["sqlalchemy"], specifier = ">=13.0" },

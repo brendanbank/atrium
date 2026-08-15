@@ -40,6 +40,7 @@ def test_prod_defaults_to_smtp(monkeypatch):
     # the Settings() construction doesn't explode.
     monkeypatch.setenv("APP_SECRET_KEY", "test-prod-secret-not-a-default")
     monkeypatch.setenv("JWT_SECRET", "test-prod-jwt-not-a-default")
+    monkeypatch.setenv("SECRET_ENCRYPTION_KEY", "ab" * 32)
     monkeypatch.delenv("MAIL_BACKEND", raising=False)
     get_settings.cache_clear()
     assert _resolve_backend_name() == "smtp"
@@ -50,6 +51,7 @@ def test_explicit_override_wins(monkeypatch):
     monkeypatch.setenv("ENVIRONMENT", "prod")
     monkeypatch.setenv("APP_SECRET_KEY", "test-prod-secret-not-a-default")
     monkeypatch.setenv("JWT_SECRET", "test-prod-jwt-not-a-default")
+    monkeypatch.setenv("SECRET_ENCRYPTION_KEY", "ab" * 32)
     monkeypatch.setenv("MAIL_BACKEND", "console")
     get_settings.cache_clear()
     assert _resolve_backend_name() == "console"
