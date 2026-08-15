@@ -96,7 +96,7 @@ backend/
       signup.py            register_user + consume_verification
       totp.py              pyotp wrapper
     main.py, settings.py, worker.py
-  alembic/        Migration chain (head: 0005_email_template_per_locale)
+  alembic/        Migration chain (linear; head = last file in versions/)
   tests/          api/, integration/, unit/
 
 frontend/
@@ -615,7 +615,10 @@ System tab) and the `audit_prune` job will DELETE older rows daily.
 - Add new Alembic migrations under
   `backend/alembic/versions/YYYY_MM_DD_NNNN-*.py`. Keep the chain
   linear (never branch) and include both upgrade and downgrade.
-  Current head: `0005_email_template_per_locale`.
+  The head moves with every migration — read it off
+  `ls backend/alembic/versions | tail -1` rather than trusting a
+  number written down here (at time of writing:
+  `0011_auth_session_last_seen`).
 - `B008` is silenced for `fastapi.Depends`, `fastapi.Query`, etc. via
   `extend-immutable-calls`. Don't refactor `Depends(...)` calls to
   dodge the lint.
