@@ -8,6 +8,9 @@ from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _DEFAULT_DEV_SECRET = "dev-insecure-change-me"
+# Valid hex so a fresh checkout boots and can read its own dev rows;
+# obviously a placeholder so the prod check below can refuse it.
+_DEFAULT_DEV_FIELD_KEY = "00" * 32
 _DEFAULT_DEV_PASSWORDS = {
     "test-pw-123",
     "admin-pw-123",
@@ -70,6 +73,15 @@ class Settings(BaseSettings):
     webauthn_rp_name: str = "Atrium"
     webauthn_origin: str = "http://localhost:5173"
 
+    # Master key for host secret columns (``app.host_sdk.crypto``).
+    # 32 bytes hex — ``openssl rand -hex 32``. Deliberately separate
+    # from APP_SECRET_KEY / JWT_SECRET: rotating a signing secret must
+    # not destroy stored data, and a leaked signing key must not also
+    # decrypt every credential in the database. Losing this key makes
+    # the encrypted columns unrecoverable — back it up outside the
+    # database dump. See docs/adr/0003-secret-at-rest.md.
+    secret_encryption_key: str = _DEFAULT_DEV_FIELD_KEY
+
     @model_validator(mode="after")
     def _prod_sanity(self) -> "Settings":
         """Fail loudly at startup when prod-only invariants are broken.
@@ -79,9 +91,34 @@ class Settings(BaseSettings):
         credentialed CORS paired with a ``*`` wildcard, or a placeholder
         bootstrap password never rotated. Each of these was a real
         finding in the security audit (H3 / M5 / L3).
+
+        The field-encryption key is checked for *shape* in every
+        environment — a typo there would otherwise boot fine and
+        surface as a decrypt failure on the first credential read,
+        long after the deploy looked successful.
         """
+        try:
+            key = bytes.fromhex(self.secret_encryption_key)
+        except ValueError as exc:
+            raise ValueError(
+                "SECRET_ENCRYPTION_KEY must be hex-encoded; generate one "
+                "with `openssl rand -hex 32`"
+            ) from exc
+        if len(key) != 32:
+            raise ValueError(
+                f"SECRET_ENCRYPTION_KEY decodes to {len(key)} bytes; need 32 "
+                "(64 hex chars) — generate one with `openssl rand -hex 32`"
+            )
+
         if self.environment != "prod":
             return self
+
+        if self.secret_encryption_key == _DEFAULT_DEV_FIELD_KEY:
+            raise ValueError(
+                "SECRET_ENCRYPTION_KEY is still the dev default; set a real "
+                "key in .env (`openssl rand -hex 32`). Back it up: losing it "
+                "makes every encrypted column unrecoverable."
+            )
 
         if self.app_secret_key == _DEFAULT_DEV_SECRET:
             raise ValueError(

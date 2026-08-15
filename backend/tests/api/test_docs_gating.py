@@ -55,6 +55,7 @@ async def _client_for_env(engine, environment, monkeypatch):
         # ``_prod_sanity`` refuses to boot with the dev-default secrets.
         monkeypatch.setenv("APP_SECRET_KEY", "prod-secret-not-the-default")
         monkeypatch.setenv("JWT_SECRET", "prod-jwt-not-the-default")
+        monkeypatch.setenv("SECRET_ENCRYPTION_KEY", "ab" * 32)
     get_settings.cache_clear()
     try:
         app = create_app()

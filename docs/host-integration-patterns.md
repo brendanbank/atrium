@@ -36,6 +36,7 @@ particular [`frontend/src/main.tsx`](../examples/hello-world/frontend/src/main.t
 | Run a recurring background job                      | [`HostWorkerCtx.register_job_handler`](#background-job)                        |
 | Send an email from a host route, synchronously      | [`drain_outbox_row`](#synchronous-email)                                       |
 | Add a logical FK from a host table to atrium        | [`HostForeignKey`](#cross-base-foreign-key)                                    |
+| Store a third-party secret at rest                  | [`EncryptedText`](#secret-column)                                              |
 | Stub atrium globals in host unit tests              | [`@brendanbank/atrium-test-utils`](#test-helpers)                              |
 
 Every entry below is annotated with the atrium version that shipped
@@ -430,6 +431,66 @@ Defined in [`backend/app/host_sdk/db.py`](../backend/app/host_sdk/db.py)
 and [`backend/app/host_sdk/alembic.py`](../backend/app/host_sdk/alembic.py).
 Available since atrium 0.14.
 
+### Secret column
+<a id="secret-column"></a>
+
+For third-party secrets a host has to hold — a provider API key, a
+non-OAuth ingest password. AES-256-GCM at rest, no cryptographic
+decisions to make:
+
+```python
+from app.host_sdk.crypto import EncryptedText, MaskedSecret, apply_secret_update
+
+class LlmProvider(Base):
+    __tablename__ = "llm_provider"
+    api_key: Mapped[MaskedSecret] = mapped_column(
+        EncryptedText(purpose="llm_provider.api_key", scope="site"),
+        nullable=False,
+    )
+```
+
+`purpose` is a stable per-column string — it is what stops a
+ciphertext being lifted out of one column, dropped into another, and
+still decrypting. `scope` is `"site"` (one secret the whole
+installation uses) or `"user"`; **only `site` is implemented**, and
+`scope="user"` raises at import rather than quietly behaving like
+`site`.
+
+Set `SECRET_ENCRYPTION_KEY` in `.env` (`openssl rand -hex 32`). It is
+separate from `APP_SECRET_KEY` / `JWT_SECRET` on purpose, and the
+all-zero dev default is refused when `ENVIRONMENT=prod`. **Back it up
+outside the database dump** — a dump alone no longer restores an
+installation, and losing the key means operators re-enter every
+secret.
+
+Three things the type does for you, each of which was a real bug
+somewhere first:
+
+- **Reads return a `MaskedSecret`, not a `str`.** It renders as `***`,
+  so an audit diff, a log line or an f-string produces a redaction
+  rather than a credential. Call `.reveal()` at the point of use, and
+  `.hint()` for a "which key is this?" suffix in the UI (right for an
+  API key, wrong for a password — your call per endpoint). A response
+  model that names the field fails loudly instead of serialising the
+  secret.
+- **`apply_secret_update(row, "api_key", incoming)`** implements the
+  update convention: `""` (or an absent field defaulting to `""`)
+  preserves the stored ciphertext, an explicit `null` clears it,
+  anything else sets it. Without the first half, editing a display
+  name blanks the credential; without the second, a secret can never
+  be unset.
+- **Decrypt failures raise `SecretDecryptError` naming the `purpose`,**
+  not a bare `InvalidTag` from inside SQLAlchemy's result processing.
+
+Encrypted columns cannot be indexed, made unique, `ORDER BY`-ed or
+`LIKE`-matched, and key rotation is manual: declare a second column at
+`key_version="v2"`, backfill, drop the first.
+
+Defined in
+[`backend/app/host_sdk/crypto.py`](../backend/app/host_sdk/crypto.py);
+rationale in [`docs/adr/0003-secret-at-rest.md`](adr/0003-secret-at-rest.md).
+Available since atrium 0.27.
+
 ---
 
 ## Test helpers
@@ -478,6 +539,21 @@ an issue rather than monkey-patching:
   (e.g. an internal mail relay with custom auth) wrap atrium's
   SMTP backend at the network layer rather than swapping the
   Python sender.
+- **Searchable encrypted columns** - no blind index, no deterministic
+  encryption, no `LIKE` over ciphertext. A column encrypted with
+  [`EncryptedText`](#secret-column) is write-and-fetch-by-id only.
+  Keep the searchable attributes (a provider name, a last-4 hint) in
+  plain columns beside the secret.
+- **Automated key rotation** - rotation is the manual dual-column
+  procedure documented above. There is no re-key job, and
+  `SECRET_ENCRYPTION_KEY` cannot be swapped in place.
+- **Per-user secret scope** - `scope="user"` is declared but
+  unimplemented. It needs a request-scoped owner binding, the owner
+  bound into the AEAD, and a key-wrap record with shredding
+  semantics; see [ADR 0003](adr/0003-secret-at-rest.md) and issue
+  #225. Do not work around it by storing a per-user secret at
+  `scope="site"` - `purpose` does not bind a ciphertext to a row, so
+  one user's blob will decrypt in another user's row.
 - **Replacing built-in routes** - a host's `init_app` runs *after*
   atrium's routers register, so a host route at the same path
   collides at startup rather than overriding silently. Host

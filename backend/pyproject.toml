@@ -37,6 +37,9 @@ dependencies = [
     "bleach>=6.4.0",
     "pyotp>=2.9",
     "webauthn>=2.4",
+    # Direct, not transitive-via-webauthn/pyjwt: app.host_sdk.crypto is a
+    # security-critical use and deserves a declared floor of its own.
+    "cryptography>=50",
 ]
 
 [dependency-groups]
