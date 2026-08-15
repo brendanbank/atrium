@@ -1,6 +1,9 @@
 # ADR 0003 — Secret-at-rest primitive (`app.host_sdk.crypto`)
 
-Status: accepted, 2026-08-15
+Status: accepted, 2026-08-15. The `scope="user"` half is superseded by
+[ADR 0004](0004-user-scope-secrets.md) — it does not arrive as a
+parameter on this column type, and its keys are stored rather than
+derived. Everything below about `scope="site"` stands.
 
 ## Context
 

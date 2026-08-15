@@ -15,6 +15,7 @@ from app.models.enums import EmailStatus, JobState, Language
 from app.models.ops import AppSetting, AuditLog, EmailLog, Notification, ScheduledJob
 from app.models.rbac import Permission, Role, role_permissions, user_roles
 from app.models.reminder_rule import ReminderRule
+from app.models.user_secret_key import UserSecretKey
 from app.models.user_totp import UserTOTP
 from app.models.webauthn import WebAuthnChallenge, WebAuthnCredential
 
@@ -39,6 +40,7 @@ __all__ = [
     "User",
     "UserEmailOTP",
     "UserInvite",
+    "UserSecretKey",
     "UserTOTP",
     "WebAuthnChallenge",
     "WebAuthnCredential",

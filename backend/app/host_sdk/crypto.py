@@ -48,8 +48,9 @@ from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
-from sqlalchemy import LargeBinary
+from sqlalchemy import LargeBinary, event
 from sqlalchemy.dialects.mysql import MEDIUMBLOB
+from sqlalchemy.orm import Session
 from sqlalchemy.types import TypeDecorator
 
 from app.settings import get_settings
@@ -58,9 +59,15 @@ __all__ = [
     "EncryptedJSON",
     "EncryptedText",
     "MaskedSecret",
+    "SecretBlob",
     "SecretDecryptError",
+    "SecretLockedError",
     "SecretScope",
+    "SecretShreddedError",
+    "UserSecret",
     "apply_secret_update",
+    "shred_user_key",
+    "unlock_user_secrets",
 ]
 
 SecretScope = Literal["site", "user"]
@@ -79,13 +86,13 @@ HKDF_SALT = b"atrium.field-encryption.v1"
 
 _SCOPE_BYTE: dict[str, int] = {"site": 1, "user": 2}
 
-_USER_SCOPE_NOT_IMPLEMENTED = (
-    "scope='user' is not implemented. It is not a different salt — it "
-    "needs a request-scoped owner binding, defined behaviour outside a "
-    "request scope (workers included), the owner bound into the AEAD's "
-    "associated data, and a key-wrap record with shredding semantics. "
-    "See docs/adr/0003-secret-at-rest.md and issue #225. Use "
-    "scope='site' for a secret the whole installation shares."
+_USER_SCOPE_WRONG_MECHANISM = (
+    "scope='user' is not available on this column type, and cannot be: "
+    "process_bind_param / process_result_value never see the row, so "
+    "there is nowhere to read the owner from. Declare the column as "
+    "SecretBlob() and put a UserSecret(...) descriptor beside it — see "
+    "docs/adr/0004-user-scope-secrets.md and issue #227. scope='site' "
+    "stays here, unchanged."
 )
 
 
@@ -157,7 +164,7 @@ class MaskedSecret:
 
 def _reject_user_scope(scope: str) -> str:
     if scope == "user":
-        raise NotImplementedError(_USER_SCOPE_NOT_IMPLEMENTED)
+        raise NotImplementedError(_USER_SCOPE_WRONG_MECHANISM)
     if scope not in _SCOPE_BYTE:
         raise ValueError(
             f"unknown scope {scope!r}; expected 'site' (or 'user', unimplemented)"
@@ -190,17 +197,50 @@ def _header(scope: str) -> bytes:
     return MAGIC + bytes([WIRE_VERSION, _SCOPE_BYTE[scope]])
 
 
-def _encrypt(plaintext: bytes, *, purpose: str, key_version: str, scope: str) -> bytes:
+def _aad(header: bytes, owner_user_id: int | None) -> bytes:
+    """Associated data for the AEAD.
+
+    Site-scope blobs authenticate the header alone. User-scope blobs
+    additionally bind the owner, so a ciphertext moved to another
+    user's row fails the tag rather than decrypting — the cross-row
+    portability that ADR 0003 had to list as an accepted limitation for
+    ``site``. Stringified rather than packed so a hex dump stays
+    readable; AAD is authenticated, not encrypted, so the bytes are
+    free.
+    """
+    if owner_user_id is None:
+        return header
+    return header + b"|owner=" + str(owner_user_id).encode("ascii")
+
+
+def _encrypt(
+    plaintext: bytes,
+    *,
+    purpose: str,
+    key_version: str,
+    scope: str,
+    key: bytes | None = None,
+    owner_user_id: int | None = None,
+) -> bytes:
     info = f"{scope}.{purpose}.{key_version}".encode("ascii")
     header = _header(scope)
     nonce = os.urandom(NONCE_BYTES)
-    ct = AESGCM(_derive_key(_master_key_hex(), info)).encrypt(
-        nonce, plaintext, associated_data=header
+    material = key if key is not None else _derive_key(_master_key_hex(), info)
+    ct = AESGCM(material).encrypt(
+        nonce, plaintext, associated_data=_aad(header, owner_user_id)
     )
     return header + nonce + ct
 
 
-def _decrypt(blob: bytes, *, purpose: str, key_version: str, scope: str) -> bytes:
+def _decrypt(
+    blob: bytes,
+    *,
+    purpose: str,
+    key_version: str,
+    scope: str,
+    key: bytes | None = None,
+    owner_user_id: int | None = None,
+) -> bytes:
     header = _header(scope)
     if not blob.startswith(MAGIC):
         raise SecretDecryptError(
@@ -219,15 +259,18 @@ def _decrypt(blob: bytes, *, purpose: str, key_version: str, scope: str) -> byte
         raise SecretDecryptError(f"{purpose}: ciphertext blob too short")
     info = f"{scope}.{purpose}.{key_version}".encode("ascii")
     nonce, ct = payload[:NONCE_BYTES], payload[NONCE_BYTES:]
+    material = key if key is not None else _derive_key(_master_key_hex(), info)
     try:
-        return AESGCM(_derive_key(_master_key_hex(), info)).decrypt(
-            nonce, ct, associated_data=header
+        return AESGCM(material).decrypt(
+            nonce, ct, associated_data=_aad(header, owner_user_id)
         )
     except InvalidTag as exc:
+        owned = "" if owner_user_id is None else f" for owner {owner_user_id}"
         raise SecretDecryptError(
-            f"{purpose}: decryption failed. Either SECRET_ENCRYPTION_KEY "
-            "is not the key this row was written under, or the row was "
-            "written for a different purpose / key_version."
+            f"{purpose}: decryption failed{owned}. Either "
+            "SECRET_ENCRYPTION_KEY is not the key this row was written "
+            "under, or the row was written for a different purpose / "
+            "key_version / owner."
         ) from exc
 
 
@@ -325,6 +368,359 @@ class EncryptedJSON(_EncryptedBase):
         if value is None:
             return None
         return MaskedSecret(json.loads(self._decrypt(value).decode("utf-8")))
+
+
+class SecretBlob(LargeBinary):
+    """Raw ciphertext column for a :class:`UserSecret`.
+
+    Not a ``TypeDecorator`` — it neither encrypts nor decrypts. It is a
+    ``LargeBinary`` that widens to ``MEDIUMBLOB`` on MySQL, so the
+    storage side of a user-scope secret matches
+    :class:`EncryptedText` without pretending to be transparent about
+    it. The :class:`UserSecret` descriptor beside it does the crypto,
+    because it is the only one of the two that can see the row.
+    """
+
+    def load_dialect_impl(self, dialect):
+        if dialect.name in ("mysql", "mariadb"):
+            return dialect.type_descriptor(MEDIUMBLOB())
+        return dialect.type_descriptor(LargeBinary())
+
+
+class SecretLockedError(RuntimeError):
+    """The user's key has not been unlocked in this session.
+
+    Unwrapping is a database read, and every place it would be
+    convenient to hide one — a type hook, a bare attribute access — is
+    a sync call site in an async-only codebase, sometimes in the middle
+    of consuming a result set. So the read is explicit and up front:
+    ``await unlock_user_secrets(session, user_id)`` before touching the
+    attribute.
+    """
+
+
+class SecretShreddedError(RuntimeError):
+    """No key row for this user: they were deleted, or never had one.
+
+    Distinct from :class:`SecretLockedError` because the remedies are
+    opposite — one is "unlock first", the other is "the plaintext is
+    gone and is not coming back".
+    """
+
+
+_KEY_CACHE_SLOT = "_atrium_user_secret_keys"
+_WRAP_INFO = b"wrap.user_dek.v1"
+_WRAP_PURPOSE = "__user_dek__"
+
+
+def _session_info(session: Any) -> dict:
+    """``session.info`` for either an AsyncSession or a Session.
+
+    ``AsyncSession`` proxies to the sync session underneath, and the
+    descriptor only ever gets at the sync one (via ``object_session``),
+    so both call sites have to land on the same dict.
+    """
+    return getattr(session, "sync_session", session).info
+
+
+def _key_cache(session: Any) -> dict[int, bytes]:
+    return _session_info(session).setdefault(_KEY_CACHE_SLOT, {})
+
+
+def _wrap_key() -> bytes:
+    return _derive_key(_master_key_hex(), _WRAP_INFO)
+
+
+def _column_key(dek: bytes, purpose: str, key_version: str) -> bytes:
+    """Per-column key from the user's DEK.
+
+    Same role ``purpose`` plays for site scope: a ciphertext lifted from
+    one of a user's columns into another of their own columns still
+    fails to decrypt.
+    """
+    return HKDF(
+        algorithm=hashes.SHA256(),
+        length=KEY_BYTES,
+        salt=HKDF_SALT,
+        info=f"user.{purpose}.{key_version}".encode("ascii"),
+    ).derive(dek)
+
+
+async def unlock_user_secrets(
+    session: Any, user_id: int, *, create: bool = False
+) -> None:
+    """Load ``user_id``'s key into this session so their secrets can be read.
+
+    Call it once, after you have the row that names the owner and
+    before you touch any :class:`UserSecret` attribute. It needs no
+    authenticated user — the owner is an integer you read off the row,
+    which is what makes this usable from a device-authenticated request
+    or a worker coroutine.
+
+    ``create=True`` mints the key if the user has none yet; use it on
+    the write path. On the read path leave it False so a shredded user
+    raises :class:`SecretShreddedError` instead of silently getting a
+    fresh key that decrypts nothing.
+
+    The unwrapped key lives in ``session.info`` and dies with the
+    session. There is no process-global key cache on purpose: a shred
+    has to take effect immediately, and a long-lived cache would keep
+    handing out a key whose wrap row is already gone.
+    """
+    from sqlalchemy import select
+
+    from app.models.user_secret_key import UserSecretKey
+
+    cache = _key_cache(session)
+    if user_id in cache:
+        return
+
+    row = (
+        await session.execute(
+            select(UserSecretKey).where(UserSecretKey.user_id == user_id)
+        )
+    ).scalar_one_or_none()
+
+    if row is None:
+        if not create:
+            raise SecretShreddedError(
+                f"user {user_id} has no secret key: either they were "
+                "deleted (their key was destroyed with them and their "
+                "ciphertext is unrecoverable) or nothing has ever been "
+                "encrypted for them. Pass create=True on a write path."
+            )
+        dek = os.urandom(KEY_BYTES)
+        session.add(
+            UserSecretKey(
+                user_id=user_id,
+                wrapped_key=_encrypt(
+                    dek,
+                    purpose=_WRAP_PURPOSE,
+                    key_version="v1",
+                    scope="user",
+                    key=_wrap_key(),
+                    owner_user_id=user_id,
+                ),
+            )
+        )
+        await session.flush()
+    else:
+        dek = _decrypt(
+            row.wrapped_key,
+            purpose=_WRAP_PURPOSE,
+            key_version="v1",
+            scope="user",
+            key=_wrap_key(),
+            owner_user_id=user_id,
+        )
+
+    cache[user_id] = dek
+
+
+async def shred_user_key(session: Any, user_id: int) -> bool:
+    """Destroy ``user_id``'s key. Returns True if there was one.
+
+    Every ciphertext written for that user becomes permanently
+    unreadable — including in backups taken before the call, which is
+    the property that separates this from deleting the rows.
+
+    Atrium calls this for you when a user is hard-deleted (the wrap row
+    also carries ``ON DELETE CASCADE``, so the key cannot outlive the
+    account either way). Hosts need it only to shred earlier than that.
+    """
+    from sqlalchemy import delete
+
+    from app.models.user_secret_key import UserSecretKey
+
+    _key_cache(session).pop(user_id, None)
+    result = await session.execute(
+        delete(UserSecretKey).where(UserSecretKey.user_id == user_id)
+    )
+    return bool(result.rowcount)
+
+
+# Mapped class -> its UserSecret descriptors. Populated at class
+# definition time so the flush hook knows which instances to look at
+# without walking every attribute of every dirty object.
+_USER_SECRETS: dict[type, list[UserSecret]] = {}
+
+
+class UserSecret:
+    """Row-aware per-user secret, stored in a sibling :class:`SecretBlob`.
+
+    ::
+
+        class Device(HostBase):
+            __tablename__ = "device"
+            user_id: Mapped[int] = mapped_column(HostForeignKey("users.id"))
+            secret_ct: Mapped[bytes | None] = mapped_column(
+                SecretBlob(), nullable=True
+            )
+            secret = UserSecret(
+                purpose="device.secret",
+                owner_attr="user_id",
+                column="secret_ct",
+            )
+
+        await unlock_user_secrets(session, device.user_id)
+        device.secret.reveal()
+
+    Two declarations rather than one because the owner has to come from
+    the row, and a ``TypeDecorator`` never sees the row — see
+    ``docs/adr/0004-user-scope-secrets.md``. Reads return
+    :class:`MaskedSecret`, same as site scope. Writes are held in memory
+    and encrypted at flush, so assigning the secret before the owner id
+    (constructor keyword order, for instance) is not an error.
+    """
+
+    def __init__(
+        self,
+        *,
+        purpose: str,
+        owner_attr: str,
+        column: str,
+        key_version: str = "v1",
+        json: bool = False,
+    ) -> None:
+        if not purpose:
+            raise ValueError("purpose is required")
+        self.purpose = purpose
+        self.owner_attr = owner_attr
+        self.column = column
+        self.key_version = key_version
+        self.json = json
+        self.name = ""
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self.name = name
+        _USER_SECRETS.setdefault(owner, []).append(self)
+
+    # -- plumbing ---------------------------------------------------- #
+
+    @property
+    def _pending_slot(self) -> str:
+        return f"_atrium_pending_{self.name}"
+
+    def _owner_of(self, instance: Any) -> int:
+        owner = getattr(instance, self.owner_attr, None)
+        if owner is None:
+            raise SecretLockedError(
+                f"{self.purpose}: {type(instance).__name__}."
+                f"{self.owner_attr} is not set, so there is no owner to "
+                "encrypt for. Set the owner before flushing."
+            )
+        return int(owner)
+
+    def _key_for(self, session: Any, owner_user_id: int) -> bytes:
+        if session is None:
+            raise SecretLockedError(
+                f"{self.purpose}: the instance is not attached to a "
+                "session, so its owner's key cannot be resolved."
+            )
+        dek = _key_cache(session).get(owner_user_id)
+        if dek is None:
+            raise SecretLockedError(
+                f"{self.purpose}: no key loaded for user {owner_user_id}. "
+                f"Call `await unlock_user_secrets(session, {owner_user_id})` "
+                "before reading or writing this attribute — unwrapping is a "
+                "database read and cannot happen inside attribute access."
+            )
+        return _column_key(dek, self.purpose, self.key_version)
+
+    def _encode(self, value: Any) -> bytes:
+        if self.json:
+            return json.dumps(
+                value, separators=(",", ":"), ensure_ascii=False
+            ).encode("utf-8")
+        if not isinstance(value, str):
+            raise TypeError(
+                f"{self.purpose}: expected str or MaskedSecret, got "
+                f"{type(value).__name__}"
+            )
+        return value.encode("utf-8")
+
+    def _decode(self, raw: bytes) -> Any:
+        text = raw.decode("utf-8")
+        return json.loads(text) if self.json else text
+
+    # -- descriptor protocol ----------------------------------------- #
+
+    def __get__(self, instance: Any, owner: type | None = None) -> Any:
+        if instance is None:
+            return self
+        if self._pending_slot in instance.__dict__:
+            pending = instance.__dict__[self._pending_slot]
+            return None if pending is None else MaskedSecret(pending)
+
+        blob = getattr(instance, self.column, None)
+        if blob is None:
+            return None
+
+        from sqlalchemy.orm import object_session
+
+        owner_user_id = self._owner_of(instance)
+        key = self._key_for(object_session(instance), owner_user_id)
+        raw = _decrypt(
+            blob,
+            purpose=self.purpose,
+            key_version=self.key_version,
+            scope="user",
+            key=key,
+            owner_user_id=owner_user_id,
+        )
+        return MaskedSecret(self._decode(raw))
+
+    def __set__(self, instance: Any, value: Any) -> None:
+        if isinstance(value, MaskedSecret):
+            value = value.reveal()
+        if value is None:
+            instance.__dict__[self._pending_slot] = None
+            setattr(instance, self.column, None)
+            return
+        # Held as plaintext until flush: the owner id may not be set
+        # yet (``Device(secret=…, user_id=…)`` binds keywords in the
+        # order written), and the key may not be unlocked yet either.
+        instance.__dict__[self._pending_slot] = value
+
+    # -- flush ------------------------------------------------------- #
+
+    def _flush(self, session: Any, instance: Any) -> None:
+        if self._pending_slot not in instance.__dict__:
+            return
+        pending = instance.__dict__.pop(self._pending_slot)
+        if pending is None:
+            setattr(instance, self.column, None)
+            return
+        owner_user_id = self._owner_of(instance)
+        key = self._key_for(session, owner_user_id)
+        setattr(
+            instance,
+            self.column,
+            _encrypt(
+                self._encode(pending),
+                purpose=self.purpose,
+                key_version=self.key_version,
+                scope="user",
+                key=key,
+                owner_user_id=owner_user_id,
+            ),
+        )
+
+
+@event.listens_for(Session, "before_flush")
+def _encrypt_pending_user_secrets(session, flush_context, instances) -> None:
+    """Encrypt every pending :class:`UserSecret` value about to be written.
+
+    Runs on the sync ``Session`` because that is what SQLAlchemy fires,
+    including underneath an ``AsyncSession``. Pure CPU — the key is
+    already in ``session.info`` by this point, put there by
+    ``unlock_user_secrets``; no IO happens here.
+    """
+    if not _USER_SECRETS:
+        return
+    for instance in list(session.new) + list(session.dirty):
+        for descriptor in _USER_SECRETS.get(type(instance), ()):
+            descriptor._flush(session, instance)
 
 
 def apply_secret_update(obj: Any, field: str, incoming: str | None) -> bool:

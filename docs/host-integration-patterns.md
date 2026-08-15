@@ -37,6 +37,7 @@ particular [`frontend/src/main.tsx`](../examples/hello-world/frontend/src/main.t
 | Send an email from a host route, synchronously      | [`drain_outbox_row`](#synchronous-email)                                       |
 | Add a logical FK from a host table to atrium        | [`HostForeignKey`](#cross-base-foreign-key)                                    |
 | Store a third-party secret at rest                  | [`EncryptedText`](#secret-column)                                              |
+| Store a secret belonging to one user                | [`UserSecret`](#per-user-secret)                                               |
 | Stub atrium globals in host unit tests              | [`@brendanbank/atrium-test-utils`](#test-helpers)                              |
 
 Every entry below is annotated with the atrium version that shipped
@@ -451,10 +452,10 @@ class LlmProvider(Base):
 
 `purpose` is a stable per-column string — it is what stops a
 ciphertext being lifted out of one column, dropped into another, and
-still decrypting. `scope` is `"site"` (one secret the whole
-installation uses) or `"user"`; **only `site` is implemented**, and
-`scope="user"` raises at import rather than quietly behaving like
-`site`.
+still decrypting. `scope="site"` is a secret the whole installation
+uses. For a secret belonging to one user, see
+[*Per-user secret*](#per-user-secret) below — it is a different
+declaration, not a different argument.
 
 Set `SECRET_ENCRYPTION_KEY` in `.env` (`openssl rand -hex 32`). It is
 separate from `APP_SECRET_KEY` / `JWT_SECRET` on purpose, and the
@@ -490,6 +491,62 @@ Defined in
 [`backend/app/host_sdk/crypto.py`](../backend/app/host_sdk/crypto.py);
 rationale in [`docs/adr/0003-secret-at-rest.md`](adr/0003-secret-at-rest.md).
 Available since atrium 0.27.
+
+### Per-user secret
+<a id="per-user-secret"></a>
+
+For a secret that belongs to **one user** — a tenant's own provider
+credential, a device password — and that should become unreadable when
+that user is deleted:
+
+```python
+from app.host_sdk.crypto import SecretBlob, UserSecret, unlock_user_secrets
+
+class Device(HostBase):
+    __tablename__ = "device"
+    user_id: Mapped[int] = mapped_column(HostForeignKey("users.id"))
+    secret_ct: Mapped[bytes | None] = mapped_column(SecretBlob(), nullable=True)
+
+    secret = UserSecret(
+        purpose="device.secret", owner_attr="user_id", column="secret_ct"
+    )
+```
+
+Two declarations rather than one because the owner has to be read off
+the row, and a SQLAlchemy `TypeDecorator` never sees the row. Pass
+`json=True` for a JSON payload instead of text.
+
+Reading and writing needs one `await` first, and **no authenticated
+user** — the owner is an integer off the row, which is what makes this
+work from a device-authenticated request, a webhook, or a worker:
+
+```python
+device = await session.get(Device, device_id)
+await unlock_user_secrets(session, device.user_id)     # read path
+device.secret.reveal()
+
+await unlock_user_secrets(session, user_id, create=True)   # write path
+device.secret = "new-value"
+```
+
+`create=True` mints the user's key if they have none; use it only on
+write paths. On a read path, a user with no key raises
+`SecretShreddedError` — they were deleted, and the plaintext is gone.
+Touching the attribute without unlocking raises `SecretLockedError`
+naming the call to make; unwrapping is a database read and cannot
+happen inside attribute access.
+
+**Deleting a user destroys their key** — `user_secret_keys` cascades
+from `users.id`, so their ciphertext is unreadable afterwards even
+holding `SECRET_ENCRYPTION_KEY` and a backup taken before the delete.
+That happens at **hard** delete, i.e. after `auth.delete_grace_days`,
+because an account reinstated during the grace window with every
+credential destroyed is worse than one that stays deleted. Call
+`shred_user_key(session, user_id)` if you need it sooner.
+
+Rationale in
+[`docs/adr/0004-user-scope-secrets.md`](adr/0004-user-scope-secrets.md).
+Available since atrium 0.28.
 
 ---
 
@@ -547,13 +604,13 @@ an issue rather than monkey-patching:
 - **Automated key rotation** - rotation is the manual dual-column
   procedure documented above. There is no re-key job, and
   `SECRET_ENCRYPTION_KEY` cannot be swapped in place.
-- **Per-user secret scope** - `scope="user"` is declared but
-  unimplemented. It needs a request-scoped owner binding, the owner
-  bound into the AEAD, and a key-wrap record with shredding
-  semantics; see [ADR 0003](adr/0003-secret-at-rest.md) and issue
-  #225. Do not work around it by storing a per-user secret at
-  `scope="site"` - `purpose` does not bind a ciphertext to a row, so
-  one user's blob will decrypt in another user's row.
+- **`scope="user"` on `EncryptedText`** - it raises, and always will.
+  A `TypeDecorator` never sees the row, so there is nowhere to read
+  the owner from. Use [`UserSecret`](#per-user-secret) instead. Do not
+  work around it by storing a per-user secret at `scope="site"` -
+  `purpose` does not bind a ciphertext to a row, so one user's blob
+  will decrypt in another user's row, and deleting the user destroys
+  nothing.
 - **Replacing built-in routes** - a host's `init_app` runs *after*
   atrium's routers register, so a host route at the same path
   collides at startup rather than overriding silently. Host

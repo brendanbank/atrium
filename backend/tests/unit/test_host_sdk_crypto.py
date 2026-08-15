@@ -152,14 +152,63 @@ def test_wrong_master_key_names_the_purpose(monkeypatch):
 # --------------------------------------------------------------------------- #
 
 
-def test_user_scope_is_rejected_loudly():
-    """Not "not implemented yet" — a silent fallback to site scope would
-    ship a cross-user isolation break as a bug."""
+def test_user_scope_on_this_type_redirects_to_the_row_aware_mechanism():
+    """Replaces the 0.27.0 "not implemented yet" gate.
+
+    The round trip that supersedes it lives in
+    ``tests/integration/test_user_scope_secrets.py``; what stays here is
+    the guard that this type never silently accepts a user secret. It
+    cannot implement one — its hooks never see the row — so the error
+    has to name the mechanism that can.
+    """
     with pytest.raises(NotImplementedError) as exc:
         EncryptedText(purpose="cred.api_key", scope="user")
     message = str(exc.value)
-    assert "request-scoped owner binding" in message
-    assert "#225" in message
+    assert "UserSecret" in message
+    assert "SecretBlob" in message
+    assert "#227" in message
+
+
+def test_a_site_blob_is_not_readable_as_a_user_blob():
+    """The scope byte reserved in 0.27.0 doing its job in both
+    directions, now that both scopes exist."""
+    from app.host_sdk.crypto import _decrypt, _encrypt
+
+    site = _encrypt(b"s", purpose="p", key_version="v1", scope="site")
+    with pytest.raises(SecretDecryptError, match="scope"):
+        _decrypt(
+            site,
+            purpose="p",
+            key_version="v1",
+            scope="user",
+            key=b"\x00" * 32,
+            owner_user_id=1,
+        )
+
+    user = _encrypt(
+        b"s",
+        purpose="p",
+        key_version="v1",
+        scope="user",
+        key=b"\x00" * 32,
+        owner_user_id=1,
+    )
+    with pytest.raises(SecretDecryptError, match="scope"):
+        _decrypt(user, purpose="p", key_version="v1", scope="site")
+
+
+def test_the_owner_is_authenticated_not_just_stored():
+    """Same key, different owner in the AAD — the tag has to fail."""
+    from app.host_sdk.crypto import _decrypt, _encrypt
+
+    key = b"\x11" * 32
+    blob = _encrypt(
+        b"s", purpose="p", key_version="v1", scope="user", key=key, owner_user_id=1
+    )
+    with pytest.raises(SecretDecryptError, match="for owner 2"):
+        _decrypt(
+            blob, purpose="p", key_version="v1", scope="user", key=key, owner_user_id=2
+        )
 
 
 def test_unknown_scope_is_rejected():

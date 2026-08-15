@@ -625,11 +625,22 @@ api_key: Mapped[MaskedSecret] = mapped_column(
   site-scope one. Do not change the header, the HKDF salt, or the
   `"<scope>.<purpose>.<key_version>"` info string — every stored row
   was written under them.
-- **`scope="user"` raises.** It is declared, not built: it needs a
-  request-scoped owner binding, the owner in the AEAD, and a wrap
-  record with shredding semantics. Do not store a per-user secret at
-  `scope="site"` as a workaround — `purpose` binds a ciphertext to a
-  column but not to a row.
+- **`scope="user"` on `EncryptedText` raises, permanently.** A
+  `TypeDecorator` never sees the row, so there is nowhere to read the
+  owner from. Per-user secrets use `UserSecret` — a descriptor beside
+  a `SecretBlob()` column, with `await unlock_user_secrets(session,
+  user_id)` first. The owner comes from the row, so it works with no
+  authenticated user (device auth, webhooks, workers). Never store a
+  per-user secret at `scope="site"` as a workaround: `purpose` binds a
+  ciphertext to a column but not to a row, and deleting the user
+  destroys nothing.
+- **User keys are random and stored (`user_secret_keys`), not
+  derived.** That is the whole difference: a derived key is
+  recomputable from the master forever, so shredding would be
+  theatre. `ON DELETE CASCADE` from `users.id` is the shred, and it
+  fires at *hard* delete — shredding at soft delete would make
+  grace-window reinstatement hand back an account whose credentials
+  are permanently unreadable.
 - **Reads return `MaskedSecret`, not `str`,** and it is deliberately
   not a `str` subclass. `_json_safe` redacts it explicitly so a
   credential can't ride into `audit_log` on a diff.
