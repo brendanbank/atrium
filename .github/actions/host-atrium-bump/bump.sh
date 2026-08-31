@@ -65,15 +65,31 @@ _split_lines() {
   while IFS= read -r _line; do
     _line="${_line#"${_line%%[![:space:]]*}"}"
     _line="${_line%"${_line##*[![:space:]]}"}"
-    [ -n "$_line" ] && _RESULT+=("$_line")
+    # `if`, not `[ -n "$_line" ] && _RESULT+=(...)`. A YAML block scalar
+    # keeps its trailing newline, so the last line read here is empty:
+    # the && list then returns 1, that becomes the while loop's status
+    # and so the function's return value, and `set -e` kills the script
+    # with no output at all. That is exactly how this failed on its
+    # first real release.
+    if [ -n "$_line" ]; then
+      _RESULT+=("$_line")
+    fi
   done < <(printf '%s\n' "$1")
+  return 0
 }
 
 _split_lines "${PIN_FILES:-}";    IMG_FILES=("${_RESULT[@]:-}")
 _split_lines "${NPM_PACKAGES:-}"; NPM_PKGS=("${_RESULT[@]:-}")
 # An empty split yields one empty element under the :- guard; drop it.
-[ "${#IMG_FILES[@]}" -eq 1 ] && [ -z "${IMG_FILES[0]}" ] && IMG_FILES=()
-[ "${#NPM_PKGS[@]}" -eq 1 ]  && [ -z "${NPM_PKGS[0]}" ]  && NPM_PKGS=()
+# Spelled as `if` for the same reason as in _split_lines: a trailing
+# && that short-circuits is a silent-exit hazard under set -e, and it
+# costs nothing to keep every one of them out of this script.
+if [ "${#IMG_FILES[@]}" -eq 1 ] && [ -z "${IMG_FILES[0]}" ]; then
+  IMG_FILES=()
+fi
+if [ "${#NPM_PKGS[@]}" -eq 1 ] && [ -z "${NPM_PKGS[0]}" ]; then
+  NPM_PKGS=()
+fi
 
 if [[ ${#IMG_FILES[@]} -eq 0 ]]; then
   echo "error: PIN_FILES is empty — nothing to rewrite" >&2
@@ -83,9 +99,17 @@ fi
 # Read the current version from the canonical file. Any occurrence of
 # the image tag will do; the lockstep check below is what guarantees
 # the rest of the files agree with it.
-CUR="$(grep -oE "${ATRIUM_IMAGE//./\\.}:[0-9]+\.[0-9]+\.[0-9]+" "$PIN_CANONICAL" 2>/dev/null | head -n1 | sed 's/.*://')"
+# Captured through an explicit `if !` rather than a bare assignment:
+# under `set -e` with pipefail, a grep that matches nothing aborts the
+# script on the assignment itself, so the error below could never print.
+# Silent exit 1 is the worst failure mode this script has.
+if ! _pin="$(grep -oE "${ATRIUM_IMAGE}:[0-9]+\.[0-9]+\.[0-9]+" "$PIN_CANONICAL" | head -n1)"; then
+  echo "error: no '$ATRIUM_IMAGE:X.Y.Z' pin found in $PIN_CANONICAL (cwd: $PWD)" >&2
+  exit 1
+fi
+CUR="${_pin##*:}"
 if [[ -z "$CUR" ]]; then
-  echo "error: no '$ATRIUM_IMAGE:X.Y.Z' pin found in $PIN_CANONICAL" >&2
+  echo "error: could not parse a version out of '$_pin'" >&2
   exit 1
 fi
 
@@ -138,7 +162,12 @@ if [[ "$MODE" == "--check" ]]; then
     printf "  %-32s %d occurrence(s)\n" "$f" "$n"
   done
   for pkg in "${NPM_PKGS[@]:-}"; do
-    [[ -n "$pkg" ]] && printf "  %-32s %s -> %s\n" "$PKG_JSON" "$pkg@$CUR" "$NEW"
+    # Last command in the loop body: a bare `&&` here makes the whole
+    # for-loop exit 1 when the final element is empty, which under
+    # set -e kills --check silently.
+    if [[ -n "$pkg" ]]; then
+      printf "  %-32s %s -> %s\n" "$PKG_JSON" "$pkg@$CUR" "$NEW"
+    fi
   done
   exit 0
 fi
