@@ -5,7 +5,7 @@ name: Security
 
 # Three supply-chain scans on a single workflow:
 #   - Trivy fs + image scan of the runtime image (SARIF -> Security tab)
-#   - pip-audit of the backend deps (informational)
+#   - pip-audit of the backend deps (advisory on PRs, gating weekly)
 #   - pnpm audit of the SPA deps (informational)
 #
 # Triggered on PRs and pushes to master, plus a weekly cron so a fresh
@@ -139,12 +139,35 @@ jobs:
       - name: Sync deps
         run: uv sync
 
-      # Non-blocking: Dependabot already proposes the fix, the audit
-      # is informational. Reports surface in the job log; SARIF
-      # upload would need a separate format conversion, not worth it
-      # while pip-audit is run as a backstop to Dependabot.
+      # Advisory on PRs and master pushes, GATING on the weekly cron.
+      #
+      # pip-audit is not just a Dependabot backstop for Python: it
+      # reads the PyPA/OSV database, which carries PYSEC advisories
+      # that never become GitHub advisories at all, so Dependabot
+      # structurally cannot raise them. CVE-2026-7246 in `click` was
+      # one of those -- no GHSA, no Dependabot alert -- and because
+      # this step could not fail it sat unnoticed in the job log
+      # until someone happened to read it.
+      #
+      # Failing on PRs instead would hold every unrelated PR hostage
+      # to an advisory with no released fix upstream (pip-audit has
+      # no --ignore-unfixed). Failing on the cron puts the signal on
+      # the one run nobody is watching, without blocking anyone: a
+      # red weekly Security run IS the notification.
+      #
+      # Uploading to the Security tab is the obvious alternative but
+      # pip-audit emits only columns/json/cyclonedx/markdown -- no
+      # SARIF -- so it would need a bespoke converter to maintain.
       - name: Run pip-audit
-        run: uv run --with pip-audit pip-audit --strict --progress-spinner off || true
+        id: pip_audit
+        continue-on-error: true
+        run: uv run --with pip-audit pip-audit --strict --progress-spinner off
+
+      - name: Gate the weekly scan on pip-audit findings
+        if: github.event_name == 'schedule' && steps.pip_audit.outcome == 'failure'
+        run: |
+          echo "::error::pip-audit reported vulnerabilities on the weekly scan - see the 'Run pip-audit' step above"
+          exit 1
 
   pnpm-audit:
     name: pnpm audit (SPA deps)
@@ -168,6 +191,10 @@ jobs:
       - name: Install deps
         run: pnpm install --frozen-lockfile
 
-      # Non-blocking, see pip-audit comment above.
+      # Non-blocking on every trigger, deliberately unlike pip-audit
+      # above. npm's advisory source of truth IS the GitHub advisory
+      # database, so anything pnpm audit finds here Dependabot has
+      # already alerted on and opened a PR for. Kept as a cheap
+      # second opinion, not as a gate.
       - name: Run pnpm audit
         run: pnpm audit --audit-level high || true
