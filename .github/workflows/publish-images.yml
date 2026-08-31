@@ -185,6 +185,28 @@ jobs:
           fi
           echo "SPA bundle contains /api prefix ($bundle)"
 
+      # OCI labels for the image config. Without these the published
+      # image carries no version marker at all: there is no
+      # /app/VERSION, `uv sync` does not install atrium-backend as a
+      # distribution so importlib.metadata raises PackageNotFoundError
+      # inside the container, and `docker inspect` reported
+      # Config.Labels as null. A host verifying a deploy therefore had
+      # to exec into a running container and read /app/pyproject.toml.
+      # With these, `docker buildx imagetools inspect` answers it from
+      # the registry.
+      #
+      # Same `value=` override as the merge job: type=semver defaults to
+      # reading github.ref, which is the branch on workflow_dispatch and
+      # schedule, so the resolved tag has to be fed in explicitly or the
+      # version label silently goes missing.
+      - name: Compute image labels
+        id: labels
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302  # v6.2.0
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.resolve.outputs.ref }}
+
       - name: Build and push by digest
         id: build
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7.3.0
@@ -193,6 +215,9 @@ jobs:
           file: Dockerfile
           target: runtime
           platforms: ${{ matrix.platform }}
+          # Baked into the image config, so they survive the merge job
+          # assembling the manifest list from per-arch digests.
+          labels: ${{ steps.labels.outputs.labels }}
           # `pull: true` re-resolves `python:3.13-slim` instead of
           # reusing whatever digest the runner had; `APT_REFRESH`
           # busts the runtime `apt-get upgrade` layer. Both are needed
