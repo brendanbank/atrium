@@ -3,10 +3,16 @@
 
 name: Security
 
-# Three supply-chain scans on a single workflow:
+# Four supply-chain scans on a single workflow:
 #   - Trivy fs + image scan of the runtime image (SARIF -> Security tab)
+#   - Trivy image scan of the *published* release tag (weekly)
 #   - pip-audit of the backend deps (advisory on PRs, gating weekly)
 #   - pnpm audit of the SPA deps (informational)
+#
+# The first scans the recipe; the second scans the artifact. They are
+# not the same thing: a tag published two weeks ago accumulates Debian
+# CVEs that an image built this minute never shows, and until issue
+# #239 only downstream consumers ever saw the difference.
 #
 # Triggered on PRs and pushes to master, plus a weekly cron so a fresh
 # CVE on an unchanged repo still surfaces within seven days.
@@ -60,6 +66,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Without this the `type=gha` cache below would restore the
+      # runtime `apt-get upgrade` layer from whenever it was last
+      # built, so the scan would report the package set of a
+      # week-old build rather than of today's Debian archive
+      # (issue #239). Daily granularity: the first run of the day
+      # pays for the upgrade, the rest still hit cache.
+      - name: Stamp apt cache-buster
+        run: echo "APT_REFRESH=$(date -u +%Y-%m-%d)" >> "$GITHUB_ENV"
+
       - name: Build runtime image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a  # v7.3.0
         with:
@@ -67,10 +82,12 @@ jobs:
           file: Dockerfile
           target: runtime
           load: true
+          pull: true
           tags: atrium:scan
           build-args: |
             VITE_API_BASE_URL=/api
             VITE_DEFAULT_LANGUAGE=en
+            APT_REFRESH=${{ env.APT_REFRESH }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -116,6 +133,61 @@ jobs:
         with:
           sarif_file: trivy-image.sarif
           category: trivy-image
+
+  # Scans the artifact consumers actually pull, not the recipe. The
+  # weekly cron runs an hour after `publish-images.yml` refreshes the
+  # current release tag, so this doubles as the check that the
+  # scheduled rebuild wasn't a silent cache no-op: a green run here
+  # means the tag in the registry is genuinely current.
+  #
+  # Not run on PRs or master pushes - the published tag doesn't change
+  # on either, so it would be the same scan over and over.
+  trivy-published:
+    name: Trivy (published release tag)
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      # upload-sarif resolves the analysis against the checked-out
+      # commit, so the checkout is required even though nothing in
+      # the scan reads the tree.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve published image ref
+        id: image
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          owner="${{ github.repository_owner }}"
+          # `releases/latest` skips drafts and pre-releases. The git
+          # tag is `vX.Y.Z`; metadata-action publishes the registry
+          # tag without the `v`, hence the ${tag#v} strip.
+          tag=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" -q .tag_name)
+          echo "ref=ghcr.io/${owner,,}/atrium:${tag#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Trivy scan of the published image
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
+        with:
+          scan-type: image
+          image-ref: ${{ steps.image.outputs.ref }}
+          format: sarif
+          output: trivy-published.sarif
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+
+      - name: Upload Trivy published SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@cdf488f595d80d6e07e03d4674febd5ab45fa938  # v4.37.9
+        with:
+          sarif_file: trivy-published.sarif
+          category: trivy-published
 
   pip-audit:
     name: pip-audit (backend deps)

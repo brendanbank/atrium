@@ -12,6 +12,15 @@ name: Publish image
 # `workflow_dispatch` lets a maintainer re-run an existing tag (eg.
 # registry outage recovery) without retagging.
 #
+# The weekly `schedule` re-publishes the *current* release tag so a
+# released image never drifts more than seven days behind Debian
+# security. CI validates the recipe on every PR but nothing used to
+# re-validate the artifact, so `v0.28.0` sat on openssl 3.5.6 for two
+# weeks and only downstream consumers ever saw it (issue #239). The
+# rebuild is only meaningful because the runtime `apt-get upgrade`
+# layer is cache-busted by `APT_REFRESH` — without that the warm
+# `type=gha` cache would make the scheduled run a silent no-op.
+#
 # Per-arch parallel builds: amd64 on ubuntu-24.04, arm64 on
 # ubuntu-24.04-arm. Each matrix job pushes its image by digest only
 # (no tags); the merge job assembles the multi-arch manifest list
@@ -26,6 +35,12 @@ on:
   push:
     tags:
       - "v*"
+  # Monday 05:00 UTC — an hour ahead of the weekly Security scan so
+  # the published-image job in `security.yml` scans the image this
+  # run just refreshed. That ordering is deliberate: if the rebuild
+  # ever no-ops, the scan is what makes it visible.
+  schedule:
+    - cron: "0 5 * * 1"
   workflow_dispatch:
     inputs:
       ref:
@@ -53,8 +68,52 @@ concurrency:
 # push.
 
 jobs:
+  # Every trigger carries the target tag somewhere different:
+  #   push               -> github.ref_name       (refs/tags/v1.2.3)
+  #   workflow_dispatch  -> inputs.ref            (github.ref is master)
+  #   schedule           -> nowhere; ask the API for the current release
+  # Resolving once here keeps checkout, the metadata-action semver
+  # values and the manifest tags reading the same string, instead of
+  # repeating a `||` chain at every use site (which had no schedule
+  # branch at all and would have published `latest` only).
+  resolve:
+    name: Resolve target tag
+    runs-on: ubuntu-24.04
+    outputs:
+      ref: ${{ steps.pick.outputs.ref }}
+      apt_refresh: ${{ steps.pick.outputs.apt_refresh }}
+    steps:
+      - name: Pick tag + apt cache-buster
+        id: pick
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_REF: ${{ github.event.inputs.ref }}
+          PUSH_REF: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          case "$EVENT_NAME" in
+            push)              ref="$PUSH_REF" ;;
+            workflow_dispatch) ref="$INPUT_REF" ;;
+            # `releases/latest` excludes drafts and pre-releases, so
+            # this is exactly the tag a consumer following `latest`
+            # is running.
+            schedule)          ref=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" -q .tag_name) ;;
+            *)                 ref="" ;;
+          esac
+          if [ -z "$ref" ]; then
+            echo "::error::could not resolve a tag to publish for event '$EVENT_NAME'" >&2
+            exit 1
+          fi
+          echo "Publishing $ref"
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+          # Stamped once, here, so both arch builds share a value even
+          # if one of them straddles midnight UTC.
+          echo "apt_refresh=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+
   build:
     name: Build (${{ matrix.platform }})
+    needs: resolve
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -77,7 +136,7 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
-          ref: ${{ github.event.inputs.ref || github.ref }}
+          ref: ${{ needs.resolve.outputs.ref }}
 
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e  # v4.3.0
 
@@ -134,15 +193,52 @@ jobs:
           file: Dockerfile
           target: runtime
           platforms: ${{ matrix.platform }}
+          # `pull: true` re-resolves `python:3.13-slim` instead of
+          # reusing whatever digest the runner had; `APT_REFRESH`
+          # busts the runtime `apt-get upgrade` layer. Both are needed
+          # for a rebuild of an unchanged tag to actually pick up
+          # Debian point releases (issue #239).
+          pull: true
           build-args: |
             VITE_API_BASE_URL=/api
             VITE_DEFAULT_LANGUAGE=en
+            APT_REFRESH=${{ needs.resolve.outputs.apt_refresh }}
           # No tags here — push-by-digest is what lets the merge job
           # below assemble the multi-arch manifest list under the
           # real semver tags.
           outputs: type=image,name=${{ env.IMAGE_NAME }},push-by-digest=true,name-canonical=true,push=true
           cache-from: type=gha,scope=runtime-${{ env.PLATFORM_PAIR }}
           cache-to: type=gha,scope=runtime-${{ env.PLATFORM_PAIR }},mode=max
+
+      # Regression guard for issue #239. The image we just pushed is
+      # supposed to have run `apt-get -y upgrade`; if the build cache
+      # served a stale layer instead, the guard below sees packages
+      # still pending and fails the job before the merge step moves
+      # any tag onto the digest. Simulating the upgrade (`-s`) rather
+      # than diffing versions keeps this independent of which package
+      # happens to be behind this week.
+      #
+      # Runs on both arches on purpose: the `type=gha` cache is scoped
+      # per platform, so an amd64-only check would miss an arm64
+      # cache hit.
+      - name: Verify no pending Debian security updates
+        run: |
+          set -euo pipefail
+          image="${IMAGE_NAME}@${{ steps.build.outputs.digest }}"
+          # `Error-Mode=any` + `set -e` inside the container matter:
+          # plain `apt-get update` exits 0 when it cannot reach a
+          # mirror (fetch failures are warnings), so an unreachable
+          # archive would produce empty output and read as "nothing
+          # pending" — a silent pass on the very check that exists to
+          # catch silent passes.
+          pending=$(docker run --rm --user root --entrypoint sh "$image" -c \
+            'set -e; apt-get update -qq -o APT::Update::Error-Mode=any >/dev/null; apt-get -s -y upgrade 2>/dev/null | grep "^Inst " || true')
+          if [ -n "$pending" ]; then
+            echo "::error::Published image still has upgradable Debian packages - the apt layer came from cache (issue #239)" >&2
+            echo "$pending" >&2
+            exit 1
+          fi
+          echo "No pending Debian upgrades in $image"
 
       - name: Export digest
         run: |
@@ -160,7 +256,7 @@ jobs:
 
   merge:
     name: Merge manifest
-    needs: build
+    needs: [resolve, build]
     runs-on: ubuntu-24.04
     steps:
       - name: Resolve image name
@@ -192,18 +288,16 @@ jobs:
           # ``type=semver`` defaults to extracting from ``github.ref``,
           # which is correct for the ``on: push: tags`` path
           # (``refs/tags/v1.2.3``) but wrong for ``workflow_dispatch``
-          # — that always runs against the workflow file's branch
-          # (``refs/heads/master``), and the dispatch ``ref`` input is
-          # carried separately in ``github.event.inputs.ref``. Without
-          # an explicit ``value=`` override, a manual re-publish drops
-          # every semver tag and only ``type=raw,value=latest`` lands,
-          # which is what bit the v0.11.2 re-dispatch. Plumbing the
-          # input through (with ``github.ref_name`` as the push-trigger
-          # fallback) keeps both paths emitting the full tag set.
+          # and ``schedule`` — both run against the workflow file's
+          # branch (``refs/heads/master``). Without an explicit
+          # ``value=`` override, a re-publish drops every semver tag
+          # and only ``type=raw,value=latest`` lands, which is what
+          # bit the v0.11.2 re-dispatch. The ``resolve`` job above
+          # normalises all three triggers to one string.
           tags: |
-            type=semver,pattern={{version}},value=${{ github.event.inputs.ref || github.ref_name }}
-            type=semver,pattern={{major}}.{{minor}},value=${{ github.event.inputs.ref || github.ref_name }}
-            type=semver,pattern={{major}},value=${{ github.event.inputs.ref || github.ref_name }}
+            type=semver,pattern={{version}},value=${{ needs.resolve.outputs.ref }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.resolve.outputs.ref }}
+            type=semver,pattern={{major}},value=${{ needs.resolve.outputs.ref }}
             type=raw,value=latest
 
       - name: Create manifest list and push

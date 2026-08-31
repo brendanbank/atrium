@@ -91,6 +91,37 @@ deliberate version bump. Pin to `X.Y` in production for patch uptake; pin to
 
 The image is built for `linux/amd64` and `linux/arm64`.
 
+### Tags are mutable; digests are not
+
+Even `X.Y.Z` is a **moving pointer**. A tag names one version of atrium's
+own code, but the image under it also contains a Debian userland that keeps
+accruing CVEs after release day. So `publish-images.yml` re-publishes the
+current release tag **every Monday** (05:00 UTC): same source, rebuilt
+against today's Debian archive, and the `X.Y.Z` / `X.Y` / `X` / `latest`
+tags all move onto the new digest.
+
+Concretely: `v0.28.0` shipped `openssl 3.5.6`, Debian released `3.5.7` a few
+days later, and every consumer of the immutable-looking `0.28.0` tag kept
+pulling the vulnerable build until it was rebuilt (issue #239).
+
+What this means for a host project:
+
+- **Pin to a tag, not a digest**, unless you have a specific reason to
+  freeze bit-for-bit. A `FROM ghcr.io/<org>/atrium@sha256:…` never picks up
+  a security rebuild, and no alert in this repo will tell you that.
+- **Re-pull on deploy.** `docker compose pull` before `up -d`; a cached
+  local `0.28.0` is not necessarily the current `0.28.0`.
+- **Don't add your own `apt-get upgrade`** on top of the base image. It
+  papers over a stale base for one build and then rots the same way. If a
+  rebuild looks overdue, say so on the atrium issue tracker instead.
+
+Two CI guards keep this honest, because the failure mode is a rebuild that
+*looks* like it worked: the publish job fails if the image it just pushed
+still has upgradable Debian packages (a warm buildx cache would otherwise
+restore the old `apt-get upgrade` layer), and `security.yml` Trivy-scans the
+**published** tag weekly — the artifact consumers pull, not a freshly built
+one.
+
 ## Using atrium as a base image
 
 A host project's `Dockerfile` (one image extending atrium with both backend
