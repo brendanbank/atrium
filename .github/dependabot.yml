@@ -36,6 +36,13 @@ updates:
   # /examples/hello-world/frontend opens its own PR even though
   # the same package lives in /frontend.
   #
+  # "/" is the workspace overlay lock (packages/* + the hello-world
+  # example). It has to be listed explicitly: the dependency graph
+  # raises alerts for any lockfile it finds, but Dependabot only
+  # opens security-update PRs for directories declared here, so an
+  # advisory against the root lock would otherwise sit open forever
+  # with nothing to fix it.
+  #
   # Caveat this triggers: on a GROUPED multi-directory update
   # Dependabot bumps the package.json files but leaves both pnpm
   # lockfiles stale, failing `pnpm install --frozen-lockfile`. The
@@ -45,6 +52,7 @@ updates:
   # docs/dependabot-automation.md.
   - package-ecosystem: "npm"
     directories:
+      - "/"
       - "/frontend"
       - "/examples/hello-world/frontend"
     schedule:
