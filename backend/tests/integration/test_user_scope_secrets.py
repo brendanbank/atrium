@@ -278,3 +278,60 @@ async def test_key_cache_does_not_outlive_the_session(engine, host_table, users)
         device = await s.get(Device, device_id)
         with pytest.raises(SecretLockedError):
             _ = device.secret
+
+
+@pytest.mark.asyncio
+async def test_rotating_only_the_secret_on_a_clean_row_persists(
+    engine, host_table, users
+):
+    """Issue #230: the shape of "the user changed only the credential".
+
+    ``__set__`` parks the plaintext in an unmapped ``__dict__`` slot,
+    so without an explicit ``flag_dirty`` the row never reaches
+    ``session.dirty`` and ``before_flush`` never visits it. The commit
+    then succeeds with the old ciphertext still in the column -- no
+    exception, no warning, a 200 back to whoever asked.
+
+    The tests above all mutate something else on the row (or create it
+    outright), which marks it dirty for free and hides this.
+    """
+    owner, _ = users
+    device_id = await _write_secret(engine, owner.id, "original-secret")
+
+    async with _factory(engine)() as s:
+        device = await s.get(Device, device_id)  # clean, persistent
+        await unlock_user_secrets(s, device.user_id)
+        device.secret = "rotated-secret"  # nothing else on the row changes
+        await s.commit()
+
+    async with _factory(engine)() as s:
+        device = await s.get(Device, device_id)
+        await unlock_user_secrets(s, device.user_id)
+        assert device.secret.reveal() == "rotated-secret"
+
+
+@pytest.mark.asyncio
+async def test_rotating_twice_in_a_row_keeps_the_last_value(
+    engine, host_table, users
+):
+    """A rotation is not a one-shot: the second one has to land too.
+
+    Guards the fix being a stale-dirty-flag artefact rather than the
+    write genuinely being tracked -- if the row only happened to be
+    dirty from the previous statement, the second rotation would be
+    the one to fall through.
+    """
+    owner, _ = users
+    device_id = await _write_secret(engine, owner.id, "first")
+
+    for value in ("second", "third"):
+        async with _factory(engine)() as s:
+            device = await s.get(Device, device_id)
+            await unlock_user_secrets(s, device.user_id)
+            device.secret = value
+            await s.commit()
+
+    async with _factory(engine)() as s:
+        device = await s.get(Device, device_id)
+        await unlock_user_secrets(s, device.user_id)
+        assert device.secret.reveal() == "third"
