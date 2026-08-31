@@ -223,6 +223,60 @@ jobs:
       - name: Build
         run: pnpm build
 
+  # The repo-root workspace: `packages/*` (the published host SDK) +
+  # `examples/hello-world/frontend`. The `frontend` job above cannot
+  # cover these -- it runs with `--ignore-workspace` so it sees only
+  # atrium's SPA -- so without this job nothing ran root `pnpm test`
+  # and 69 tests were unguarded. A duplicate React reached master
+  # that way and broke every hello-world test (#236).
+  #
+  # `pnpm build` has to come first: `dist/` is not committed, and both
+  # the typecheck and the example's vitest run resolve
+  # `@brendanbank/atrium-*` through each package's published
+  # `exports`, which point at `dist/`.
+  host-sdk:
+    name: host-sdk (workspace packages + example)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86  # v6.0.10
+        with:
+          version: 10.33.1
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020  # v7.0.0
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install workspace deps
+        run: pnpm install --frozen-lockfile
+
+      # Guards the class of bug that #236 fixed. `packages/*` carry
+      # react/react-dom as devDependencies for their own builds while
+      # the example carries its own copies, so a grouped Dependabot
+      # bump that moves one manifest and not the other leaves two
+      # instances of a package that must be a singleton. React and
+      # @tanstack/react-query both fail this way, and both failures
+      # are confusing at the point of use rather than at install.
+      #
+      # Note `resolve.dedupe` in the example's vitest config does NOT
+      # substitute for this -- it was tried in #236 and the suite
+      # still failed, because Vite's dedupe does not reach across the
+      # workspace link into a package's built `dist/`.
+      - name: Check for duplicate workspace dependencies
+        run: pnpm dedupe --check
+
+      - name: Build
+        run: pnpm build
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
   scaffolder:
     # Smoke-test the create-atrium-host scaffolder. Two passes:
     #   1. Unit tests via Node's built-in runner — covers the
