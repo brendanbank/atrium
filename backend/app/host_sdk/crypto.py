@@ -50,6 +50,7 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from sqlalchemy import LargeBinary, event
 from sqlalchemy.dialects.mysql import MEDIUMBLOB
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import Session
 from sqlalchemy.types import TypeDecorator
 
@@ -379,12 +380,34 @@ class SecretBlob(LargeBinary):
     :class:`EncryptedText` without pretending to be transparent about
     it. The :class:`UserSecret` descriptor beside it does the crypto,
     because it is the only one of the two that can see the row.
+
+    The widening is the ``@compiles`` hook below, **not**
+    ``load_dialect_impl``. Being a plain ``TypeEngine`` is exactly why:
+    SQLAlchemy only calls ``load_dialect_impl`` on a ``TypeDecorator``,
+    so the obvious symmetry with :class:`EncryptedText` is a trap here
+    and cost this column its widening once already (#229).
     """
 
-    def load_dialect_impl(self, dialect):
-        if dialect.name in ("mysql", "mariadb"):
-            return dialect.type_descriptor(MEDIUMBLOB())
-        return dialect.type_descriptor(LargeBinary())
+
+@compiles(SecretBlob, "mysql", "mariadb")
+def _secret_blob_mediumblob(element, compiler, **kw) -> str:
+    """Widen :class:`SecretBlob` to ``MEDIUMBLOB`` on MySQL/MariaDB.
+
+    ``load_dialect_impl`` -- which :class:`EncryptedText` uses for the
+    same widening -- is a ``TypeDecorator`` hook. ``SecretBlob`` is a
+    plain ``LargeBinary``, so SQLAlchemy never calls it and the column
+    compiled to ``BLOB``: the 64 KB ceiling the widening exists to
+    avoid, on the one scope (user) most likely to hold something large
+    like a service-account JSON key or a certificate bundle.
+
+    ``@compiles`` is the ``TypeEngine`` equivalent and keeps
+    ``SecretBlob`` a plain ``LargeBinary`` -- making it a
+    ``TypeDecorator`` instead would work, but only by pretending to a
+    transparency it deliberately does not have.
+
+    Every other dialect keeps ``LargeBinary``'s default mapping.
+    """
+    return "MEDIUMBLOB"
 
 
 class SecretLockedError(RuntimeError):

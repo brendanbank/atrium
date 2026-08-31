@@ -21,6 +21,7 @@ from app.host_sdk.crypto import (
     EncryptedJSON,
     EncryptedText,
     MaskedSecret,
+    SecretBlob,
     SecretDecryptError,
     _derive_key,
     apply_secret_update,
@@ -278,6 +279,42 @@ def test_mysql_widens_to_mediumblob():
 def test_other_dialects_keep_large_binary():
     impl = EncryptedText(purpose="cred.api_key").load_dialect_impl(sqlite.dialect())
     assert isinstance(impl, LargeBinary)
+
+
+# The two assertions above call ``load_dialect_impl`` directly, which
+# proves the hook returns the right type but not that SQLAlchemy ever
+# calls it. It does for ``EncryptedText`` (a ``TypeDecorator``) and did
+# not for ``SecretBlob`` (a plain ``LargeBinary``) — issue #229, where
+# the column shipped as ``BLOB`` while the hook, the docstring and a
+# hook-style test all said ``MEDIUMBLOB``. Everything below goes
+# through ``.compile()`` instead, which is what actually reaches the
+# DDL.
+
+
+def test_encrypted_text_compiles_to_mediumblob_on_mysql():
+    assert "MEDIUMBLOB" in EncryptedText(purpose="cred.api_key").compile(
+        dialect=mysql.dialect()
+    )
+
+
+def test_secret_blob_compiles_to_mediumblob_on_mysql():
+    """#229: the storage side of a user-scope secret has to match
+    EncryptedText, and user scope is where the large payloads live."""
+    assert "MEDIUMBLOB" in SecretBlob().compile(dialect=mysql.dialect())
+
+
+def test_secret_blob_keeps_the_default_mapping_on_other_dialects():
+    assert "MEDIUMBLOB" not in SecretBlob().compile(dialect=sqlite.dialect())
+
+
+def test_secret_blob_column_ddl_is_mediumblob():
+    """The end of the chain: what CREATE TABLE actually emits."""
+    from sqlalchemy import Column, MetaData, Table
+    from sqlalchemy.schema import CreateTable
+
+    table = Table("t", MetaData(), Column("ct", SecretBlob()))
+    ddl = str(CreateTable(table).compile(dialect=mysql.dialect()))
+    assert "MEDIUMBLOB" in ddl
 
 
 # --------------------------------------------------------------------------- #
