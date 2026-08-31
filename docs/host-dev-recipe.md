@@ -203,6 +203,108 @@ updates:
       actions: { patterns: ["*"] }
 ```
 
+## Staying on the current atrium
+
+A host pins atrium in more places than it looks: the image tag appears in
+`.env.example`, the `Dockerfile` `ARG`, `compose.yaml`, and often a CI
+workflow and the README, while `@brendanbank/atrium-host-bundle-utils` and
+`@brendanbank/atrium-host-types` carry the same version in
+`frontend/package.json`. Those are **not independently upgradable**. A host
+running image X with SDK packages from Y fails at runtime rather than at
+build time — the served bundle calls endpoints the image does not serve —
+and Dependabot will happily propose the npm half on its own, because from
+npm's side nothing is wrong.
+
+`.github/actions/host-atrium-bump` moves all of them together or refuses.
+Hosts scaffolded by `create-atrium-host` get the caller workflow already
+wired; an existing host adds this:
+
+```yaml
+name: Atrium release watch
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to adopt. Blank = latest release."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.ATRIUM_BUMP_TOKEN }}
+      - uses: pnpm/action-setup@v4
+        with: { version: 10.33.1 }
+      - uses: actions/setup-node@v4
+        with: { node-version: "22" }
+      - uses: brendanbank/atrium/.github/actions/host-atrium-bump@master
+        with:
+          token: ${{ secrets.ATRIUM_BUMP_TOKEN }}
+          version: ${{ inputs.version }}
+          pin-files: |
+            .env.example
+            Dockerfile
+            compose.yaml
+            .github/workflows/ci.yml
+            README.md
+```
+
+`pin-files` is the only input most hosts set — list every file that
+carries the image tag, and add to it the moment you pin the tag somewhere
+new. `image`, `canonical-file`, `npm-packages`, `frontend-dir`,
+`package-manager`, `base-branch` and `branch-prefix` all have defaults
+matching the scaffolded layout.
+
+### The token
+
+`ATRIUM_BUMP_TOKEN` must be a fine-grained PAT or app token, **not**
+`GITHUB_TOKEN`. A PR opened by `GITHUB_TOKEN` does not trigger
+`pull_request` workflows, so the host's CI would never exercise the new
+image — which is the entire point of the bump PR. Scope it to the one
+repo, with:
+
+| Permission | Level | Why |
+|---|---|---|
+| Contents | Read and write | push the bump branch |
+| Pull requests | Read and write | open the PR |
+| Workflows | Read and write | only if a pinned file lives under `.github/workflows` |
+
+The Workflows permission is the one that bites late: GitHub rejects a PAT
+push touching any workflow file without it, so a host that pins the tag in
+its CI workflow looks fine until the first real release.
+
+### What it does not do
+
+It does not merge, and it does not deploy. The PR carries the upstream
+release notes and a checklist, because the things that break a host on an
+atrium bump — a new required env var, an alembic migration, a breaking
+`__ATRIUM_REGISTRY__` change — are not detectable from the version number.
+0.27.0 is the worked example: it made `SECRET_ENCRYPTION_KEY` mandatory,
+and a host that took that bump without reading anything would come back up
+only as far as the API's startup validation.
+
+A host that wants bumps merged automatically can add a `workflow_run` gate
+that squash-merges the PR once every check on its head commit is green.
+Prefer that over GitHub's native auto-merge unless the default branch has
+required status checks: without them `gh pr merge --auto` merges
+immediately, before CI starts.
+
+### If a release is only half published
+
+A `v*` tag fires `publish-images.yml` and `publish-npm.yml`, and they take
+minutes. A poll landing in that window sees a release whose artifacts do
+not exist yet. The action checks the registry manifest and npm before
+touching anything and simply retries on the next run, so a host never
+opens a PR that cannot build.
+
 ## Backend test stack
 
 Use `testcontainers-mysql` against MySQL 8.0 — the same engine

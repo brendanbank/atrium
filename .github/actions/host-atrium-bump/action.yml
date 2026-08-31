@@ -1,0 +1,352 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
+name: Host atrium bump
+description: >-
+  Poll atrium for a new release and open a lockstep version-bump PR in a
+  host repo — image tag and the version-locked host SDK packages together.
+
+# Poll, not push. Atrium holds no credential for any host repo and fires
+# nothing at them: each host reaches out on its own schedule over the
+# public API. Adding a host costs atrium nothing and grants it nothing,
+# which is why this is an action a host calls rather than a dispatch
+# atrium sends.
+#
+# The caller is expected to have checked out the host repo with the same
+# token passed here (so the push is authenticated) and to have set up its
+# own package manager — the lockfile must be regenerated with the version
+# the host's own CI uses, or the relock churns.
+
+inputs:
+  token:
+    description: >-
+      Token used to push the branch and open the PR. Must be a PAT or app
+      token, NOT GITHUB_TOKEN: a PR opened by GITHUB_TOKEN does not
+      trigger `pull_request` workflows, so the host's CI would never
+      exercise the new image. Needs contents:write, pull-requests:write,
+      and workflows:write if any pinned file lives under .github/workflows.
+    required: true
+  version:
+    description: "Version to adopt (e.g. 0.29.0). Blank = atrium's latest release."
+    required: false
+    default: ""
+  atrium-repo:
+    description: "Repository to read releases from."
+    required: false
+    default: brendanbank/atrium
+  image:
+    description: "Image repository, without a tag."
+    required: false
+    default: ghcr.io/brendanbank/atrium
+  canonical-file:
+    description: "File the currently-pinned version is read from."
+    required: false
+    default: .env.example
+  pin-files:
+    description: >-
+      Newline-separated files containing the image tag. All are rewritten
+      together; the bump refuses if any disagrees with canonical-file.
+    required: false
+    default: |
+      .env.example
+      Dockerfile
+      compose.yaml
+  npm-packages:
+    description: >-
+      Newline-separated npm packages version-locked to the image tag.
+      Empty disables the npm half entirely.
+    required: false
+    default: |
+      @brendanbank/atrium-host-bundle-utils
+      @brendanbank/atrium-host-types
+  frontend-dir:
+    description: "Directory holding package.json and the lockfile."
+    required: false
+    default: frontend
+  package-manager:
+    description: "pnpm or npm."
+    required: false
+    default: pnpm
+  base-branch:
+    description: "Branch the PR targets."
+    required: false
+    default: main
+  branch-prefix:
+    description: "Prefix for the bump branch; the version is appended."
+    required: false
+    default: atrium-bump/
+
+outputs:
+  bumped:
+    description: "true when a PR was opened."
+    value: ${{ steps.pr.outputs.bumped }}
+  from:
+    description: "Version that was pinned before."
+    value: ${{ steps.gate.outputs.current }}
+  to:
+    description: "Version adopted."
+    value: ${{ steps.gate.outputs.target }}
+  pull-request-url:
+    description: "URL of the PR, empty when nothing was opened."
+    value: ${{ steps.pr.outputs.url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Compare the pin against the latest release
+      id: gate
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        ATRIUM_REPO: ${{ inputs.atrium-repo }}
+        IMAGE: ${{ inputs.image }}
+        CANONICAL: ${{ inputs.canonical-file }}
+        BRANCH_PREFIX: ${{ inputs.branch-prefix }}
+        INPUT_VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+
+        if [ -n "${INPUT_VERSION:-}" ]; then
+          target="${INPUT_VERSION#v}"
+          forced=yes
+        else
+          target="$(gh release view --repo "$ATRIUM_REPO" --json tagName --jq .tagName)"
+          target="${target#v}"
+          forced=no
+        fi
+
+        if ! printf '%s' "$target" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+          echo "::error::'$target' does not look like an atrium version (X.Y.Z)"
+          exit 1
+        fi
+
+        current="$(grep -oE "${IMAGE}:[0-9]+\.[0-9]+\.[0-9]+" "$CANONICAL" | head -n1 | sed 's/.*://')"
+        if [ -z "$current" ]; then
+          echo "::error::no '$IMAGE:X.Y.Z' pin found in $CANONICAL"
+          exit 1
+        fi
+
+        echo "current=$current" >> "$GITHUB_OUTPUT"
+        echo "target=$target"   >> "$GITHUB_OUTPUT"
+        echo "pinned: $current   upstream: $target"
+
+        if [ "$current" = "$target" ]; then
+          echo "::notice::already on atrium $current"
+          echo "candidate=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        # Never walk backwards on a schedule: a deleted or re-cut tag
+        # upstream must not silently downgrade a host. A human can still
+        # force one by passing `version`.
+        newest="$(printf '%s\n%s\n' "$current" "$target" | sort -V | tail -n1)"
+        if [ "$newest" != "$target" ] && [ "$forced" != yes ]; then
+          echo "::warning::latest release $target is older than the pin $current — ignoring"
+          echo "candidate=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        branch="${BRANCH_PREFIX}${target}"
+        echo "branch=$branch" >> "$GITHUB_OUTPUT"
+
+        # Idempotence for a daily cron: don't reopen work in flight, and
+        # don't resurrect a bump that was reviewed and closed on purpose.
+        # Both lookups distinguish "no" from "could not tell" — a command
+        # substitution inside `[ ... ]` hides its exit status from set -e,
+        # so an API failure would otherwise read as a confident answer.
+        set +e
+        git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1
+        rc=$?
+        set -e
+        case "$rc" in
+          0)
+            echo "::notice::$branch already exists — bump is in flight"
+            echo "candidate=false" >> "$GITHUB_OUTPUT"
+            exit 0
+            ;;
+          2) ;;
+          *)
+            echo "::error::git ls-remote failed (exit $rc) — cannot tell whether $branch exists"
+            exit 1
+            ;;
+        esac
+
+        if ! prs="$(gh pr list --head "$branch" --state all --json number --jq 'length')"; then
+          echo "::error::gh pr list failed — cannot tell whether a PR for $branch exists"
+          exit 1
+        fi
+        if [ "$prs" != "0" ]; then
+          echo "::notice::a PR for $branch already exists — nothing to do"
+          echo "candidate=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+
+        echo "candidate=true" >> "$GITHUB_OUTPUT"
+
+    # A `v*` tag fires atrium's publish-images.yml and publish-npm.yml,
+    # which take minutes. A daily poll can land inside that window and
+    # see a release whose artifacts do not exist yet. That is not a
+    # failure — the bump is simply not ready.
+    - name: Confirm the release artifacts are published
+      id: published
+      if: steps.gate.outputs.candidate == 'true'
+      shell: bash
+      env:
+        IMAGE: ${{ inputs.image }}
+        NPM_PACKAGES: ${{ inputs.npm-packages }}
+        TARGET: ${{ steps.gate.outputs.target }}
+      run: |
+        set -euo pipefail
+        missing=""
+
+        # Anonymous registry pull-token rather than `docker pull` or a
+        # login: the manifest HEAD is enough to know the tag exists, and
+        # it keeps this action free of any registry credential.
+        repo_path="${IMAGE#*/}"
+        registry="${IMAGE%%/*}"
+        reg_token="$(curl -fsS "https://${registry}/token?scope=repository:${repo_path}:pull" \
+          | python3 -c 'import sys,json; print(json.load(sys.stdin)["token"])')"
+        code="$(curl -s -o /dev/null -w '%{http_code}' \
+          -H "Authorization: Bearer ${reg_token}" \
+          -H "Accept: application/vnd.oci.image.index.v1+json, application/vnd.docker.distribution.manifest.list.v2+json" \
+          "https://${registry}/v2/${repo_path}/manifests/${TARGET}")"
+        [ "$code" = "200" ] || missing="the image (HTTP $code)"
+
+        probe="$(printf '%s\n' "$NPM_PACKAGES" | grep -v '^[[:space:]]*$' | head -n1 | tr -d '[:space:]')"
+        if [ -n "$probe" ]; then
+          npm view "${probe}@${TARGET}" version >/dev/null 2>&1 \
+            || missing="${missing:+$missing and }the npm packages"
+        fi
+
+        if [ -n "$missing" ]; then
+          echo "::notice::atrium $TARGET is tagged but $missing not published yet — retrying next run"
+          echo "go=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        echo "go=true" >> "$GITHUB_OUTPUT"
+
+    - name: Apply the lockstep bump
+      if: steps.published.outputs.go == 'true'
+      shell: bash
+      env:
+        ATRIUM_IMAGE: ${{ inputs.image }}
+        PIN_CANONICAL: ${{ inputs.canonical-file }}
+        PIN_FILES: ${{ inputs.pin-files }}
+        NPM_PACKAGES: ${{ inputs.npm-packages }}
+        FRONTEND_DIR: ${{ inputs.frontend-dir }}
+        PKG_MANAGER: ${{ inputs.package-manager }}
+        TARGET: ${{ steps.gate.outputs.target }}
+      run: |
+        "${{ github.action_path }}/bump.sh" "$TARGET" --ci
+
+    - name: Commit, push, and open the PR
+      id: pr
+      if: steps.published.outputs.go == 'true'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        ATRIUM_REPO: ${{ inputs.atrium-repo }}
+        IMAGE: ${{ inputs.image }}
+        BASE: ${{ inputs.base-branch }}
+        BRANCH: ${{ steps.gate.outputs.branch }}
+        CURRENT: ${{ steps.gate.outputs.current }}
+        TARGET: ${{ steps.gate.outputs.target }}
+      run: |
+        set -euo pipefail
+
+        if git diff --quiet; then
+          echo "::error::bump.sh reported success but changed nothing"
+          exit 1
+        fi
+
+        gh release view "v$TARGET" --repo "$ATRIUM_REPO" --json name --jq .name \
+          > "$RUNNER_TEMP/release-name"
+        gh release view "v$TARGET" --repo "$ATRIUM_REPO" --json body --jq .body \
+          > "$RUNNER_TEMP/release-notes.md"
+
+        # Release names read "v0.28.0 — secrets that belong to one person";
+        # keep the headline, drop the version we already have.
+        headline="$(sed -E "s/^v?${TARGET}[[:space:]]*[-—][[:space:]]*//" "$RUNNER_TEMP/release-name" | head -c 120)"
+        if [ -n "$headline" ]; then
+          subject="Adopt atrium $TARGET — $headline"
+        else
+          subject="Adopt atrium $TARGET"
+        fi
+
+        # Quoted heredocs with @PLACEHOLDER@ substituted afterwards:
+        # upstream release text is untrusted input and must never reach
+        # the shell as code.
+        printf '%s\n\n' "$subject" > "$RUNNER_TEMP/commit-msg"
+        cat >> "$RUNNER_TEMP/commit-msg" <<'EOF'
+        Automated lockstep bump opened by the host-atrium-bump action.
+
+        Image tag @CURRENT@ -> @TARGET@ across the pinned files, the
+        version-locked host SDK packages with it, and the frontend
+        lockfile regenerated.
+
+        Release notes: https://github.com/@ATRIUM_REPO@/releases/tag/v@TARGET@
+
+        Migrations, breaking registry changes and new required env vars are
+        not checked by the bump — the release notes still need a human.
+        EOF
+
+        cat > "$RUNNER_TEMP/pr-body.md" <<'EOF'
+        The atrium watcher found **atrium @TARGET@** upstream and applied the
+        lockstep bump.
+
+        Pin: `@CURRENT@` → `@TARGET@`, with the version-locked
+        `@brendanbank/atrium-host-*` packages and the lockfile moved with it.
+        The image tag and the SDK packages are not independently upgradable —
+        a host running image X with SDK packages from Y fails at runtime, when
+        the served bundle calls endpoints the image does not serve.
+
+        CI on this PR builds against `@IMAGE@:@TARGET@`, so the new image is
+        exercised here before you merge.
+
+        ### Nothing below this line is automated
+
+        - [ ] New or removed alembic migrations.
+        - [ ] Breaking `__ATRIUM_REGISTRY__` changes affecting the host bundle.
+        - [ ] New **required** env vars. 0.27.0's `SECRET_ENCRYPTION_KEY` is the
+              precedent: a missing one takes prod down at boot, not at deploy.
+        - [ ] New optional host hooks worth opting into.
+
+        ---
+
+        <details>
+        <summary>atrium v@TARGET@ release notes</summary>
+
+        EOF
+
+        # Temp file + mv rather than sed -i, whose argument handling
+        # differs between BSD and GNU.
+        for f in "$RUNNER_TEMP/commit-msg" "$RUNNER_TEMP/pr-body.md"; do
+          sed -e "s/@TARGET@/$TARGET/g" \
+              -e "s/@CURRENT@/$CURRENT/g" \
+              -e "s|@IMAGE@|$IMAGE|g" \
+              -e "s|@ATRIUM_REPO@|$ATRIUM_REPO|g" "$f" > "$f.new"
+          mv "$f.new" "$f"
+        done
+
+        # GitHub rejects a PR body over 65536 bytes; a long dependency
+        # changelog could reach that and fail the run at the last step.
+        head -c 40000 "$RUNNER_TEMP/release-notes.md" >> "$RUNNER_TEMP/pr-body.md"
+        if [ "$(wc -c < "$RUNNER_TEMP/release-notes.md")" -gt 40000 ]; then
+          printf '\n\n_(release notes truncated — read the full text upstream)_\n' \
+            >> "$RUNNER_TEMP/pr-body.md"
+        fi
+        printf '\n\n</details>\n' >> "$RUNNER_TEMP/pr-body.md"
+
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+        git switch -c "$BRANCH"
+        git add -A
+        git commit -F "$RUNNER_TEMP/commit-msg"
+        git push -u origin "$BRANCH"
+
+        url="$(gh pr create --base "$BASE" --head "$BRANCH" \
+          --title "$(head -n1 "$RUNNER_TEMP/commit-msg")" \
+          --body-file "$RUNNER_TEMP/pr-body.md")"
+        echo "$url"
+        echo "url=$url" >> "$GITHUB_OUTPUT"
+        echo "bumped=true" >> "$GITHUB_OUTPUT"
