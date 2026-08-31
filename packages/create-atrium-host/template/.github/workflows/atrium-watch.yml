@@ -1,0 +1,71 @@
+name: Atrium release watch
+
+# Polls atrium for a new release once a day and opens a lockstep bump
+# PR — the image tag across every file that pins it, plus the
+# version-locked @brendanbank/atrium-host-* packages and the lockfile.
+# All the logic lives in the action; this file is just the trigger and
+# this host's pin layout.
+#
+# Setup, once: create a fine-grained PAT scoped to this repo with
+# Contents + Pull requests set to read and write, add Workflows write
+# too if any file listed in pin-files lives under .github/workflows,
+# and store it as the ATRIUM_BUMP_TOKEN secret. It must not be
+# GITHUB_TOKEN — a PR opened by GITHUB_TOKEN does not trigger
+# `pull_request` workflows, so CI would never exercise the new image.
+#
+# Note: GitHub disables `schedule` on a repo with 60 days of no
+# activity. If this repo goes quiet the poll stops silently; re-enable
+# it from the Actions tab or run `gh workflow run atrium-watch.yml`.
+
+on:
+  schedule:
+    # Deliberately off the hour — GitHub queues cron heavily at :00 and
+    # delays or drops runs scheduled there.
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "atrium version to adopt (e.g. 0.29.0). Blank = latest release."
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: atrium-watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    name: Check for a new atrium release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Same token the action pushes with, so the push is
+          # authenticated as the PAT rather than GITHUB_TOKEN.
+          token: ${{ secrets.ATRIUM_BUMP_TOKEN }}
+
+      # The lockfile must be regenerated with the same package manager
+      # version this host's CI uses, or the relock churns. That is why
+      # the action does not set this up itself.
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.33.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: brendanbank/atrium/.github/actions/host-atrium-bump@master
+        with:
+          token: ${{ secrets.ATRIUM_BUMP_TOKEN }}
+          version: ${{ inputs.version }}
+          # Every file in this host that carries the image tag. They are
+          # rewritten together and the bump refuses if any disagrees, so
+          # add a file here the moment you pin the tag in it.
+          pin-files: |
+            .env.example
+            Dockerfile
+            compose.yaml
