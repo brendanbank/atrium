@@ -21,6 +21,16 @@ name: Publish image
 # layer is cache-busted by `APT_REFRESH` — without that the warm
 # `type=gha` cache would make the scheduled run a silent no-op.
 #
+# Caveat until the next release: a scheduled run takes this workflow
+# from the default branch but the *Dockerfile from the resolved tag*.
+# A tag cut before `APT_REFRESH` existed has no `ARG APT_REFRESH`, so
+# the build-arg is simply unconsumed (BuildKit warns, the build still
+# succeeds) and nothing busts the cache. `pull: true` only helps when
+# `python:3.13-slim` itself moved. Otherwise the apt layer is restored
+# stale and the guard below fails the job -- correct behaviour, but it
+# means this cron stays red every Monday until a release is cut that
+# contains the `APT_REFRESH` Dockerfile.
+#
 # Per-arch parallel builds: amd64 on ubuntu-24.04, arm64 on
 # ubuntu-24.04-arm. Each matrix job pushes its image by digest only
 # (no tags); the merge job assembles the multi-arch manifest list
@@ -52,8 +62,17 @@ permissions:
   contents: read
   packages: write
 
+# Deliberately keyed on the workflow alone, NOT on ``github.ref``.
+# Every trigger mutates the same shared tags (``latest`` and the
+# truncated semver ones), but ``github.ref`` differs per trigger --
+# ``refs/tags/vX.Y.Z`` on a tag push, ``refs/heads/master`` on schedule
+# and dispatch. Keying on it puts a weekly rebuild and a concurrent
+# release push in *different* groups, so both run, both reach the merge
+# job, and whichever finishes last owns ``latest`` -- which can leave it
+# pointing at the older release, silently. Serialising every publish run
+# costs a queue wait on the rare collision and removes that race.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}
   cancel-in-progress: false
 
 # IMAGE_NAME is computed per-job from ``github.repository_owner``
@@ -98,7 +117,10 @@ jobs:
             # `releases/latest` excludes drafts and pre-releases, so
             # this is exactly the tag a consumer following `latest`
             # is running.
-            schedule)          ref=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" -q .tag_name) ;;
+            # `|| true` so a repo with no published release falls through
+            # to the explicit error below instead of dying on gh's own
+            # 404 under `set -e`, which would skip the friendly message.
+            schedule)          ref=$(gh api "repos/${GITHUB_REPOSITORY}/releases/latest" -q .tag_name 2>/dev/null || true) ;;
             *)                 ref="" ;;
           esac
           if [ -z "$ref" ]; then

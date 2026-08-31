@@ -56,9 +56,10 @@ jobs:
 
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e  # v4.3.0
 
-      # Required because the published runtime image is private. If
-      # the package is later flipped to public, this step becomes a
-      # no-op but still works.
+      # The `atrium` package is public, so this is not strictly
+      # required for pulls -- it is kept for the authenticated rate
+      # limit and so the step keeps working if the package is ever
+      # flipped back to private.
       - name: Log in to GHCR
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f  # v4.6.0
         with:
@@ -135,10 +136,17 @@ jobs:
           category: trivy-image
 
   # Scans the artifact consumers actually pull, not the recipe. The
-  # weekly cron runs an hour after `publish-images.yml` refreshes the
-  # current release tag, so this doubles as the check that the
-  # scheduled rebuild wasn't a silent cache no-op: a green run here
-  # means the tag in the registry is genuinely current.
+  # weekly cron is set an hour after `publish-images.yml` refreshes the
+  # current release tag, so in the normal case this also catches a
+  # rebuild that was a silent cache no-op.
+  #
+  # It is a scheduling convention, not a guarantee: GitHub runs cron
+  # workflows on a best-effort basis and delays them under load, so a
+  # rebuild that slips past 06:00 leaves this scanning last week's
+  # image. The failure direction is benign -- stale CVEs reported for
+  # an image that has since been refreshed, which clears itself on the
+  # next run -- so it is noise, never a false all-clear. Chain the two
+  # with `workflow_run` if that noise ever becomes annoying.
   #
   # Not run on PRs or master pushes - the published tag doesn't change
   # on either, so it would be the same scan over and over.
