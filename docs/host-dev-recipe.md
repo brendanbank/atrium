@@ -291,11 +291,74 @@ atrium bump — a new required env var, an alembic migration, a breaking
 and a host that took that bump without reading anything would come back up
 only as far as the API's startup validation.
 
-A host that wants bumps merged automatically can add a `workflow_run` gate
+### Merging bumps automatically
+
+A host that wants bumps merged without a click adds a `workflow_run` gate
 that squash-merges the PR once every check on its head commit is green.
 Prefer that over GitHub's native auto-merge unless the default branch has
 required status checks: without them `gh pr merge --auto` merges
-immediately, before CI starts.
+immediately, before CI starts. And required checks are not a free fix —
+if the host's workflows carry `paths-ignore: "**.md"`, a required check
+never reports on a doc-only PR and blocks it forever.
+
+Four details are load-bearing. Each one was found the hard way:
+
+```yaml
+on:
+  workflow_run:
+    # Every workflow that reports checks. Whichever finishes last is the
+    # one that merges; the earlier ones find checks pending and bail.
+    workflows: ["CI", "security", "codeql"]
+    types: [completed]
+
+jobs:
+  merge:
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      startsWith(github.event.workflow_run.head_branch, 'atrium-bump/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      # `gh pr checks` reads statusCheckRollup, and that single call
+      # needs three scopes: the check runs (checks), the commit statuses
+      # beside them (statuses), and the Actions API (actions), because
+      # the query resolves each check back to its producing run via
+      # checkSuite.workflowRun. Miss one and the whole query 403s with
+      # "Resource not accessible by integration", naming only the first
+      # field it could not reach — so they surface one at a time.
+      # Job-level permissions REPLACE the workflow-level block, so
+      # everything needed must be listed here.
+      checks: read
+      statuses: read
+      actions: read
+```
+
+1. **Exclude the gate's own check by name.** A `workflow_run` run reports a
+   check against the same head commit, so a gate that reads "all checks"
+   sees itself pending and never merges anything.
+2. **Merge only the commit the checks ran on.** Compare the PR's
+   `headRefOid` against `github.event.workflow_run.head_sha`; otherwise a
+   push landing after a green run inherits that run's success.
+3. **Refuse when zero checks are reported.** No evidence is not a pass —
+   and this is the branch that catches a misconfigured token, instead of
+   reading an unreadable answer as a green light.
+4. **Wait on the security workflow too, not just CI.** A large share of
+   atrium releases are security releases; the workflow running Trivy
+   against the new image is exactly the one that tells you whether the
+   bump achieved anything.
+
+### Do not add `cache: pnpm` to the watcher
+
+The caller sets up a package manager but the watch job does nothing on
+almost every run. `actions/setup-node` with `cache: pnpm` fails its post
+step when the store was never populated — `Path Validation Error: Path(s)
+specified in the action for caching do(es) not exist` — which reds the
+whole run on every quiet day. That is the noise that teaches you to ignore
+the workflow, and it hides a real failure behind an expected red X. There
+is nothing worth caching either: the only install this job ever performs
+is one lockfile-only relock on a bump day.
 
 ### If a release is only half published
 
