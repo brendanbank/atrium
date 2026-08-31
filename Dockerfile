@@ -95,7 +95,20 @@ WORKDIR /app
 # refresh. Trivy on this repo and on downstream consumers
 # (atrium-pa, etc.) was firing on every published image until this
 # was added — see milestone "Security alerts (May 2026)".
-RUN apt-get update \
+#
+# ``APT_REFRESH`` is a cache-buster, not a setting. BuildKit keys a
+# ``RUN`` on its expanded command string plus its parent layer, and
+# neither changes when Debian publishes a point release — so a warm
+# ``type=gha`` cache restores a weeks-old ``apt-get upgrade`` layer
+# and republishes the same stale packages while looking like it
+# worked (issue #239). ``publish-images.yml`` and ``security.yml``
+# feed today's UTC date, so the upgrade re-runs at most once a day
+# per cache scope; local builds keep the default and stay cached.
+# The expensive layers (pnpm build, uv sync) are in other stages and
+# are unaffected.
+ARG APT_REFRESH=static
+RUN echo "apt refresh marker: ${APT_REFRESH}" \
+ && apt-get update \
  && apt-get -y upgrade \
  && apt-get install -y --no-install-recommends curl \
  && rm -rf /var/lib/apt/lists/* \
