@@ -51,6 +51,7 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from sqlalchemy import LargeBinary, event
 from sqlalchemy.dialects.mysql import MEDIUMBLOB
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import flag_dirty
 from sqlalchemy.types import TypeDecorator
 
 from app.settings import get_settings
@@ -681,6 +682,18 @@ class UserSecret:
         # yet (``Device(secret=…, user_id=…)`` binds keywords in the
         # order written), and the key may not be unlocked yet either.
         instance.__dict__[self._pending_slot] = value
+        # The slot is not a mapped attribute, so writing it tells
+        # SQLAlchemy nothing and the row never reaches
+        # ``session.dirty`` -- which is what ``before_flush`` iterates.
+        # On a clean persistent row that silently discarded the write:
+        # commit succeeded, ciphertext unchanged. Rotating a credential
+        # without touching another column is the single most common
+        # thing a host's edit form does, so the one case that failed
+        # was the main one. The ``None`` branch above never had the bug
+        # because it assigns a mapped column. ``flag_dirty`` is a no-op
+        # on a transient instance, so the constructor path is
+        # unaffected.
+        flag_dirty(instance)
 
     # -- flush ------------------------------------------------------- #
 
