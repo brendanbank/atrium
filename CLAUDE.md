@@ -904,6 +904,13 @@ Failure modes that still apply to atrium:
     alongside `APP_SECRET_KEY` / `JWT_SECRET`, so a test that only
     sets those two now fails at `Settings()` construction rather than
     at the assertion it cares about.
+16. **A `yield` dependency stays open until the response body is
+    fully sent.** On a long-lived `StreamingResponse` that means
+    `Depends(get_session)` pins one pooled DB connection for the
+    entire life of the stream — a few open browser tabs on the SSE
+    bell was enough to exhaust the pool and 500 every endpoint
+    (issue #246). Streaming routes must use `current_user_streaming`
+    (releases the session before the body runs), never `current_user`.
 
 ## Session expectations for an AI assistant
 

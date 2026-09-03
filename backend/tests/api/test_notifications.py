@@ -18,6 +18,7 @@ the kind.
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 
 import pytest
@@ -253,3 +254,117 @@ async def test_unread_only_filter(client, engine):
         await client.get("/notifications", params={"unread_only": "true"})
     ).json()
     assert {r["kind"] for r in only_unread} == {"will-leave"}
+
+
+# ---- SSE stream connection-pool behaviour (issue #246) -----------------
+
+
+async def _drive_sse_stream(asgi_app, cookie_header: str):
+    """Open ``/notifications/stream`` over raw ASGI and return once the
+    first body chunk has been pushed, leaving the stream open.
+
+    httpx's ``ASGITransport`` joins the whole body before handing back a
+    response, so it can never see a live SSE stream -- it would block
+    forever. Driving the ASGI callable directly is the only way to
+    observe the server while the connection is still open.
+
+    Returns ``(task, disconnect_event, first_chunk_event, pool_samples)``.
+    The caller must set ``disconnect_event`` and await ``task``.
+    """
+    disconnect = asyncio.Event()
+    first_chunk = asyncio.Event()
+
+    async def receive():
+        await disconnect.wait()
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        if message["type"] == "http.response.body" and message.get("body"):
+            first_chunk.set()
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "GET",
+        "path": "/notifications/stream",
+        "raw_path": b"/notifications/stream",
+        "query_string": b"",
+        "root_path": "",
+        "scheme": "http",
+        "server": ("test", 80),
+        "client": ("127.0.0.1", 123),
+        "headers": [
+            (b"host", b"test"),
+            (b"cookie", cookie_header.encode()),
+        ],
+    }
+
+    task = asyncio.create_task(asgi_app(scope, receive, send))
+    await asyncio.wait_for(first_chunk.wait(), timeout=15)
+    return task, disconnect
+
+
+@pytest.mark.asyncio
+async def test_sse_stream_does_not_pin_a_pooled_connection(
+    client, asgi_app, engine
+):
+    """A live SSE stream must hold zero pooled DB connections.
+
+    ``Depends(current_user)`` resolves ``get_session``, and FastAPI
+    defers yield-dependency teardown until the response body is fully
+    sent -- which for an SSE stream is "when the tab closes". That
+    pinned one connection per open stream and drained the pool with a
+    handful of tabs (issue #246). The stream body itself never touches
+    the database, so the correct steady state is zero.
+    """
+    await seed_admin(engine)
+    await login(client, "admin@example.com", "admin-pw-123", engine=engine)
+    cookie_header = "; ".join(f"{k}={v}" for k, v in client.cookies.items())
+
+    pool = engine.sync_engine.pool
+    assert pool.checkedout() == 0, "pool not idle before the stream opened"
+
+    task, disconnect = await _drive_sse_stream(asgi_app, cookie_header)
+    try:
+        assert pool.checkedout() == 0, (
+            "the open SSE stream is holding a pooled connection"
+        )
+    finally:
+        disconnect.set()
+        await asyncio.wait_for(task, timeout=15)
+
+
+@pytest.mark.asyncio
+async def test_sse_stream_still_rejects_an_unauthenticated_caller(
+    client, asgi_app, engine
+):
+    """Releasing the session early must not weaken the auth gate."""
+    _ = client
+    _ = engine
+    statuses: list[int] = []
+
+    async def receive():
+        return {"type": "http.disconnect"}
+
+    async def send(message):
+        if message["type"] == "http.response.start":
+            statuses.append(message["status"])
+
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "GET",
+        "path": "/notifications/stream",
+        "raw_path": b"/notifications/stream",
+        "query_string": b"",
+        "root_path": "",
+        "scheme": "http",
+        "server": ("test", 80),
+        "client": ("127.0.0.1", 123),
+        "headers": [(b"host", b"test")],
+    }
+
+    await asyncio.wait_for(asgi_app(scope, receive, send), timeout=15)
+    assert statuses == [401]

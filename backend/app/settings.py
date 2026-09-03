@@ -35,6 +35,14 @@ class Settings(BaseSettings):
     database_url: str = (
         "mysql+aiomysql://atrium:atrium-change-me@mysql:3306/atrium"
     )
+    # Connection-pool ceiling per process (api and worker each get their
+    # own). SQLAlchemy's stock 5 + 10 is tight for this app: one SPA page
+    # load fans out to roughly 15 parallel XHRs, so the defaults left no
+    # headroom at all (issue #246). Total connections to MySQL is
+    # (pool_size + max_overflow) * processes - keep that under the
+    # server's max_connections.
+    db_pool_size: int = 10
+    db_max_overflow: int = 20
 
     jwt_secret: str = "dev-insecure-change-me"
     # Default 7 days. No refresh-token rotation is implemented, so this
