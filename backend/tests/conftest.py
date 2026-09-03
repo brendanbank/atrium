@@ -320,8 +320,14 @@ class _ApiPrefixASGI:
 
 
 @pytest_asyncio.fixture
-async def client(engine: AsyncEngine) -> AsyncGenerator[httpx.AsyncClient, None]:
-    """HTTP client with DB override bound to the test engine."""
+async def asgi_app(engine: AsyncEngine) -> _ApiPrefixASGI:
+    """The app object ``client`` drives, exposed as a raw ASGI callable.
+
+    httpx's ``ASGITransport`` buffers the whole response body and waits
+    for the app to finish, so it deadlocks on an endless SSE stream.
+    Tests that need to inspect a live stream call this fixture directly
+    and supply their own ``receive`` / ``send``.
+    """
     app = create_app()
 
     factory = async_sessionmaker(engine, expire_on_commit=False, autoflush=False)
@@ -331,8 +337,15 @@ async def client(engine: AsyncEngine) -> AsyncGenerator[httpx.AsyncClient, None]
             yield s
 
     app.dependency_overrides[get_session] = _override_get_session
+    return _ApiPrefixASGI(app)
 
-    transport = httpx.ASGITransport(app=_ApiPrefixASGI(app))
+
+@pytest_asyncio.fixture
+async def client(
+    engine: AsyncEngine, asgi_app: _ApiPrefixASGI
+) -> AsyncGenerator[httpx.AsyncClient, None]:
+    """HTTP client with DB override bound to the test engine."""
+    transport = httpx.ASGITransport(app=asgi_app)
     async with httpx.AsyncClient(
         transport=transport, base_url="http://test"
     ) as c:

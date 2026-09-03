@@ -19,7 +19,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth.users import current_user
+from app.auth.users import current_user, current_user_streaming
 from app.db import get_session
 from app.logging import log
 from app.models.auth import User
@@ -125,7 +125,7 @@ _STREAM_KEEPALIVE_SECONDS = 15
 @router.get("/stream")
 async def notifications_stream(
     request: Request,
-    user: User = Depends(current_user),
+    user: User = Depends(current_user_streaming),
 ):
     """One-way server push so the bell updates without polling.
 
@@ -133,6 +133,13 @@ async def notifications_stream(
     message is the signal; the client refetches /notifications and
     /unread-count to get the real state. Keeps the wire format simple
     and side-steps ordering/consistency concerns.
+
+    Auth uses ``current_user_streaming``, not ``current_user``:
+    FastAPI holds a ``yield`` dependency open until the response body
+    is fully sent, so the plain dep would pin one pooled DB connection
+    per open tab for the whole life of the stream and exhaust the pool
+    (issue #246). The body below never touches the database — it only
+    reads the in-memory hub queue.
     """
     queue = hub.subscribe(user.id)
     log.info("sse.stream.open", user_id=user.id, subs=len(hub._subs.get(user.id, ())))

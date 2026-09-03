@@ -30,6 +30,8 @@ def get_engine() -> AsyncEngine:
             settings.database_url,
             pool_pre_ping=True,
             pool_recycle=3600,
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
             # READ COMMITTED drops InnoDB's gap / next-key locks so the
             # worker's ``SELECT ... FOR UPDATE SKIP LOCKED`` claim on
             # ``scheduled_jobs`` only holds a record lock on the claimed

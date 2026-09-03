@@ -143,6 +143,7 @@ The minimum a fresh deploy needs (see `.env.example` for the rest):
 | `JWT_SECRET`               | long random string                                      |
 | `SECRET_ENCRYPTION_KEY`    | `openssl rand -hex 32` — encrypts host secret columns. **Back it up outside the DB dump**: lose it and those columns are unrecoverable |
 | `MYSQL_*`, `DATABASE_URL`  | DB credentials + DSN                                     |
+| `DB_POOL_SIZE`, `DB_MAX_OVERFLOW` | per-process connection-pool ceiling (defaults 10 / 20). The api and worker each get their own pool; keep the total under MySQL's `max_connections` |
 | `WEBAUTHN_RP_ID`           | host the credential is bound to (no scheme/port)         |
 | `WEBAUTHN_ORIGIN`          | full origin the registration ceremony runs from          |
 | `MAIL_BACKEND`             | `console` / `smtp` / `dummy` (auto-selects from env)     |

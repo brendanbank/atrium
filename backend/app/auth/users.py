@@ -11,6 +11,9 @@ Two tiers of "authenticated":
   ``/users/me``. No other code should import this.
 - ``current_user`` — wraps the partial dep and additionally requires
   ``auth_sessions.totp_passed=True``. Every domain endpoint uses this.
+- ``current_user_streaming`` — same gates as ``current_user`` but
+  releases the request session before the route body runs. Only for
+  endpoints that return a long-lived streaming / SSE response.
 
 For permission gates use ``app.auth.rbac.require_perm("…")``. The
 ``require_admin`` shortcut here is a convenience for routes that just
@@ -170,6 +173,36 @@ async def current_user(
         # let the user through with their existing factors and the
         # next request will retry.
         pass
+    return user
+
+
+async def current_user_streaming(
+    user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session),
+) -> User:
+    """``current_user`` for routes returning a long-lived response.
+
+    FastAPI defers teardown of ``yield`` dependencies until *after* the
+    response body has been fully sent. For a ``StreamingResponse`` that
+    stays open for minutes or hours (the SSE notification stream), the
+    request-scoped ``AsyncSession`` - and with it one pooled DB
+    connection - would stay checked out for the entire life of the
+    stream, even though the stream body never touches the database. A
+    handful of open browser tabs is then enough to drain the pool and
+    500 every other endpoint (issue #246).
+
+    Closing the session here hands the connection back immediately.
+    The session object stays usable afterwards (SQLAlchemy checks a
+    connection back out on the next statement) and the teardown
+    ``close()`` at the end of the request is a no-op. ``user`` is
+    detached but keeps every loaded attribute because the session
+    factory sets ``expire_on_commit=False``.
+
+    Use this instead of ``current_user`` on any route that returns a
+    streaming / SSE body. Ordinary routes must keep ``current_user``:
+    they want the shared request session to still be open.
+    """
+    await session.close()
     return user
 
 

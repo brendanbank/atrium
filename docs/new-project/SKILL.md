@@ -348,6 +348,7 @@ The retrofit is done when:
 ```python
 # Backend
 from app.auth.users import current_user                  # auth required
+from app.auth.users import current_user_streaming        # auth on SSE/streaming routes
 from app.auth.rbac import require_perm                   # permission required
 from app.auth.rbac_seed import seed_permissions_sync     # in alembic migration
 from app.auth.rbac_seed import seed_permissions          # at runtime startup

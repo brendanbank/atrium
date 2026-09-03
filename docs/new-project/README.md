@@ -1148,6 +1148,12 @@ once on a known schema).
 ```python
 # Auth
 from app.auth.users import current_user, require_admin
+# Same gates as current_user, but releases the request's DB session
+# before the route body runs. Use it on any route that returns a
+# StreamingResponse / SSE body -- FastAPI keeps yield dependencies open
+# until the body is fully sent, so current_user would pin one pooled
+# connection for the whole life of the stream.
+from app.auth.users import current_user_streaming
 from app.auth.rbac import require_perm
 from app.auth.rbac_seed import seed_permissions_sync, seed_permissions
 
