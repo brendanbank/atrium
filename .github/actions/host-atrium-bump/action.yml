@@ -236,8 +236,14 @@ runs:
         FRONTEND_DIR: ${{ inputs.frontend-dir }}
         PKG_MANAGER: ${{ inputs.package-manager }}
         TARGET: ${{ steps.gate.outputs.target }}
+        # Passed through the environment rather than interpolated into
+        # the script body: an expression expanded inline is spliced in
+        # as shell source before bash ever sees it, so anything that
+        # could influence it becomes code. Every other value in this
+        # action already arrives via env; this was the last inline one.
+        ACTION_PATH: ${{ github.action_path }}
       run: |
-        "${{ github.action_path }}/bump.sh" "$TARGET" --ci
+        "$ACTION_PATH/bump.sh" "$TARGET" --ci
 
     - name: Commit, push, and open the PR
       id: pr
