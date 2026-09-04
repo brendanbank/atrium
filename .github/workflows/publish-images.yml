@@ -138,6 +138,14 @@ jobs:
         with:
           ref: ${{ needs.resolve.outputs.ref }}
 
+      # Read the sha off the checkout, not ``github.sha``: on
+      # ``workflow_dispatch`` and ``schedule`` the latter is the
+      # workflow file's branch (master), while the checkout above is
+      # at the resolved tag — a re-publish would otherwise stamp the
+      # image with a commit it wasn't built from.
+      - name: Resolve build commit
+        run: echo "BUILD_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
       - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e  # v4.3.0
 
       - name: Log in to GHCR
@@ -228,6 +236,8 @@ jobs:
             VITE_API_BASE_URL=/api
             VITE_DEFAULT_LANGUAGE=en
             APT_REFRESH=${{ needs.resolve.outputs.apt_refresh }}
+            ATRIUM_VERSION=${{ needs.resolve.outputs.ref }}
+            ATRIUM_COMMIT=${{ env.BUILD_COMMIT }}
           # No tags here — push-by-digest is what lets the merge job
           # below assemble the multi-arch manifest list under the
           # real semver tags.

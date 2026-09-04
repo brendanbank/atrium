@@ -1,4 +1,8 @@
 {
+  "version": {
+    "atrium": "Atrium",
+    "app": "App"
+  },
   "app": {
     "title": "Atrium"
   },
@@ -9,7 +13,8 @@
     "profile": "Profil",
     "logout": "Abmelden",
     "notifications": "Benachrichtigungen",
-    "toggle": "Navigation umschalten"
+    "toggle": "Navigation umschalten",
+    "account": "Kontomenü"
   },
   "home": {
     "welcome": "Willkommen",

@@ -78,6 +78,13 @@ FROM backend-base AS dev
 COPY backend/pyproject.toml backend/uv.lock* ./
 RUN uv sync 2>/dev/null || uv sync
 COPY backend/ .
+# Same build stamp as the runtime stage — see the comment there. The
+# dev stack bind-mounts the source over /app, but the ENV survives, so
+# ``GET /api/version`` reports the working tree's git state too.
+ARG ATRIUM_VERSION=""
+ARG ATRIUM_COMMIT=""
+ENV ATRIUM_VERSION=${ATRIUM_VERSION} \
+    ATRIUM_COMMIT=${ATRIUM_COMMIT}
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
@@ -139,6 +146,25 @@ RUN rm -rf /opt/venv/lib/python*/site-packages/pip* \
 COPY --chown=app:app backend/ .
 # Built SPA dist — FastAPI mounts this at / via SPAStaticFiles.
 COPY --from=frontend-builder --chown=app:app /app/dist /opt/atrium/static
+
+# Build stamp. ``GET /api/version`` reads these and the SPA renders
+# them in the user menu, so an operator can tell which atrium a
+# deployment is running without exec-ing into the container.
+#
+# ``ATRIUM_VERSION`` is the git tag, verbatim (``v0.29.1``);
+# ``ATRIUM_COMMIT`` is the sha. An untagged build leaves the version
+# empty and reports the commit alone. Both are empty on an unstamped local build — the
+# endpoint then falls back to the pyproject version.
+#
+# Deliberately the last layers before USER: a build-arg change
+# invalidates everything after it, and every expensive layer (apt,
+# venv copy, SPA copy) is above this point. As ``ENV`` they are
+# inherited by host images built ``FROM`` this one, which is how
+# ``/api/version`` can report both layers from one place.
+ARG ATRIUM_VERSION=""
+ARG ATRIUM_COMMIT=""
+ENV ATRIUM_VERSION=${ATRIUM_VERSION} \
+    ATRIUM_COMMIT=${ATRIUM_COMMIT}
 
 USER app
 

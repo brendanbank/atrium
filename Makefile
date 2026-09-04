@@ -14,6 +14,24 @@
         smoke-hello-build-bundle-dev \
         web-install web-reinstall reset-test-state
 
+# --- Build stamp -------------------------------------------------
+# Baked into the image as ATRIUM_VERSION / ATRIUM_COMMIT so
+# ``GET /api/version`` (and the version block in the SPA's user menu)
+# can report what is actually deployed. ``--exact-match`` is
+# deliberate: only a real tag counts as a version, everything else
+# reports the commit alone. The tag is stamped verbatim (``v0.29.1``,
+# not ``0.29.1``) — it is meant to be pasted into ``git checkout``.
+# ``export`` puts them in the environment of every recipe, where
+# compose picks them up as ${ATRIUM_VERSION} / ${ATRIUM_COMMIT} build
+# args.
+export ATRIUM_VERSION := $(shell git describe --tags --exact-match 2>/dev/null)
+export ATRIUM_COMMIT := $(shell git rev-parse HEAD 2>/dev/null)
+# The Hello World example is a host image built on top of atrium, so it
+# stamps its own pair too. It lives in this repo, so its build is this
+# repo's git state — a real host repo would compute these from its own.
+export ATRIUM_APP_VERSION := $(ATRIUM_VERSION)
+export ATRIUM_APP_COMMIT := $(ATRIUM_COMMIT)
+
 COMPOSE_DEV := docker compose -f docker-compose.yml -f docker-compose.dev.yml
 COMPOSE_E2E := docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml
 COMPOSE_PROD := docker compose -f docker-compose.yml

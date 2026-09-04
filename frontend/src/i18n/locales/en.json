@@ -1,4 +1,8 @@
 {
+  "version": {
+    "atrium": "Atrium",
+    "app": "App"
+  },
   "app": {
     "title": "Atrium"
   },
@@ -9,7 +13,8 @@
     "profile": "Profile",
     "logout": "Log out",
     "notifications": "Notifications",
-    "toggle": "Toggle navigation"
+    "toggle": "Toggle navigation",
+    "account": "Account menu"
   },
   "home": {
     "welcome": "Welcome",

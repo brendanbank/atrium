@@ -35,6 +35,7 @@ import {
 } from '@/admin/sections';
 import { useAppConfig } from '@/hooks/useAppConfig';
 import { useMe, useLogout } from '@/hooks/useAuth';
+import { useVersionInfo } from '@/hooks/useVersion';
 import {
   getNavGroups,
   getNavItems,
@@ -47,6 +48,7 @@ import type { CurrentUser } from '@/lib/auth';
 import { AnnouncementBanner } from './AnnouncementBanner';
 import { ImpersonationBanner } from './ImpersonationBanner';
 import { NotificationsBell } from './NotificationsBell';
+import { VersionMenuLabel } from './VersionMenuLabel';
 
 export function AppLayout() {
   const [opened, { toggle, close }] = useDisclosure();
@@ -59,6 +61,11 @@ export function AppLayout() {
   const location = useLocation();
   const adminItems = useAdminSectionItems();
   const settingsItems = useSettingsSectionItems();
+  // Warm the cache while the header renders. Mantine only mounts the
+  // dropdown's children on open, so without this the version lines
+  // would pop in a beat after the user clicks the avatar. Same query
+  // key as the one VersionMenuLabel reads, so this is one request.
+  useVersionInfo(Boolean(me));
 
   // Controlled disclosure for the parent nav groups (Settings, Admin,
   // any future host-registered group). Mantine v9's ``defaultOpened``
@@ -168,11 +175,27 @@ export function AppLayout() {
             {me && (
               <Menu position="bottom-end" shadow="md">
                 <Menu.Target>
-                  <Avatar radius="xl" size="sm" style={{ cursor: 'pointer' }}>
+                  {/* The avatar is the only entry point to profile,
+                   *  logout and the deployment's version block, so it
+                   *  needs a name for screen readers (and a stable
+                   *  hook for the e2e spec that isn't locale-bound). */}
+                  <Avatar
+                    radius="xl"
+                    size="sm"
+                    component="button"
+                    type="button"
+                    aria-label={t('nav.account')}
+                    data-testid="user-menu"
+                    style={{ cursor: 'pointer', border: 0 }}
+                  >
                     {initials}
                   </Avatar>
                 </Menu.Target>
                 <Menu.Dropdown>
+                  {/* Which builds are deployed — atrium's and, on a
+                   *  host app, its own. Above the email because it
+                   *  describes the deployment, not the account. */}
+                  <VersionMenuLabel appName={brand?.name} />
                   <Menu.Label>{me.email}</Menu.Label>
                   <Menu.Item
                     leftSection={<IconUser size={14} />}
