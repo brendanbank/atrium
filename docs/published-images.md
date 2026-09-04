@@ -769,6 +769,66 @@ once published.
 compose (the shared image's `HEALTHCHECK` curls /healthz, which will
 always fail on the worker).
 
+**Version reporting** (since atrium 0.30): `GET /api/version`
+returns the build stamps of both layers, and the SPA renders them at
+the top of the signed-in user menu (click the avatar, above the
+account email):
+
+```json
+{
+  "atrium": {"name": "Atrium", "version": "v0.29.1", "commit": "912b5da..."},
+  "app":    {"name": "West Monroe", "version": "1.4.0", "commit": "deadbee..."}
+}
+```
+
+which the menu renders as:
+
+```
+Atrium v0.29.1              Atrium v0.29.1
+West Monroe 1.4.0           atrium-pa: 22d2801
+     (app tagged)              (app untagged)
+```
+
+The values are **baked into the image at build time** as env vars, not
+derived at runtime — the runtime image has no `.git` and no git
+binary. Atrium's publish workflow stamps `ATRIUM_VERSION` (the release tag,
+verbatim) and `ATRIUM_COMMIT` (the sha it was built from);
+because Docker inherits `ENV` across `FROM`, those two ride along into
+your image untouched. Your Dockerfile stamps the other three:
+
+```dockerfile
+ARG ATRIUM_APP_NAME="My App"
+ARG ATRIUM_APP_VERSION=""
+ARG ATRIUM_APP_COMMIT=""
+ENV ATRIUM_APP_NAME=${ATRIUM_APP_NAME} \
+    ATRIUM_APP_VERSION=${ATRIUM_APP_VERSION} \
+    ATRIUM_APP_COMMIT=${ATRIUM_APP_COMMIT}
+```
+
+...fed from your build:
+
+```bash
+docker build \
+  --build-arg ATRIUM_APP_VERSION="$(git describe --tags --exact-match 2>/dev/null)" \
+  --build-arg ATRIUM_APP_COMMIT="$(git rev-parse HEAD)" .
+```
+
+Tag if there is one, commit otherwise: an untagged build leaves
+`ATRIUM_APP_VERSION` empty and the line becomes `<name>: <short sha>`,
+so a deployment is always identifiable. Tags are shown verbatim (the
+`v` is not stripped) — the string is meant to be pasted straight into
+`git checkout`. The colon is what tells a sha apart from a version at
+a glance. `ATRIUM_APP_NAME` is optional
+— when it's unset the menu labels the line with the brand name from
+`/app-config`. Stamp nothing at all and the `app` half is `null`; the
+menu then shows the atrium line only.
+
+The endpoint is authenticated-only, for the same reason the `version`
+field in `GET /app-config` is (issue #179): an anonymous version string
+lets a scanner fingerprint dependency versions for CVE matching.
+The `ATRIUM_APP_*` prefix keeps these out of atrium's own `APP_*`
+settings namespace (`APP_SECRET_KEY`, `APP_BASE_URL`, `APP_ROLE`).
+
 **Static directory override**: `ATRIUM_STATIC_DIR` (default
 `/opt/atrium/static`) controls where FastAPI mounts the SPA from. Useful
 if you want to bind-mount a different bundle without rebuilding the image.

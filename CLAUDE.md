@@ -829,6 +829,37 @@ sees the real client IP.
   testing on `:9443`. Atrium's FastAPI mounts every JSON route under
   `/api/*`; the SPA static mount catches everything else.
 
+### Version reporting
+
+`GET /api/version` answers "which atrium is this, and which build of
+the app on top of it?" — two layers, because a host deployment is two
+images stacked. The SPA renders both at the top of the signed-in user
+menu, above the account email (`VersionMenuLabel`).
+
+The stamps are **baked at image build time** as env vars, never
+derived at runtime (the runtime image has no `.git`, no git binary,
+and the `pyproject` version only names a release line, not a commit):
+
+- `ATRIUM_VERSION` / `ATRIUM_COMMIT` — set by atrium's own Dockerfile
+  build args. `publish-images.yml` feeds the release tag verbatim and
+  the sha of the checkout it built; the Makefile feeds
+  `git describe --tags --exact-match` + `git rev-parse HEAD` for local
+  builds. Unstamped, atrium falls back to the `pyproject` version.
+- `ATRIUM_APP_NAME` / `ATRIUM_APP_VERSION` / `ATRIUM_APP_COMMIT` — set
+  by the *host* image's Dockerfile. The atrium pair rides along
+  because Docker inherits `ENV` across `FROM`, so the host only
+  stamps its own three. All three unset means "no host layer" and the
+  endpoint returns `app: null`.
+
+Tag if there is one, commit otherwise — an untagged build renders as
+`<name>: <short sha>` (`atrium-pa: 22d2801`) so a deployment is always
+identifiable. Tags are verbatim, `v` and all; the colon is what keeps
+a sha from reading as a version number.
+`app.services.build_info` resolves both halves;
+`app/api/version.py` is the wire shape. Authenticated-only, same
+fingerprinting argument as the `version` field in `/app-config`
+(issue #179).
+
 ### First deploy on a new box
 
 See `README.md` -> **Prod** for the exact sequence. After editing

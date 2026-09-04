@@ -37,6 +37,11 @@ services:
       dockerfile: examples/hello-world/Dockerfile
       args:
         ATRIUM_IMAGE: ${ATRIUM_IMAGE:-ghcr.io/brendanbank/atrium:latest}
+        # Host build stamp — reported by GET /api/version alongside the
+        # atrium line inherited from the base image. Empty locally
+        # unless the caller exports them (the repo Makefile does).
+        ATRIUM_APP_VERSION: ${ATRIUM_APP_VERSION:-}
+        ATRIUM_APP_COMMIT: ${ATRIUM_APP_COMMIT:-}
     image: atrium-hello-world:latest
     pull_policy: never
     restart: unless-stopped

@@ -37,6 +37,25 @@ RUN /opt/venv/bin/python -m ensurepip --upgrade \
 # Bake the host bundle into atrium's static dir at /host/main.js.
 COPY --from=frontend-builder /app/dist /opt/atrium/static/host
 
+# Build stamp for ``GET /api/version`` — the SPA renders it in the
+# user menu next to the atrium line, so an operator can see both
+# layers at a glance. ``ATRIUM_VERSION`` / ``ATRIUM_COMMIT`` are
+# inherited as ENV from the atrium base image; these three describe
+# *this* image.
+#
+# Wire them up in CI, e.g.:
+#   docker build \
+#     --build-arg ATRIUM_APP_VERSION="$(git describe --tags --exact-match 2>/dev/null)" \
+#     --build-arg ATRIUM_APP_COMMIT="$(git rev-parse HEAD)" .
+# An untagged build leaves the version empty and the UI renders the
+# line as ``<name>: <short sha>``.
+ARG ATRIUM_APP_NAME="__BRAND_NAME__"
+ARG ATRIUM_APP_VERSION=""
+ARG ATRIUM_APP_COMMIT=""
+ENV ATRIUM_APP_NAME=${ATRIUM_APP_NAME} \
+    ATRIUM_APP_VERSION=${ATRIUM_APP_VERSION} \
+    ATRIUM_APP_COMMIT=${ATRIUM_APP_COMMIT}
+
 USER app
 
 # Re-declare HEALTHCHECK on the derived image. The base atrium image

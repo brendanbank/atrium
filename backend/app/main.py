@@ -39,6 +39,7 @@ from app.api.sessions import router as sessions_router
 from app.api.signup import router as signup_router
 from app.api.totp import admin_router as totp_admin_router
 from app.api.totp import router as totp_router
+from app.api.version import router as version_router
 from app.api.webauthn import router as webauthn_router
 from app.auth.backend import auth_backend
 from app.auth.pat_middleware import PATAuthMiddleware
@@ -179,6 +180,7 @@ def create_app() -> FastAPI:
     # See issue #89.
     api_router = APIRouter()
     api_router.include_router(health_router)
+    api_router.include_router(version_router)
 
     # Auth routes — no public /register; invite flow is the only path.
     api_router.include_router(
