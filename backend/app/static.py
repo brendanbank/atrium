@@ -3,7 +3,7 @@
 
 from starlette.exceptions import HTTPException
 from starlette.staticfiles import StaticFiles
-from starlette.types import Scope
+from starlette.types import Receive, Scope, Send
 
 
 class SPAStaticFiles(StaticFiles):
@@ -20,6 +20,29 @@ class SPAStaticFiles(StaticFiles):
     those filenames so they're safe to cache forever) and short-lived
     no-store on index.html itself (so a deploy ships immediately).
     """
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Reject non-HTTP scopes before ``StaticFiles`` asserts on them.
+
+        Starlette's ``Mount`` matches ``websocket`` scopes as well as
+        ``http`` ones, so the catch-all mount at "/" swallows every
+        handshake to a path with no websocket route -- which, in atrium,
+        is all of them. ``StaticFiles.__call__`` opens with
+        ``assert scope["type"] == "http"``, so an unauthenticated probe
+        (internet scanners sweeping for leaked Vite HMR endpoints) raises
+        an unhandled AssertionError and logs an ASGI traceback. Close the
+        handshake cleanly instead (issue #252).
+
+        If atrium ever grows real websocket endpoints they must be
+        registered before this mount, and the guard then only catches
+        genuinely unrouted paths.
+        """
+        if scope["type"] != "http":
+            if scope["type"] == "websocket":
+                await receive()  # websocket.connect
+                await send({"type": "websocket.close", "code": 1008})
+            return
+        await super().__call__(scope, receive, send)
 
     async def get_response(self, path: str, scope: Scope):
         served_spa_shell = path in ("", "index.html")
