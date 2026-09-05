@@ -32,8 +32,8 @@ your `.npmrc`, delete it — npmjs.org is the default registry.
 
 ## Versioning
 
-The package version tracks atrium's image version. Pin `^0.30` for
-"compatible with atrium 0.30.x"; bump together with the atrium image
+The package version tracks atrium's image version. Pin `^0.31` for
+"compatible with atrium 0.31.x"; bump together with the atrium image
 to pick up new registry slots. New slots land as **optional** members
 on `AtriumRegistry` first so a host that hasn't bumped yet still
 type-checks.

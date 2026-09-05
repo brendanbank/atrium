@@ -374,6 +374,8 @@ def init_worker(host: HostWorkerCtx) -> None:
         kind="welcome_email",
         handler=send_welcome_email,
         description="Send welcome email after signup",
+        # Optional: three tries at 60s / 5min / 15min before FAILED.
+        max_attempts=3,
     )
     # ...or schedule a recurring tick:
     host.scheduler.add_job(weekly_rollup, "cron", day_of_week="mon", hour=2)
@@ -385,6 +387,15 @@ Job rows in `scheduled_jobs` carry `kind`, opaque `payload`, and
 optional `entity_type` + `entity_id` for soft attribution. The
 runner claims rows via `next_due_job` (FOR UPDATE SKIP LOCKED) so
 multiple worker replicas are safe. Available since atrium 0.14.
+
+A handler that raises has its work rolled back and the row marked
+FAILED with `last_error`; the worker keeps draining. `max_attempts`
+(since 0.31) opts the kind into runner-level retries instead —
+`run_at` is pushed out by `backoff_seconds` (default 60s / 5min /
+15min) and the row stays PENDING until the budget is spent. Raise
+`app.jobs.runner.PermanentJobError` (re-exported from
+`app.host_sdk.worker`) for failures a retry can never fix, so a
+malformed payload doesn't spend fifteen minutes proving it.
 
 ### Synchronous email
 <a id="synchronous-email"></a>

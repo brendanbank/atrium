@@ -563,6 +563,32 @@ looks up the handler, runs it, marks `done`/`failed`. Jobs without a
 registered handler get cancelled with an explanatory `last_error` —
 loud failure, not silent stuck rows.
 
+**The failure path is load-bearing and easy to break.** `run_one`
+rolls the session back *before* it writes the failure record, then
+re-selects the row `FOR UPDATE` and increments `attempts` there. That
+ordering is the whole fix for issue #254: a handler that dies inside
+`flush()` leaves the session inactive, so bookkeeping written on top
+of it is discarded at commit — the row stays `pending, attempts=0`,
+the queue re-serves the same job every tick forever, and
+`PendingRollbackError` escapes into `_tick` and abandons the rest of
+the batch. Two corollaries: nothing may be written before the
+rollback, and nothing may read an attribute off the stale `job`
+instance after the handler failed (a lazy load on an inactive session
+re-raises and rebuilds the wedge one frame along). A failed handler's
+partial writes are rolled back with it — one job is one transaction.
+
+**Retries are opt-in per handler.**
+`register_handler(kind, handler, max_attempts=3,
+backoff_seconds=(60, 300, 900))` — or the same two kwargs on
+`host.register_job_handler` — leaves a failed row PENDING with
+`run_at` pushed out instead of marking it FAILED. `max_attempts=1`
+(the default, and what all three built-ins use) is the historical
+one-shot behaviour. A handler raising
+`app.jobs.runner.PermanentJobError` fails immediately regardless of
+budget, so a malformed payload doesn't spend three tries proving it.
+Retries are counted on `scheduled_jobs.attempts`, which only became
+trustworthy once the rollback ordering above was fixed.
+
 `reminder_rules` is the table behind the admin "schedule reminders"
 UI. Fields: `name`, `template_key` (soft reference to
 `email_templates.key` — the per-locale PK reshape in
@@ -935,7 +961,13 @@ Failure modes that still apply to atrium:
     alongside `APP_SECRET_KEY` / `JWT_SECRET`, so a test that only
     sets those two now fails at `Settings()` construction rather than
     at the assertion it cares about.
-16. **A `yield` dependency stays open until the response body is
+16. **A job handler that fails at `flush()` must not have its
+    bookkeeping written on the dead session.** `run_one` rolls back
+    first for exactly this reason (issue #254). A test that only
+    asserts the `job.failed` *log line* passes over the bug — the log
+    fires correctly while the row records nothing. Assert against a
+    re-read of the database row.
+17. **A `yield` dependency stays open until the response body is
     fully sent.** On a long-lived `StreamingResponse` that means
     `Depends(get_session)` pins one pooled DB connection for the
     entire life of the stream — a few open browser tabs on the SSE

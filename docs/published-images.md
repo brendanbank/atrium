@@ -223,6 +223,8 @@ def init_worker(host: HostWorkerCtx) -> None:
         — the typed equivalent of importing the internal
         ``app.jobs.runner.register_handler``. Atrium logs the
         registration and warns on duplicate ``kind`` registrations.
+        Pass ``max_attempts=N`` (since 0.31) to opt the kind into
+        runner-level retries with backoff.
     """
     from .handler import my_handler
 
@@ -271,7 +273,11 @@ Through the registries atrium already exposes:
   handler=handler, description="...")` from `init_worker(host)`. The
   runner dispatches `scheduled_jobs` rows to registered handlers;
   unknown `job_type` values are cancelled with a loud `last_error`
-  rather than retried indefinitely. Atrium logs every registration
+  rather than retried indefinitely. A handler that raises has its
+  work rolled back and the row marked FAILED — one try by default,
+  or `max_attempts=N` (since 0.31) for retries at 60s / 5min / 15min,
+  with `app.jobs.runner.PermanentJobError` as the "don't bother
+  retrying" signal. Atrium logs every registration
   (`host.job_handler.registered`) and warns on duplicate `kind`
   registrations (`host.job_handler.duplicate`). Importing the
   internal `app.jobs.runner.register_handler` directly still works
