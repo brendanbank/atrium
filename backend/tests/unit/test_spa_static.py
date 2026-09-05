@@ -44,9 +44,19 @@ def test_websocket_handshake_is_rejected_not_crashed(spa_client, path):
 
 
 def test_http_still_serves_the_shell(spa_client):
+    """The bare root is the URL every browser asks for first. ``get_path``
+    normalises it to "." rather than "", which used to fall past the
+    shell-served check and ship the shell with no cache directive at all."""
     resp = spa_client.get("/")
     assert resp.status_code == 200
     assert "atrium" in resp.text
+    assert resp.headers["cache-control"] == "no-store"
+
+
+def test_explicit_index_html_is_no_store(spa_client):
+    resp = spa_client.get("/index.html")
+    assert resp.status_code == 200
+    assert resp.headers["cache-control"] == "no-store"
 
 
 def test_http_unknown_route_falls_back_to_the_shell(spa_client):

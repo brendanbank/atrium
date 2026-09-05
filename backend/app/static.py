@@ -45,7 +45,11 @@ class SPAStaticFiles(StaticFiles):
         await super().__call__(scope, receive, send)
 
     async def get_response(self, path: str, scope: Scope):
-        served_spa_shell = path in ("", "index.html")
+        # ``get_path`` normalises the bare root "/" to "." (not ""), and
+        # StaticFiles' html mode resolves that directory to index.html.
+        # Missing it here left the most-requested URL of all without the
+        # no-store header below.
+        served_spa_shell = path in ("", ".", "index.html")
         try:
             response = await super().get_response(path, scope)
         except HTTPException as exc:
