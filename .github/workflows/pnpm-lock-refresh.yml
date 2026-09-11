@@ -57,6 +57,17 @@ jobs:
       - name: Regenerate root pnpm-lock.yaml
         run: pnpm install --lockfile-only --ignore-scripts
 
+      # `install --lockfile-only` resolves the new manifest but never
+      # collapses duplicate peer-resolutions, so a bump that moves one
+      # dependent onto a newer transitive (vitest 4.1.11 pulling
+      # picomatch 4.0.7 while vite still held 4.0.4) leaves the lock
+      # failing the `pnpm dedupe --check` gate in the host-sdk CI job.
+      # That is what made the vitest security PR (#256) land red even
+      # though this workflow had already relocked it. Dedupe here so
+      # the lock we push back satisfies the same gate CI applies.
+      - name: Dedupe root pnpm-lock.yaml
+        run: pnpm dedupe --lockfile-only --ignore-scripts
+
       - name: Regenerate frontend/pnpm-lock.yaml
         working-directory: frontend
         run: pnpm install --lockfile-only --ignore-scripts --ignore-workspace
