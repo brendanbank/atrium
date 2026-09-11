@@ -10,7 +10,7 @@
 ARG ATRIUM_IMAGE=ghcr.io/brendanbank/atrium:__ATRIUM_VERSION__
 
 # ---- frontend-builder ----
-FROM node:25-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 WORKDIR /app
 RUN npm install -g pnpm@10.33.1
 

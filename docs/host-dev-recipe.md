@@ -244,7 +244,7 @@ jobs:
       - uses: pnpm/action-setup@v4
         with: { version: 10.33.1 }
       - uses: actions/setup-node@v4
-        with: { node-version: "22" }
+        with: { node-version: "24" }
       - uses: brendanbank/atrium/.github/actions/host-atrium-bump@master
         with:
           token: ${{ secrets.ATRIUM_BUMP_TOKEN }}

@@ -17,10 +17,13 @@
 #   runtime          — final image: venv + backend src + built dist
 
 # ---- frontend-base ----
-FROM node:25-alpine AS frontend-base
+FROM node:24-alpine AS frontend-base
 WORKDIR /app
-# Node 25 unbundles corepack (``corepack enable`` fails with not-found),
-# so install pnpm via npm — same outcome, forward-compatible.
+# Install pnpm via npm rather than corepack. Corepack is deprecated and
+# was unbundled in Node 25 (``corepack enable`` fails with not-found
+# there); node:24-alpine still ships it, but going through npm keeps
+# this line working across both and needs no change when the base moves
+# forward again.
 RUN npm install -g pnpm@10.33.1
 
 # ---- frontend-dev ----

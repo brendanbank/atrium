@@ -129,7 +129,7 @@ and frontend host bits baked in):
 
 ```dockerfile
 # Build the host SPA bundle.
-FROM node:25-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 WORKDIR /app
 RUN npm install -g pnpm@10.33.1
 COPY frontend/package.json frontend/pnpm-lock.yaml* ./
