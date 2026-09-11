@@ -210,7 +210,7 @@ to install the host package and copy the bundle into the static dir:
 
 ```dockerfile
 ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.31
-FROM node:25-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 WORKDIR /app
 RUN npm install -g pnpm@10.33.1
 COPY frontend/package.json frontend/pnpm-lock.yaml* ./

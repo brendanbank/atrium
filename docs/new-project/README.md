@@ -79,7 +79,7 @@ dynamic-imported by atrium's SPA on boot.
 
 - Docker with Compose v2.
 - Node 25+ and pnpm 10+ if you want to build the host bundle on the host
-  (otherwise the Dockerfile builds it inside `node:25-alpine`).
+  (otherwise the Dockerfile builds it inside `node:24-alpine`).
 - Python 3.12+ if you want to run host backend tests on the host.
 - A pinned atrium tag: pick `X.Y` (auto-uptake patch releases) or
   `X.Y.Z` (fully deterministic). `latest` is for tinkering only.
@@ -787,7 +787,7 @@ into the wrapper).
 ARG ATRIUM_IMAGE=ghcr.io/<org>/atrium:0.31
 
 # ---- frontend-builder ----
-FROM node:25-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 WORKDIR /app
 RUN npm install -g pnpm@10.33.1
 COPY frontend/package.json frontend/pnpm-lock.yaml* ./

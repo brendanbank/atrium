@@ -30,7 +30,7 @@ ARG ATRIUM_IMAGE=ghcr.io/brendanbank/atrium:0.31
 # those in first (cache-friendly: lockfile changes invalidate this
 # layer but a source-only edit doesn't), install, then bring in the
 # actual source for `packages/*` and the example.
-FROM node:25-alpine AS frontend-builder
+FROM node:24-alpine AS frontend-builder
 WORKDIR /app
 RUN npm install -g pnpm@10.33.1
 
