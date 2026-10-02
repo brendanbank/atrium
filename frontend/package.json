@@ -29,7 +29,7 @@
     "@tiptap/pm": "^3.31.2",
     "@tiptap/react": "^3.31.2",
     "@tiptap/starter-kit": "^3.31.2",
-    "axios": "^1.18.0",
+    "axios": "^1.20.0",
     "dayjs": "^1.11.21",
     "i18next": "^26.3.0",
     "i18next-browser-languagedetector": "^8.2.1",
@@ -68,12 +68,12 @@
   },
   "pnpm": {
     "overrides": {
-      "undici": "^7.29.0",
+      "undici": "^7.30.0",
       "form-data": "^4.0.6",
       "@babel/core": "^7.29.6",
       "postcss": "^8.5.26",
       "nanoid": "^3.3.18",
-      "brace-expansion": "^5.0.8",
+      "brace-expansion": "^5.0.12",
       "postcss-selector-parser": "^7.1.6",
       "browserslist": "^4.28.8"
     }
