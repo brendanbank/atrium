@@ -101,12 +101,15 @@ jobs:
           # blob SHA make this a conditional update — if anything has
           # changed under us, GitHub returns 409 and we fail rather
           # than overwrite.
-          NEW_CONTENT_B64=$(base64 < artifact-uv-lock/uv.lock | tr -d '\n')
-          gh api -X PUT -H "Accept: application/vnd.github+json" \
-            "repos/$REPO/contents/backend/uv.lock" \
-            -f message="chore(deps): refresh uv.lock after Dependabot bump" \
-            -f content="$NEW_CONTENT_B64" \
-            -f sha="$CURRENT_BLOB_SHA" \
-            -f branch="$HEAD_REF" \
+          # The body is streamed through stdin: uv.lock's base64 is far
+          # past Linux's 128 KiB per-argument limit (MAX_ARG_STRLEN), so
+          # passing it as `-f content=...` fails with "Argument list too
+          # long" (the same bug that broke pnpm-lock-commit on #268).
+          base64 -w0 < artifact-uv-lock/uv.lock \
+            | jq -Rs --arg sha "$CURRENT_BLOB_SHA" --arg branch "$HEAD_REF" \
+                '{message:"chore(deps): refresh uv.lock after Dependabot bump",
+                  content:., sha:$sha, branch:$branch}' \
+            | gh api -X PUT -H "Accept: application/vnd.github+json" \
+                "repos/$REPO/contents/backend/uv.lock" --input - \
             > /dev/null
           echo "uv.lock committed to $HEAD_REF on PR #$NUMBER"

@@ -105,17 +105,22 @@ jobs:
             NEW_FILE="artifact-locks/$PATH_REL"
             [ -f "$NEW_FILE" ] || { echo "missing artifact $NEW_FILE" >&2; exit 1; }
 
-            CUR_B64=$(gh api -H "Accept: application/vnd.github+json" \
-              "repos/$REPO/contents/$PATH_REL?ref=$HEAD_REF" --jq '.content' | tr -d '\n')
-            NEW_B64=$(base64 -w0 < "$NEW_FILE" 2>/dev/null || base64 < "$NEW_FILE" | tr -d '\n')
-            CUR_NORM=$(printf '%s' "$CUR_B64" | base64 -d | sha256sum)
-            NEW_NORM=$(printf '%s' "$NEW_B64" | base64 -d | sha256sum)
-            if [ "$CUR_NORM" = "$NEW_NORM" ]; then
+            # Compare git blob SHAs rather than contents: no lockfile
+            # body ever lands in a shell variable.
+            CUR_SHA=$(gh api -H "Accept: application/vnd.github+json" \
+              "repos/$REPO/contents/$PATH_REL?ref=$HEAD_REF" --jq '.sha')
+            NEW_SHA=$(git hash-object --no-filters "$NEW_FILE")
+            if [ "$CUR_SHA" = "$NEW_SHA" ]; then
               echo "$PATH_REL unchanged"
               continue
             fi
 
-            BLOB_SHA=$(jq -n --arg c "$NEW_B64" '{content:$c, encoding:"base64"}' \
+            # Stream the body through stdin. Passing the base64 as a
+            # jq --arg overflowed Linux's 128 KiB per-argument limit
+            # (MAX_ARG_STRLEN) once frontend/pnpm-lock.yaml grew past
+            # ~96 KiB - "Argument list too long" on PR #268.
+            BLOB_SHA=$(base64 -w0 < "$NEW_FILE" \
+              | jq -Rs '{content:., encoding:"base64"}' \
               | gh api -X POST -H "Accept: application/vnd.github+json" \
                   "repos/$REPO/git/blobs" --input - --jq '.sha')
             TREE_ENTRIES=$(jq -c \
