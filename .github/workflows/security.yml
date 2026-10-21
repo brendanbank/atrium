@@ -98,6 +98,10 @@ jobs:
       - name: Trivy filesystem scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         with:
+          # trivy-action's default Trivy binary lags upstream (v0.36.0
+          # ships v0.70.0); newer check bundles skip modules on older
+          # binaries. Pin the scanner explicitly and bump with the action.
+          version: v0.76.0
           scan-type: fs
           scan-ref: .
           scanners: vuln,misconfig,secret
@@ -120,6 +124,7 @@ jobs:
       - name: Trivy image scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         with:
+          version: v0.76.0
           scan-type: image
           image-ref: atrium:scan
           format: sarif
@@ -175,6 +180,7 @@ jobs:
       - name: Trivy scan of the published image
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         with:
+          version: v0.76.0
           scan-type: image
           image-ref: ${{ steps.image.outputs.ref }}
           format: sarif
