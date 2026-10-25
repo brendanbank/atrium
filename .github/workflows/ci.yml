@@ -386,6 +386,21 @@ jobs:
           docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml logs api
           exit 1
 
+      - name: Probe the TLS proxy
+        # Playwright talks to the api on :8000 directly, so without this
+        # nothing exercises the nginx proxy that fronts every prod
+        # deployment: a base-image swap that broke gen-cert.sh or the
+        # conf would still pass CI. One request through :9443 covers
+        # the cert bootstrap, TLS and the proxy_pass to the api.
+        run: |
+          for i in $(seq 1 20); do
+            if curl -kfsS https://localhost:9443/api/healthz > /dev/null; then exit 0; fi
+            sleep 3
+          done
+          echo "proxy did not serve /api/healthz on :9443" >&2
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml -f docker-compose.e2e.yml logs proxy
+          exit 1
+
       - name: Run migrations
         run: make migrate
 

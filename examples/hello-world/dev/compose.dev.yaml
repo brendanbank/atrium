@@ -48,7 +48,7 @@ services:
   # that has to be a different port from Vite (:5173) so Vite doesn't
   # try to transform the imported module as source.
   hello-bundle:
-    image: nginx:alpine
+    image: nginx:alpine-slim
     restart: unless-stopped
     volumes:
       - ./examples/hello-world/frontend/dist:/usr/share/nginx/html:ro

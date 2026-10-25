@@ -823,7 +823,7 @@ Rationale and the rejected alternatives are in
 edge proxy (your firewall)             <- terminates public TLS
     |  TLS (self-signed origin)
     v
-proxy (nginx:alpine, :9443)            <- this repo; trusts XFF from edge
+proxy (nginx:alpine-slim, :9443)       <- this repo; trusts XFF from edge
     |  HTTP (docker network)
     +- /*      ->  api  (FastAPI on :8000 — serves both /api/* JSON
                           routes and the SPA dist via Starlette)
