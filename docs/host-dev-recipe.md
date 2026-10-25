@@ -370,7 +370,7 @@ opens a PR that cannot build.
 
 ## Backend test stack
 
-Use `testcontainers-mysql` against MySQL 8.0 — the same engine
+Use `testcontainers-mysql` against MySQL 8.4 — the same engine
 atrium uses, so timezone / collation / `DATETIME(0)` rounding
 behaviour matches prod.
 

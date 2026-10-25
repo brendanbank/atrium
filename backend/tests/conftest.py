@@ -113,7 +113,7 @@ def mysql_url() -> str:
         yield env_url
         return
 
-    with MySqlContainer("mysql:8.0") as mysql:
+    with MySqlContainer("mysql:8.4") as mysql:
         # testcontainers 4.x returns a driver-less ``mysql://...`` URL.
         # SQLAlchemy then defaults to the MySQLdb driver which we don't
         # install. Force aiomysql here; run_migrations below flips to

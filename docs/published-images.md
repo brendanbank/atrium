@@ -174,7 +174,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
 
   mysql:
-    image: mysql:8.0
+    image: mysql:8.4
     environment:
       MYSQL_DATABASE: app
       ...
