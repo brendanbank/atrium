@@ -57,6 +57,15 @@ updates:
       - "/examples/hello-world/frontend"
     schedule:
       interval: "weekly"
+    # /frontend runs TypeScript 7 side by side with the 6.0 API, per the
+    # TS 7 release notes: `@typescript/native` (npm:typescript) is the
+    # `tsc` that typecheck/build run, and `typescript` is aliased to the
+    # `@typescript/typescript6` shim because typescript-eslint has no
+    # TS 7 support yet and refuses to load under it. Don't "fix" the
+    # alias to plain typescript@7 - that is what turned the weekly group
+    # red at `pnpm lint` (#278). Collapse back to a single `typescript`
+    # dep once typescript-eslint supports 7
+    # (https://github.com/typescript-eslint/typescript-eslint/issues/10940).
     groups:
       npm-version-updates:
         applies-to: version-updates
