@@ -576,7 +576,7 @@ out of the host subtree.
   "devDependencies": {
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^6.0.3",
+    "typescript": "^7.0.2",
     "vite": "^8.0.10",
     "vite-plugin-css-injected-by-js": "^3.5.2"
   }
