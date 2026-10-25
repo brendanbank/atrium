@@ -57,6 +57,17 @@ updates:
       - "/examples/hello-world/frontend"
     schedule:
       interval: "weekly"
+    # TypeScript 7 (the native compiler) is out of range for
+    # typescript-eslint, which peers on `typescript <6.1.0` and refuses
+    # to load under 7.x. Bundled into the weekly group, the 6 -> 7 bump
+    # turned the whole PR red at `pnpm lint` and held up every other
+    # update in it, including a vitest security fix (#278). Majors only:
+    # the hello-world example is already on 7 and has no eslint, so its
+    # 7.x minors still flow. Drop this once typescript-eslint supports 7
+    # (https://github.com/typescript-eslint/typescript-eslint/issues/10940).
+    ignore:
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
     groups:
       npm-version-updates:
         applies-to: version-updates
