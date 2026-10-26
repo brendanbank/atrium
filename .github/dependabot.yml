@@ -89,7 +89,7 @@ updates:
         patterns: ["*"]
 
   # Docker base images. Separate entries per Dockerfile because
-  # Dependabot keys on directory. The nginx proxy pulls nginx:alpine
+  # Dependabot keys on directory. The nginx proxy pulls nginx:alpine-slim
   # straight from docker-compose.yml — not a tracked ecosystem.
   - package-ecosystem: "docker"
     directory: "/backend"

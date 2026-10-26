@@ -16,7 +16,7 @@ if [ -f "$CERT" ] && [ -f "$KEY" ]; then
     exit 0
 fi
 
-# nginx:alpine ships without openssl, so install it for the one-shot.
+# nginx:alpine-slim ships without openssl, so install it for the one-shot.
 if ! command -v openssl >/dev/null 2>&1; then
     apk add --no-cache openssl >/dev/null
 fi

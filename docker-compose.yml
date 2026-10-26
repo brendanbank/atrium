@@ -18,7 +18,12 @@
 
 services:
   proxy:
-    image: nginx:alpine
+    # alpine-slim, not alpine: the full tag adds the njs, image-filter,
+    # xslt and geoip modules plus the libraries they pull in (brotli,
+    # expat, libX11, libxml2), none of which this conf loads. They were
+    # the only scanner findings on the proxy (CVE-2026-111497 brotli and
+    # others), on the one container that faces the edge.
+    image: nginx:alpine-slim
     restart: unless-stopped
     environment:
       PROXY_CERT_CN: ${PROXY_CERT_CN:-atrium-internal}
