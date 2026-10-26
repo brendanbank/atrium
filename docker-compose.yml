@@ -98,7 +98,12 @@ services:
       disable: true
 
   mysql:
-    image: mysql:8.0
+    # 8.4 LTS. MySQL 8.0 went end-of-life in April 2026 and its image is
+    # no longer rebuilt. An existing 8.0 data volume is upgraded in place
+    # on first start, and that is one-way: 8.4 data can't be opened by
+    # 8.0 again, so take a dump (scripts/db-dump.sh) before the first
+    # `up` on 8.4.
+    image: mysql:8.4
     restart: unless-stopped
     command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+00:00
     environment:
