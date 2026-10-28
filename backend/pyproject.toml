@@ -40,6 +40,10 @@ dependencies = [
     # Direct, not transitive-via-webauthn/pyjwt: app.host_sdk.crypto is a
     # security-critical use and deserves a declared floor of its own.
     "cryptography>=50",
+    # Transitive via email-validator. Floored directly for CVE-2026-114605
+    # (unbounded DNS compression-pointer chain in from_wire_parser, fixed
+    # in 2.9.0) so a cached lock or deps layer can't keep the vulnerable one.
+    "dnspython>=2.9.0",
 ]
 
 [dependency-groups]
