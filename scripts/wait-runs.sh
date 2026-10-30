@@ -126,7 +126,9 @@ for entry in "${RESOLVED[@]}"; do
   # ``--exit-status`` is best-effort; we accept whatever it reports
   # and re-check below. ``|| true`` so a non-zero from watch alone
   # doesn't kill the loop before we've run every workflow.
-  gh run watch "$id" --exit-status || true
+  # ``WATCH_INTERVAL`` (seconds) slows the refresh; in CI each refresh
+  # is a full log line, and the default 3 s buries the run log.
+  gh run watch "$id" --exit-status --interval "${WATCH_INTERVAL:-3}" || true
   conclusion=$(gh run view "$id" --json conclusion --jq .conclusion 2>/dev/null || echo "")
   if [[ "$conclusion" != "success" ]]; then
     status=1

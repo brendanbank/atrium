@@ -14,18 +14,21 @@ version: 2
 # PR per advisory even when the `groups` block is set for version
 # updates.
 updates:
-  # Python backend. Dependabot reads pyproject.toml but does NOT
-  # understand uv.lock — the uv-lock-refresh workflow intercepts
-  # its PRs and regenerates the lockfile.
-  - package-ecosystem: "pip"
+  # Python backend. The `uv` ecosystem, not `pip`: Dependabot already
+  # files backend updates as uv (`dependabot/uv/...` branches, the
+  # `python:uv` label), so a `pip` entry matched none of them and its
+  # groups never applied - security fixes arrived one PR per package.
+  # As `uv` it also rewrites uv.lock itself; uv-lock-refresh stays as a
+  # fallback and commits nothing when the lock is already current.
+  - package-ecosystem: "uv"
     directory: "/backend"
     schedule:
       interval: "weekly"
     groups:
-      pip-version-updates:
+      uv-version-updates:
         applies-to: version-updates
         patterns: ["*"]
-      pip-security-updates:
+      uv-security-updates:
         applies-to: security-updates
         patterns: ["*"]
 

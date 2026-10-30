@@ -6,6 +6,35 @@ semver; the registry tag fan-out (`X.Y.Z`, `X.Y`, `X`, `latest`) is
 produced by `.github/workflows/publish-images.yml` on `v*` tag push,
 not by hand.
 
+## Automatic dependency releases
+
+Merged Dependabot updates don't need this procedure. `auto-release.yml`
+polls master hourly and, when everything since the last tag is a
+Dependabot merge, cuts the next patch release on its own — bump,
+compat-matrix row, tag, image, npm packages and a generated GitHub
+release. The conditions and the notes format are in
+[`docs/dependabot-automation.md`](docs/dependabot-automation.md#auto-release).
+
+It stands aside the moment master carries hand-written work: that work
+gets the hand release below, and any Dependabot merges waiting behind
+it ride along in it. Write them into the notes like any other change.
+
+**Recovering a failed auto-release.** If the run fails after pushing the
+tag, the next hourly run won't retry (there is nothing new since that
+tag). Finish it by hand — the run log prints the generated notes in the
+*Bump the version* step:
+
+```bash
+gh workflow run publish-images.yml -f ref=v<X.Y.Z>   # whichever failed
+gh workflow run publish-npm.yml -f ref=v<X.Y.Z>
+make release-wait V=<X.Y.Z>
+gh release create v<X.Y.Z> --title "v<X.Y.Z> — dependency updates" \
+  --notes-file <notes copied from the run log>
+```
+
+Re-dispatch only the workflow that failed: npm refuses to publish a
+version twice.
+
 ## 0. Prerequisites
 
 - GPG signing configured for commits *and* tags (the global default in

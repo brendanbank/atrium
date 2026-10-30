@@ -1,0 +1,162 @@
+# Copyright (c) 2026 Brendan Bank
+# SPDX-License-Identifier: BSD-2-Clause
+
+name: Auto-release
+
+# A Dependabot update that reaches master becomes a patch release:
+# version bump, tag, GHCR image, npm packages and GitHub release, with
+# nobody at the keyboard. Hand-written work is still released by hand
+# (RELEASING.md); this only covers the dependency lane.
+#
+# Whether to release is decided by `scripts/auto-release.py plan` - see
+# its docstring for the four conditions. In short: every commit since
+# the last tag is a Dependabot merge (or docs / tooling only), at least
+# one of them changes something that ships, and master has been quiet
+# for an hour so the weekly batch of PRs lands as one release.
+#
+# ## Why a schedule rather than `on: push`
+#
+# Two reasons. Batching: Dependabot's weekly run opens several PRs
+# that merge minutes apart, and `on: push` would cut a release (and a
+# subscriber email) per PR. Tokens: dependabot-auto-merge merges with
+# GITHUB_TOKEN, and a push made with GITHUB_TOKEN triggers no
+# workflow, so `on: push` would never see the merges it exists for.
+# An hourly poll needs neither a PAT nor a debounce.
+#
+# ## Why it dispatches the publish workflows
+#
+# The tag is pushed with GITHUB_TOKEN, so it does not fire
+# publish-images.yml / publish-npm.yml the way a hand-pushed tag does.
+# `workflow_dispatch` is the one event GITHUB_TOKEN may trigger, and
+# both workflows already take a `ref` input for re-publishing a tag.
+# The GitHub release is created only after both report success - same
+# rule as RELEASING.md step 8, so the notes never point at an image or
+# package version that doesn't exist.
+#
+# ## If a run fails after the tag is pushed
+#
+# The tag exists but the release doesn't, and the next hourly run sees
+# nothing new since that tag, so it won't retry on its own. Recover by
+# hand: re-dispatch whichever publish workflow failed with
+# `-f ref=vX.Y.Z`, then `gh release create` with the notes printed in
+# the failed run's log. RELEASING.md "Automatic dependency releases"
+# has the commands.
+on:
+  schedule:
+    - cron: "23 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: auto-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release merged dependency updates
+    runs-on: ubuntu-24.04
+    # A publish takes ~10 minutes; the default 6 h would let a hung
+    # build hold the concurrency group (and every hourly run behind it).
+    timeout-minutes: 60
+    permissions:
+      contents: write          # push the bump commit + tag, create the release
+      actions: write           # dispatch publish-images / publish-npm
+      pull-requests: read      # map master commits back to their PRs
+      security-events: read    # advisory detail for the notes (best effort)
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: master
+          fetch-depth: 0       # tags + history since the last release
+
+      - name: Decide
+        id: plan
+        run: |
+          set -euo pipefail
+          ./scripts/auto-release.py plan | tee -a "$GITHUB_OUTPUT"
+
+      - name: Explain the skip
+        if: steps.plan.outputs.release != 'yes'
+        env:
+          REASON: ${{ steps.plan.outputs.reason }}
+        run: |
+          echo "No release this hour: $REASON" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2  # v10.3.3
+        if: steps.plan.outputs.release == 'yes'
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413  # v6.1.0
+        if: steps.plan.outputs.release == 'yes'
+        with:
+          version: "10.33.1"
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1  # v7.1.0
+        if: steps.plan.outputs.release == 'yes'
+        with:
+          node-version: "24"
+
+      - name: Bump the version, compat-matrix row, release notes
+        id: bump
+        if: steps.plan.outputs.release == 'yes'
+        env:
+          NEXT: ${{ steps.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Same target a hand release runs: every version pin, both
+          # lockfiles, then the stale-version check.
+          make release-bump V="$NEXT"
+          ./scripts/auto-release.py matrix-row "$NEXT"
+          ./scripts/auto-release.py notes "$NEXT" > "$RUNNER_TEMP/notes.md"
+          echo "title=$(./scripts/auto-release.py title "$NEXT")" >> "$GITHUB_OUTPUT"
+          git status --short
+          # The notes go in the log too: if a later step fails, this is
+          # where the hand recovery copies them from.
+          cat "$RUNNER_TEMP/notes.md"
+
+      - name: Commit, tag and push
+        if: steps.plan.outputs.release == 'yes'
+        env:
+          NEXT: ${{ steps.plan.outputs.version }}
+          PRS: ${{ steps.plan.outputs.prs }}
+          TITLE: ${{ steps.bump.outputs.title }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -u
+          git commit -m "Release $NEXT: dependency updates ($PRS)" \
+                     -m "Automatic patch release cut by auto-release.yml."
+          git tag -a "v$NEXT" -m "$TITLE"
+          # Atomic: master and the tag land together or not at all. If
+          # master moved since checkout the push is rejected and the
+          # next hourly run plans again from the new tip.
+          git push --atomic origin HEAD:master "refs/tags/v$NEXT"
+
+      - name: Publish image + npm packages
+        if: steps.plan.outputs.release == 'yes'
+        env:
+          NEXT: ${{ steps.plan.outputs.version }}
+        run: |
+          set -euo pipefail
+          gh workflow run publish-images.yml --ref master -f ref="v$NEXT"
+          gh workflow run publish-npm.yml --ref master -f ref="v$NEXT"
+          # Resolves both runs by the tag's commit (the dispatched runs'
+          # head is master, which is that commit) and fails unless both
+          # conclude `success`.
+          WATCH_INTERVAL=30 ./scripts/wait-publish.sh "v$NEXT"
+
+      - name: GitHub release
+        if: steps.plan.outputs.release == 'yes'
+        env:
+          NEXT: ${{ steps.plan.outputs.version }}
+          TITLE: ${{ steps.bump.outputs.title }}
+        run: |
+          set -euo pipefail
+          gh release create "v$NEXT" --verify-tag \
+            --title "$TITLE" --notes-file "$RUNNER_TEMP/notes.md"
+          echo "Released [v$NEXT](https://github.com/$GITHUB_REPOSITORY/releases/tag/v$NEXT)" \
+            >> "$GITHUB_STEP_SUMMARY"

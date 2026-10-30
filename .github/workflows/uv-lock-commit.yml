@@ -55,7 +55,11 @@ jobs:
 
       - name: Validate PR metadata and apply uv.lock
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Prefer the PAT so the relock commit re-triggers CI (a push
+          # made with GITHUB_TOKEN doesn't), which is what lets
+          # dependabot-auto-merge see a green run on the fixed lockfile.
+          # Same token and fallback as pnpm-lock-commit.yml.
+          GH_TOKEN: ${{ secrets.DEPENDABOT_LOCKFILE_TOKEN || secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         # Whole step is bash with ``set -euo pipefail`` and explicit
         # env vars — nothing comes from ``${{ ... }}`` interpolation,
