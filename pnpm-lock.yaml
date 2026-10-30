@@ -22,17 +22,17 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/host-types
       '@mantine/core':
-        specifier: ^9.7.2
-        version: 9.7.3(@mantine/hooks@9.7.3(react@19.3.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
+        specifier: ^9.7.4
+        version: 9.7.4(@mantine/hooks@9.7.4(react@19.3.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@mantine/hooks':
-        specifier: ^9.7.2
-        version: 9.7.3(react@19.3.1)
+        specifier: ^9.7.4
+        version: 9.7.4(react@19.3.1)
       '@tabler/icons-react':
         specifier: ^3.49.0
         version: 3.49.0(react@19.3.1)
       '@tanstack/react-query':
-        specifier: ^5.104.3
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.1)
+        specifier: ^5.105.0
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.1)
       react:
         specifier: ^19.3.1
         version: 19.3.1
@@ -71,8 +71,8 @@ importers:
         specifier: ^8.3.5
         version: 8.3.5(@types/node@26.6.5)
       vite-plugin-css-injected-by-js:
-        specifier: ^5.0.2
-        version: 5.0.2(vite@8.3.5(@types/node@26.6.5))
+        specifier: ^5.0.3
+        version: 5.0.3(vite@8.3.5(@types/node@26.6.5))
       vitest:
         specifier: ^5.0.5
         version: 5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@2.2.0))(msw@3.0.3(@types/node@26.6.5)(graphql@16.13.2)(typescript@7.0.2)(vite@8.3.5(@types/node@26.6.5)))(vite@8.3.5(@types/node@26.6.5))
@@ -97,8 +97,8 @@ importers:
         version: link:../host-types
     devDependencies:
       '@tanstack/react-query':
-        specifier: ^5.100.5
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.1)
+        specifier: ^5.105.0
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.1)
       '@testing-library/jest-dom':
         specifier: ^7.0.1
         version: 7.0.1(@testing-library/dom@10.4.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@2.2.0))(msw@3.0.3(@types/node@26.6.5)(graphql@16.13.2)(typescript@7.0.2)(vite@8.3.5(@types/node@26.6.5)))(vite@8.3.5(@types/node@26.6.5)))
@@ -133,8 +133,8 @@ importers:
         specifier: ^8.3.5
         version: 8.3.5(@types/node@26.6.5)
       vite-plugin-css-injected-by-js:
-        specifier: ^5.0.2
-        version: 5.0.2(vite@8.3.5(@types/node@26.6.5))
+        specifier: ^5.0.3
+        version: 5.0.3(vite@8.3.5(@types/node@26.6.5))
       vitest:
         specifier: ^5.0.0
         version: 5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@2.2.0))(msw@3.0.3(@types/node@26.6.5)(graphql@16.13.2)(typescript@7.0.2)(vite@8.3.5(@types/node@26.6.5)))(vite@8.3.5(@types/node@26.6.5))
@@ -161,8 +161,8 @@ importers:
         version: link:../host-types
     devDependencies:
       '@tanstack/react-query':
-        specifier: ^5.100.5
-        version: 5.104.5(@types/react@19.3.0)(react@19.3.1)
+        specifier: ^5.105.0
+        version: 5.105.0(@types/react@19.3.0)(react@19.3.1)
       '@testing-library/jest-dom':
         specifier: ^7.0.1
         version: 7.0.1(@testing-library/dom@10.4.1)(vitest@5.0.5(@types/node@26.6.5)(jsdom@30.1.3(@noble/hashes@2.2.0))(msw@3.0.3(@types/node@26.6.5)(graphql@16.13.2)(typescript@7.0.2)(vite@8.3.5(@types/node@26.6.5)))(vite@8.3.5(@types/node@26.6.5)))
@@ -334,15 +334,15 @@ packages:
   '@jridgewell/trace-mapping@0.3.31':
     resolution: {integrity: sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw==}
 
-  '@mantine/core@9.7.3':
-    resolution: {integrity: sha512-wYJ9Bd82a7HqwJ+hubFqUIocBGMuw6txzdPnnleHvv1h0NlnkESevK/WHTRh4FtOw33B5N2ADT34s3x1/8d8jg==}
+  '@mantine/core@9.7.4':
+    resolution: {integrity: sha512-c7aTGELNn74CxG9i5/tq9BHGh0lKdKmGGz+9iDF+gR7Ipt4U1TMM286lAmLpRrKL2bR+UEaN4blZ8UJmOuGJ4Q==}
     peerDependencies:
-      '@mantine/hooks': 9.7.3
+      '@mantine/hooks': 9.7.4
       react: ^19.2.0
       react-dom: ^19.2.0
 
-  '@mantine/hooks@9.7.3':
-    resolution: {integrity: sha512-GMHoMS1qul1dBLIHd/N9ef2Pr8UKYYHfuM+g2ej3gYqU0kH4sTiR9FNHksoTQi0PzATRoaNlUYjjMe9rbDRw5A==}
+  '@mantine/hooks@9.7.4':
+    resolution: {integrity: sha512-j6Xf9Sc1fhhGEKXg6BZA2geyP/Czqvo6Rsi0IduOCWgwl/MAAJbKRjRc7xe2+9vePLdfqLZqRIAOY5rta88uNA==}
     peerDependencies:
       react: ^19.2.0
 
@@ -496,11 +496,11 @@ packages:
   '@tabler/icons@3.49.0':
     resolution: {integrity: sha512-l+GnSkFETx0U26icxv1VUFnxxiTqXfCcVRiRAnyMwibupM2S2L/hSaZ9gmSgz01rkrsH/93NvLsxykqdanc6lw==}
 
-  '@tanstack/query-core@5.104.5':
-    resolution: {integrity: sha512-Q94gI8Opd+CbdVNOdj8ZCyV8WqLYitrDq1t96Xc8WZT6lY0r5iRnJLXYDxMex7EEf2v+mXvn4FcjaBKSxXZQ9A==}
+  '@tanstack/query-core@5.105.0':
+    resolution: {integrity: sha512-7p56vRmT/z4UJ6sctGIdl5WRUQyUv53IUpUwEKi2g97zMbO7zh8ZsCLffGAvCPBR4xD72e3VXsDyLwXHhoNTMQ==}
 
-  '@tanstack/react-query@5.104.5':
-    resolution: {integrity: sha512-RORgFe052U+93weaNuqg7qHq7vNVNzXN/VrXqD4bbAuQCWUqOl2lV5Ui9flWk5CVvMyL/Bh27QWhzwH0aaOx9g==}
+  '@tanstack/react-query@5.105.0':
+    resolution: {integrity: sha512-y+hMuDERvgg6ay1da0V1a6ZC0ZONt7dELxSFkqRZuwm7p1TTZs0MoXrPlBRflIpRoYjvzQVYxycnLImpFLhWrw==}
     peerDependencies:
       '@types/react': ^18 || ^19
       react: ^18 || ^19
@@ -1163,8 +1163,8 @@ packages:
     resolution: {integrity: sha512-laJTa3Jb+VQpaC6DseHhF7dXVqHTfJPCRDaEbid/drOhgitgYku/letMUqOXFoWV0zIIUbjpdH2t+tYj4bQMRQ==}
     engines: {node: '>=8'}
 
-  tabbable@6.4.0:
-    resolution: {integrity: sha512-05PUHKSNE8ou2dwIxTngl4EzcnsCDZGJ/iCLtDflR/SHB/ny14rXc+qU5P4mG9JkusiV7EivzY9Mhm55AzAvCg==}
+  tabbable@6.5.1:
+    resolution: {integrity: sha512-dMCuwDUY6Noz3zVKLefBC4wq+aJV20yc7vWmM7uTNGwtQSFF5kX7OUIUsxuVajz/bdt5Xqdah3/0NLjth+cM5A==}
 
   tagged-tag@1.0.0:
     resolution: {integrity: sha512-yEFYrVhod+hdNyx7g5Bnkkb0G6si8HJurOoOEgC8B/O0uXLHlaey/65KRv6cuWBNhBgHKAROVpc7QyYqE5gFng==}
@@ -1239,8 +1239,8 @@ packages:
       '@types/react':
         optional: true
 
-  vite-plugin-css-injected-by-js@5.0.2:
-    resolution: {integrity: sha512-Hvg48QfYsCL53ju9T5zTC0Ofg90XLa8t5zhhKmPYbayoMQieNcQDkkRX8pv4TAcKPZwVisLFiwDy5uBjOn+3Ow==}
+  vite-plugin-css-injected-by-js@5.0.3:
+    resolution: {integrity: sha512-K+UsH5DfVtF9DHutSO0msLEysBpaicv/rQteVT4VbKMIUBeD0S3SgOdP5HsVoA9D7wfS94Hp84I1FxOqGfsMnw==}
     peerDependencies:
       vite: '>8.0.0-0'
 
@@ -1454,7 +1454,7 @@ snapshots:
       '@floating-ui/utils': 0.2.12
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
-      tabbable: 6.4.0
+      tabbable: 6.5.1
 
   '@floating-ui/utils@0.2.12': {}
 
@@ -1494,10 +1494,10 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.6.0
 
-  '@mantine/core@9.7.3(@mantine/hooks@9.7.3(react@19.3.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+  '@mantine/core@9.7.4(@mantine/hooks@9.7.4(react@19.3.1))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@floating-ui/react': 0.27.20(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
-      '@mantine/hooks': 9.7.3(react@19.3.1)
+      '@mantine/hooks': 9.7.4(react@19.3.1)
       clsx: 2.1.1
       react: 19.3.1
       react-dom: 19.3.1(react@19.3.1)
@@ -1507,7 +1507,7 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react'
 
-  '@mantine/hooks@9.7.3(react@19.3.1)':
+  '@mantine/hooks@9.7.4(react@19.3.1)':
     dependencies:
       react: 19.3.1
 
@@ -1617,11 +1617,11 @@ snapshots:
 
   '@tabler/icons@3.49.0': {}
 
-  '@tanstack/query-core@5.104.5': {}
+  '@tanstack/query-core@5.105.0': {}
 
-  '@tanstack/react-query@5.104.5(@types/react@19.3.0)(react@19.3.1)':
+  '@tanstack/react-query@5.105.0(@types/react@19.3.0)(react@19.3.1)':
     dependencies:
-      '@tanstack/query-core': 5.104.5
+      '@tanstack/query-core': 5.105.0
       react: 19.3.1
     optionalDependencies:
       '@types/react': 19.3.0
@@ -2159,7 +2159,7 @@ snapshots:
     dependencies:
       min-indent: 1.0.1
 
-  tabbable@6.4.0: {}
+  tabbable@6.5.1: {}
 
   tagged-tag@1.0.0: {}
 
@@ -2236,7 +2236,7 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.3.0
 
-  vite-plugin-css-injected-by-js@5.0.2(vite@8.3.5(@types/node@26.6.5)):
+  vite-plugin-css-injected-by-js@5.0.3(vite@8.3.5(@types/node@26.6.5)):
     dependencies:
       vite: 8.3.5(@types/node@26.6.5)
 
