@@ -14,10 +14,10 @@
   "dependencies": {
     "@brendanbank/atrium-host-bundle-utils": "workspace:*",
     "@brendanbank/atrium-host-types": "workspace:*",
-    "@mantine/core": "^9.7.2",
-    "@mantine/hooks": "^9.7.2",
+    "@mantine/core": "^9.7.4",
+    "@mantine/hooks": "^9.7.4",
     "@tabler/icons-react": "^3.49.0",
-    "@tanstack/react-query": "^5.104.3",
+    "@tanstack/react-query": "^5.105.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"
   },
@@ -32,7 +32,7 @@
     "otplib": "^13.5.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
-    "vite-plugin-css-injected-by-js": "^5.0.2",
+    "vite-plugin-css-injected-by-js": "^5.0.3",
     "vitest": "^5.0.5"
   }
 }
