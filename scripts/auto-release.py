@@ -65,8 +65,13 @@ ECOSYSTEMS = {
     "github_actions": "GitHub Actions (CI only)",
 }
 
-# "Bumps [pyjwt](https://...) from 2.13.0 to 2.15.0." (single update)
-# "Updates `axios` from 1.18.0 to 1.20.0"            (grouped update)
+# "| [fastapi](https://...) | `0.136.0` | `0.162.0` |"   (group table)
+# "Bumps [pyjwt](https://...) from 2.13.0 to 2.15.0."   (single update)
+# "Updates `axios` from 1.18.0 to 1.20.0"              (group detail)
+# The table comes first and is the complete list: on a large group
+# Dependabot truncates the per-package "Updates" sections (#291 listed
+# 18 packages in the table and only 7 below it).
+_TABLE = re.compile(r"^\| \[([^\]]+)\]\([^)]*\) \| `([^`]+)` \| `([^`]+)` \|", re.M)
 _BUMPS = re.compile(r"^Bumps \[([^\]]+)\]\([^)]*\) from (\S+) to (\S+?)\.?$", re.M)
 _UPDATES = re.compile(r"^Updates `([^`]+)` from (\S+) to (\S+?)\.?$", re.M)
 
@@ -137,7 +142,7 @@ def merged_pr(sha: str) -> dict | None:
 
 def parse_updates(body: str) -> list[dict]:
     seen: dict[str, dict] = {}
-    for rx in (_BUMPS, _UPDATES):
+    for rx in (_TABLE, _BUMPS, _UPDATES):
         for name, old, new in rx.findall(body or ""):
             # Multi-directory groups repeat the same package once per
             # directory; one line in the notes is enough.
@@ -376,7 +381,14 @@ def cmd_notes(version: str) -> int:
     out += ["## What's updated", ""]
     for b in bumps:
         flag = "**Security.** " if b["security"] else ""
-        out.append(f"- {flag}{bump_line(b)} ([#{b['number']}]({b['url']}))")
+        link = f"([#{b['number']}]({b['url']}))"
+        if len(b["updates"]) > 1:
+            # One package per line: a grouped PR can carry 18 of them.
+            eco = ECOSYSTEMS.get(b["ecosystem"], b["ecosystem"])
+            out.append(f"- {flag}{eco} {link}")
+            out += [f"  - {describe(u)}" for u in b["updates"]]
+        else:
+            out.append(f"- {flag}{bump_line(b)} {link}")
     out.append("")
 
     if riders:
