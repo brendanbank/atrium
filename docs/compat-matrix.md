@@ -111,7 +111,9 @@ One row per published `vX.Y.Z` release. The row is added in the same PR
 that bumps `backend/pyproject.toml` and writes the GitHub release notes —
 [`RELEASING.md`](../RELEASING.md) step 1.5 captures this as part of the
 release-time documentation sweep. Cells stay terse: the table is for
-navigation, the release notes are the source of truth.
+navigation, the release notes are the source of truth. Automatic
+dependency releases (`auto-release.yml`) write their own row, listing
+the updated packages and any advisories fixed.
 
 When a release introduces something for a column that has never been used
 before (e.g. the first env-var rename, the first deprecation), prefer

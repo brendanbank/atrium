@@ -3,26 +3,36 @@
 
 name: dependabot-auto-merge
 
-# Auto-merges Dependabot's grouped npm version bumps once CI is green,
-# so the weekly Mantine/Tiptap/etc. refresh stops needing manual
-# clicks. Two jobs, two triggers:
+# Auto-merges Dependabot's patch/minor updates - every ecosystem
+# (npm, uv/pip, Docker, GitHub Actions), version and security updates
+# alike - once CI is green, so the weekly refresh stops needing manual
+# clicks. auto-release.yml then turns the merged updates into a patch
+# release. Two jobs, two triggers:
 #
 #   mark  (pull_request) — runs on the Dependabot PR, reads the update
-#         metadata, and labels the PR `npm-automerge` UNLESS the group
-#         contains a major-version bump (those still want human eyes).
+#         metadata, and labels the PR `dependabot-automerge` UNLESS the
+#         group contains a major-version bump (those still want human
+#         eyes; merge one by hand and auto-release ships it all the same).
 #
 #   merge (workflow_run: CI completed) — fires when a CI run finishes
-#         on a dependabot/npm_and_yarn/* branch; if that PR carries the
-#         `npm-automerge` label and CI passed on its current head, it
-#         squash-merges. master has no branch-protection required
-#         checks, so native auto-merge can't gate on CI — this
+#         on a dependabot/* branch; if that PR carries the
+#         `dependabot-automerge` label and CI passed on its current
+#         head, it squash-merges. master has no branch-protection
+#         required checks, so native auto-merge can't gate on CI — this
 #         workflow_run gate is the equivalent.
 #
-# The relock pair (pnpm-lock-refresh / pnpm-lock-commit) pushes the
-# corrected lockfiles with a PAT, which re-runs CI on the fixed commit;
-# this workflow then sees that green run and merges. Without the PAT,
-# the label is still applied but the merge waits for a CI run that
-# passes on the head commit.
+# The relock pairs (pnpm-lock-* / uv-lock-*) push the corrected
+# lockfiles with a PAT, which re-runs CI on the fixed commit; this
+# workflow then sees that green run and merges. Without the PAT, the
+# label is still applied but the merge waits for a CI run that passes
+# on the head commit.
+#
+# GitHub Actions updates edit .github/workflows/, and GITHUB_TOKEN may
+# not merge a PR that does (it has no `workflows` permission). Those are
+# merged with DEPENDABOT_LOCKFILE_TOKEN, which needs Workflows: Read and
+# write and Pull requests: Read and write for it. Without them the merge
+# step fails and the PR waits for a hand merge - nothing else is
+# affected, since an Actions-only update doesn't trigger a release.
 
 on:
   pull_request:
@@ -39,7 +49,7 @@ jobs:
     if: >
       github.event_name == 'pull_request' &&
       github.actor == 'dependabot[bot]' &&
-      startsWith(github.head_ref, 'dependabot/npm_and_yarn/')
+      startsWith(github.head_ref, 'dependabot/')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -52,16 +62,16 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Ensure the npm-automerge label exists
+      - name: Ensure the dependabot-automerge label exists
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
         # Idempotent: --force creates it or updates it in place, so the
         # later --add-label never fails on a missing label.
         run: |
-          gh label create npm-automerge --repo "$REPO" --force \
+          gh label create dependabot-automerge --repo "$REPO" --force \
             --color 0e8a16 \
-            --description "Dependabot npm group is patch/minor; auto-merge once CI is green"
+            --description "Dependabot update is patch/minor; auto-merge once CI is green"
 
       - name: Label patch/minor groups for auto-merge
         # Group PRs report the highest semver bump in update-type, so a
@@ -76,14 +86,14 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-        run: gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label npm-automerge
+        run: gh pr edit "$PR_NUMBER" --repo "$REPO" --add-label dependabot-automerge
 
   merge:
     if: >
       github.event_name == 'workflow_run' &&
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success' &&
-      startsWith(github.event.workflow_run.head_branch, 'dependabot/npm_and_yarn/')
+      startsWith(github.event.workflow_run.head_branch, 'dependabot/')
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -91,14 +101,16 @@ jobs:
     steps:
       - name: Merge if labelled and CI is green on the head commit
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # PAT for Actions updates only (see the header); falls back to
+          # GITHUB_TOKEN when the secret is unset.
+          GH_TOKEN: ${{ startsWith(github.event.workflow_run.head_branch, 'dependabot/github_actions/') && secrets.DEPENDABOT_LOCKFILE_TOKEN || secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
           CI_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
 
-          [[ "$HEAD_BRANCH" =~ ^dependabot/npm_and_yarn/[A-Za-z0-9._/-]+$ ]] \
+          [[ "$HEAD_BRANCH" =~ ^dependabot/[A-Za-z0-9._/-]+$ ]] \
             || { echo "unexpected branch name; skipping" >&2; exit 0; }
 
           PR_JSON=$(gh pr list --repo "$REPO" --head "$HEAD_BRANCH" --state open \
@@ -110,11 +122,11 @@ jobs:
 
           NUMBER=$(jq -r '.number' <<<"$PR_JSON")
           HEAD_OID=$(jq -r '.headRefOid' <<<"$PR_JSON")
-          HAS_LABEL=$(jq -r '[.labels[].name] | index("npm-automerge") != null' <<<"$PR_JSON")
+          HAS_LABEL=$(jq -r '[.labels[].name] | index("dependabot-automerge") != null' <<<"$PR_JSON")
           IS_DEPENDABOT=$(jq -r '(.author.login // "") | test("dependabot")' <<<"$PR_JSON")
 
           if [ "$HAS_LABEL" != "true" ]; then
-            echo "PR #$NUMBER not labelled npm-automerge (likely a major bump); leaving for review."
+            echo "PR #$NUMBER not labelled dependabot-automerge (likely a major bump); leaving for review."
             exit 0
           fi
           if [ "$IS_DEPENDABOT" != "true" ]; then
