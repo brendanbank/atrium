@@ -151,6 +151,14 @@ COPY --from=frontend-builder /app/dist /opt/atrium/static/host
 USER app
 ```
 
+Don't list atrium's own runtime stack (FastAPI, SQLAlchemy, fastapi-users,
+Alembic, ...) in the host package's dependencies; the image already pins
+them, and pip will happily re-resolve them. In particular, never depend
+on `fastapi-users[sqlalchemy]` or `fastapi-users-db-sqlalchemy`: that
+adapter pins `sqlalchemy<2.1`, so pip would quietly downgrade the
+image's SQLAlchemy 2.1 to 2.0. Atrium ships its own adapter
+(`app.auth.db.SQLAlchemyUserDatabase`) instead.
+
 A host project's `docker-compose.yml`:
 
 ```yaml

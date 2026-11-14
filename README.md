@@ -13,7 +13,7 @@ tested. Bring your own domain on top.
 
 ## Stack
 
-- **Backend**: FastAPI + SQLAlchemy 2 (async) + Alembic, MySQL 8
+- **Backend**: FastAPI + SQLAlchemy 2.1 (async) + Alembic, MySQL 8
 - **Frontend**: React 19 + TypeScript + Vite, Mantine UI v9, TanStack
   Query, react-i18next
 - **Auth**: fastapi-users with JWT cookies; RBAC (roles + permissions

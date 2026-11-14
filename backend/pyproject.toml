@@ -10,14 +10,14 @@ name = "atrium-backend"
 # ``window.__ATRIUM_VERSION__`` for host-bundle feature detection.
 # Until the next release-bump lands, ``__ATRIUM_VERSION__`` reports
 # this value verbatim — i.e. the *previous* released version.
-version = "0.32.6"
+version = "0.33.0"
 description = "Atrium — auth/RBAC/notifications/audit starter (backend)"
 readme = "../README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.115",
     "uvicorn[standard]>=0.32",
-    "sqlalchemy[asyncio]>=2.0.36",
+    "sqlalchemy[asyncio]>=2.1.8",
     "aiomysql>=0.2.0",
     "alembic>=1.14",
     "pydantic>=2.9",
@@ -29,7 +29,10 @@ dependencies = [
     "jinja2>=3.1",
     "aiosmtplib>=3.0",
     "apscheduler>=3.10",
-    "fastapi-users[sqlalchemy]>=13.0",
+    # Plain fastapi-users, not the ``[sqlalchemy]`` extra: that extra pulls
+    # fastapi-users-db-sqlalchemy, whose ``sqlalchemy<2.1`` pin blocked the
+    # 2.1 upgrade. Atrium carries its own adapter in app/auth/db.py.
+    "fastapi-users>=15.0.5",
     "bcrypt>=4.2",
     "argon2-cffi>=23.1",
     "pyjwt>=2.15.0",

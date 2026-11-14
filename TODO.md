@@ -20,8 +20,10 @@ scratch; resist anything that's actually domain logic.
 - **Magic-link login.** Optional namespace toggle. Useful for
   low-friction tenants; complementary to email OTP.
 - **OAuth / SSO providers.** Google, Microsoft, GitHub. fastapi-users
-  has the wiring; atrium just needs a namespace + admin UI for the
-  client IDs.
+  has the router wiring; atrium needs a namespace + admin UI for the
+  client IDs, an `oauth_accounts` table, and the three OAuth methods
+  on its own adapter in `backend/app/auth/db.py` (atrium dropped
+  `fastapi-users-db-sqlalchemy`, which used to supply them).
 
 ## API surface
 

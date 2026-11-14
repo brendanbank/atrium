@@ -44,7 +44,7 @@ There are two ways to add a domain on top:
 
 | Layer        | What                                                    |
 | ------------ | ------------------------------------------------------- |
-| API          | FastAPI, SQLAlchemy 2 async, Alembic, fastapi-users     |
+| API          | FastAPI, SQLAlchemy 2.1 async, Alembic, fastapi-users   |
 | DB           | MySQL 8 (async via `aiomysql`)                          |
 | Worker       | APScheduler driving `app.jobs.runner.run_one`           |
 | Frontend     | React 19 + TypeScript + Vite, Mantine v9, TanStack Query|
@@ -71,7 +71,8 @@ backend/
       reminder_rules.py                 reminder-rule CRUD
       sessions.py                       active sessions, logout-all
       signup.py                         /auth/register + /auth/verify-email
-    auth/         fastapi-users wiring, scope skeleton, RBAC helpers
+    auth/         fastapi-users wiring (own user-db adapter in db.py),
+                  scope skeleton, RBAC helpers
     db.py         engine, session factory, Base
     email/        Jinja2 renderer + pluggable backend (console/smtp/dummy)
     jobs/

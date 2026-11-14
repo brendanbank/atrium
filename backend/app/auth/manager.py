@@ -6,9 +6,8 @@ from typing import Any
 from fastapi import Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_users import BaseUserManager, IntegerIDMixin
-from fastapi_users_db_sqlalchemy import SQLAlchemyUserDatabase
 
-from app.auth.db import get_user_db
+from app.auth.db import SQLAlchemyUserDatabase, get_user_db
 from app.logging import log
 from app.models.auth import User
 from app.settings import get_settings
