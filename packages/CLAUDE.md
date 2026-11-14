@@ -46,6 +46,13 @@ strictly for external host bundles. So:
   packages via `workspace:*`, so the Hello World e2e test
   (`make smoke-hello`) IS affected. Run it before merging UI hook
   changes.
+- Relative imports in `host-types` / `host-bundle-utils` /
+  `test-utils` carry the `.js` extension (`from './i18n.js'`). Hosts'
+  vitest loads these packages with Node's ESM loader, which rejects
+  extensionless paths that Vite forgives (#303). The tsconfigs use
+  `NodeNext` so `tsc` refuses the extensionless form, and the
+  `host-sdk` CI job runs `scripts/check-package-esm.mjs` to load every
+  `exports` entry from `dist/` under plain Node.
 - A change to `create-atrium-host/template/` only affects newly
   scaffolded hosts. Existing hosts don't pull from the template;
   they consume the published packages.
