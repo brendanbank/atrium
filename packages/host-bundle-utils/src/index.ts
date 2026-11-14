@@ -27,7 +27,7 @@
 import type { ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
-export { __atrium_t__ } from './i18n';
+export { __atrium_t__ } from './i18n.js';
 
 export type {
   AdminUserRow,

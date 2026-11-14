@@ -53,7 +53,7 @@ export type {
   AtriumUserChangeDetail,
   UserContext,
 } from '@brendanbank/atrium-host-types';
-export { __atrium_t__ } from '../i18n';
+export { __atrium_t__ } from '../i18n.js';
 
 interface AtriumContextValue {
   fetchUserContext: () => Promise<UserContext | null>;

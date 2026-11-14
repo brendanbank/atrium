@@ -271,6 +271,13 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # The unit tests below run the packages through Vite, which
+      # forgives what Node's ESM loader rejects. Hosts' vitest loads
+      # them from node_modules with plain Node, so check that path
+      # directly against the built dist/ (#303).
+      - name: Load published entry points under Node ESM
+        run: node scripts/check-package-esm.mjs
+
       - name: Typecheck
         run: pnpm typecheck
 
